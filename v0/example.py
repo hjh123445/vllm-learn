@@ -11,7 +11,12 @@ prompts = [
     "为什么天空是蓝色的",
     "人活着的意义是什么"
 ]
-prompts = [tokenizer.apply_chat_template([{"role": "user", "content": prompt} for prompt in prompts],
-                                        tokenize=False, add_generation_prompt=True)]
-outputs = llm.generate(prompts, SamplingParams(temperature=0.6, max_tokens=256))
-print(outputs[0]["text"])
+# 每条 prompt 独立套一次 chat template，各自成一段完整对话
+prompts = [tokenizer.apply_chat_template([{"role": "user", "content": p}],
+                                         tokenize=False, add_generation_prompt=True)
+           for p in prompts]
+outputs = llm.generate(prompts, SamplingParams(temperature=0.6, max_tokens=2048))
+for i, o in enumerate(outputs):
+    print(f"===== 请求 {i} =====")
+    print(o["text"])
+    print()
