@@ -1,5 +1,5 @@
 # engine/model_runner.py
-"""显存与前向的唯一管理者：权重、KV cache、logits、采样都只在这里出现。"""
+"""显存与前向的唯一管理者：权重、KV cache、logits、attention mask、采样、生成主循环都在这里。"""
 import torch
 
 from config import Qwen3Config
@@ -37,6 +37,19 @@ class ModelRunner:
                 return m.cache.cur_len
         return 0
 
+    # ---------------- attention mask ----------------
+
+    def _build_attn_mask(self, batch, query_slots, cur_len: int) -> torch.Tensor:
+        """causal ∧ 非pad 的浮点加性 mask，[b,1,s_q,cur_len]，可见=0 不可见=-inf。
+        query_slots: 各 query token 在 cache 里的 slot 号（prefill=0..s-1，decode=cur_len）"""
+        neg = torch.finfo(self.dtype).min
+        slots = torch.arange(cur_len)
+        valid = slots[None, :] >= batch.pad_lens[:, None]      # [b, cur_len] 非 pad
+        qslots = torch.as_tensor(query_slots)
+        causal = qslots[:, None] >= slots[None, :]             # [s_q, cur_len] causal
+        allowed = causal[None, None] & valid[:, None, None]     # [b, 1, s_q, cur_len]
+        return torch.where(allowed, 0.0, neg).to(self.dtype)
+
     # ---------------- 前向 ----------------
 
     @torch.no_grad()
@@ -46,7 +59,7 @@ class ModelRunner:
         """
         input_ids : [b, s]  prefill=整个prompt / decode=[b,1]
         positions : RoPE真实位置（左padding下每请求各算各的）
-        attn_mask : float mask，可见=0 不可见=-inf，形状 [b,1,s_q,cur_len] 或 None
+        attn_mask : [b,1,s_q,cur_len] 或 None
         返回       : [b, vocab] 只有最后一个位置的 logits
         """
         b, s = input_ids.shape
@@ -75,3 +88,27 @@ class ModelRunner:
             probs = torch.zeros_like(probs).scatter(-1, sorted_idx, sorted_probs)
             probs = probs / probs.sum(-1, keepdim=True)
         return torch.multinomial(probs, 1).squeeze(-1)
+
+    # ---------------- 生成主循环 ----------------
+
+    @torch.no_grad()
+    def run(self, batch):
+        """prefill → decode 主循环。改写 batch 的生成状态，token 记在 batch.generated 里。"""
+        # v0 限制：整批共用第 0 条请求的 temperature/top_p（max_tokens/ignore_eos 是按请求的）
+        sp = batch.params[0]
+
+        self.reset_cache()
+
+        # prefill：整个 padded prompt 一次前向，取最后位置 logits
+        logits = self.forward(batch.input_ids, batch.positions,
+                              self._build_attn_mask(batch, list(range(batch.max_prompt_len)),
+                                                    batch.max_prompt_len))
+        batch.step(self.sample(logits, sp.temperature, sp.top_p))
+
+        # decode：每步只喂一个 token，直到全部完成
+        while not batch.all_finished:
+            tokens, positions = batch.decode_input()
+            cur = self.cur_len                       # 新 token 即将写入的 slot
+            logits = self.forward(tokens, positions,
+                                  self._build_attn_mask(batch, [cur], cur + 1))
+            batch.step(self.sample(logits, sp.temperature, sp.top_p))

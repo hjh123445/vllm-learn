@@ -1,11 +1,12 @@
-from engine.llm import LLM, SamplingParams
+from engine.engine import Engine
+from samplingParams import SamplingParams
 from transformers import AutoTokenizer
 import os
 import torch
 
 path = os.path.expanduser("/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/Qwen3-0.6B")
 tokenizer = AutoTokenizer.from_pretrained(path)
-llm = LLM(path, batch_size=8, max_seq_len=4096, dtype=torch.bfloat16)
+llm = Engine(path, batch_size=8, max_seq_len=4096, dtype=torch.bfloat16)
 prompts = [
     "introduce yourself",
     "为什么天空是蓝色的",
