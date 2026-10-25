@@ -167,16 +167,76 @@ def run_v1(runner_cls, scheduler_cls, prompt_ids, sps, batch_size, max_seq_len, 
             "total_time": time.perf_counter() - t0}
 
 
+# ---------------------------------------------------------------- v2
+
+def run_v2(runner, sch, prompt_ids, sps, batch_size, max_seq_len, eos_ids):
+    """v2 迭代级 + paged KV。准入/抢占全按 block 账本走。"""
+    kv = runner.kv
+    stage = {"prefill": 0.0, "decode": 0.0}
+    t0 = time.perf_counter()
+    reqs_in = [sch.add(p, sp) for p, sp in zip(prompt_ids, sps)]
+    recs, steps = {}, []
+
+    while sch.busy:
+        for req in sch.admit():
+            recs[req.id] = {"admit_t": time.perf_counter() - t0,
+                            "first_token_t": None, "finish_t": None,
+                            "n_tokens": 0, "n_preempts": 0}
+            ts = time.perf_counter()
+            logits = runner.prefill(req)
+            stage["prefill"] += time.perf_counter() - ts
+            token = runner.sample(logits, req.sp.temperature, req.sp.top_p)[0].item()
+            req.step(token)
+            recs[req.id]["first_token_t"] = time.perf_counter() - t0
+        sch.evict()
+
+        # decode 前确保写位置有 block；不够 → 抢占占块最多的（和 engine 相同的策略）
+        for req in list(sch.running):
+            while not kv.ensure_append(req.id, req.cur_len):
+                victim = sch.pick_victim()
+                sch.preempt(victim)
+                if victim is not req:
+                    recs[victim.id]["n_preempts"] += 1
+                else:
+                    break
+        if sch.running:
+            ts = time.perf_counter()
+            next_tok = runner.decode_step(list(sch.running), 0.0, 1.0)
+            stage["decode"] += time.perf_counter() - ts
+            for req, token in zip(list(sch.running), next_tok.tolist()):
+                before = req.finished
+                req.step(token)
+                if not before and req.finished:
+                    recs[req.id]["finish_t"] = time.perf_counter() - t0
+            steps.append({"t": time.perf_counter() - t0,
+                          "n_running": len(sch.running),
+                          "free_blocks": kv.num_free(),
+                          "pool_blocks": kv.max_num_blocks})
+            sch.evict()
+
+    reqs = []
+    for r in reqs_in:
+        rec = recs[r.id]
+        rec["n_tokens"] = len(r.generated)
+        rec["output"] = list(r.generated)
+        reqs.append(rec)
+    return {"requests": reqs, "steps": steps, "stage_times": stage,
+            "pool_bytes": kv.pool_bytes(), "max_num_blocks": kv.max_num_blocks,
+            "total_time": time.perf_counter() - t0}
+
+
 # ---------------------------------------------------------------- worker
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--engine", choices=["v0", "v1"], required=True)
+    ap.add_argument("--engine", choices=["v0", "v1", "v2"], required=True)
     ap.add_argument("--num-requests", type=int, default=12)
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--max-seq-len", type=int, default=4096)
     ap.add_argument("--max-tokens", type=int, default=None,
                     help="覆盖负载：全部请求用同一个 max_tokens")
+    ap.add_argument("--gpu-mem-util", type=float, default=0.3,
+                    help="v2 池子的显存利用率")
     ap.add_argument("--profile", action="store_true", help="套 torch.profiler 并导出 trace")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
@@ -197,17 +257,34 @@ def main():
         MAX_TOKEN_TIERS = [args.max_tokens]
     prompt_ids, sps = build_workload_impl(args.num_requests, tok, SamplingParams)
 
-    runner_fn = run_v0 if args.engine == "v0" else run_v1
     kwargs = dict(prompt_ids=prompt_ids, sps=sps, batch_size=args.batch_size,
                   max_seq_len=args.max_seq_len)
+
+    def build_runner():
+        ekw = {"gpu_memory_utilization": args.gpu_mem_util} if args.engine == "v2" else {}
+        return R0(MODEL_PATH, batch_size=args.batch_size, max_seq_len=args.max_seq_len,
+                  eos=tok.eos_token_id, **ekw)
+
+    def call():
+        if args.engine == "v0":
+            return run_v0(R0, S0(eos_ids=eos_ids, pad_id=pad_id,
+                                 max_seq_len=args.max_seq_len,
+                                 max_batch_size=args.batch_size),
+                          eos_ids=eos_ids, pad_id=pad_id, **kwargs)
+        if args.engine == "v1":
+            return run_v1(R0, S0(eos_ids=eos_ids, max_seq_len=args.max_seq_len,
+                                  max_batch_size=args.batch_size),
+                           eos_ids=eos_ids, **kwargs)
+        runner = build_runner()
+        return run_v2(runner, S0(eos_ids=eos_ids, max_seq_len=args.max_seq_len,
+                                 max_batch_size=args.batch_size, kv=runner.kv),
+                      eos_ids=eos_ids, **kwargs)
 
     if args.profile:
         import torch
         from torch.profiler import profile, ProfilerActivity
         with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-            result = (run_v0(R0, S0, eos_ids=eos_ids, pad_id=pad_id, **kwargs)
-                      if args.engine == "v0"
-                      else run_v1(R0, S0, eos_ids=eos_ids, **kwargs))
+            result = call()
         trace_path = os.path.join(ROOT, "benchmark", "results",
                                  f"trace_{args.engine}.json.gz")
         os.makedirs(os.path.dirname(trace_path), exist_ok=True)
@@ -216,9 +293,7 @@ def main():
         result["profiler_table"] = prof.key_averages().table(
             sort_by="cuda_time_total", row_limit=25)
     else:
-        result = (run_v0(R0, S0, eos_ids=eos_ids, pad_id=pad_id, **kwargs)
-                  if args.engine == "v0"
-                  else run_v1(R0, S0, eos_ids=eos_ids, **kwargs))
+        result = call()
 
     result["meta"] = {"engine": args.engine, "num_requests": args.num_requests,
                       "batch_size": args.batch_size, "dtype": "bfloat16"}

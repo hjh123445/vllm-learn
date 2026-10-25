@@ -1,0 +1,30 @@
+[
+ {
+  "engine": "v1",
+  "num_requests": 32,
+  "arrive_interval_s": 0.25,
+  "max_tokens": 48,
+  "total_s": 9.72,
+  "out_tok_per_s": 158.0,
+  "ttft_p50_ms": 32.1,
+  "ttft_p95_ms": 37.2,
+  "ttft_p99_ms": 304.2,
+  "ttft_max_ms": 304.2,
+  "e2e_p50_ms": 2738.3,
+  "e2e_p95_ms": 3121.8
+ },
+ {
+  "engine": "v2",
+  "num_requests": 32,
+  "arrive_interval_s": 0.25,
+  "max_tokens": 48,
+  "total_s": 9.48,
+  "out_tok_per_s": 162.0,
+  "ttft_p50_ms": 36.0,
+  "ttft_p95_ms": 40.6,
+  "ttft_p99_ms": 47.1,
+  "ttft_max_ms": 47.1,
+  "e2e_p50_ms": 1979.7,
+  "e2e_p95_ms": 1987.9
+ }
+]

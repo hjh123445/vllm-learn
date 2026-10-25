@@ -1,18 +1,32 @@
 # Benchmark 体系
 
-测三件事：**算得对不对**（accuracy）、**算得多快**（speed）、**时间花在哪**（profile）。
-对 v0（静态批处理）和 v1（迭代级调度）用同一套方法学。
+推理引擎测试的五大类，对 v0 / v1 / v2 用同一套方法学：
+
+| 类别 | 回答什么 | 脚本 |
+|---|---|---|
+| 正确性 accuracy | 算得对不对（确定性/batch 一致/跨版本等价/HF 对齐） | `accuracy.py` |
+| 速度 speed | burst 负载下多快（TTFT/TPOT/时延/吞吐） | `speed.py` |
+| 容量 capacity | 吃多少显存、池子多大怎么来的、能并发多少 | `capacity.py` |
+| 压力 stress | 在线陆续到达的负载下时延分位数（p50/p95/p99） | `stress.py` |
+| 归因 profile | 时间/显存花在哪、气泡在哪 | `profile_pipeline.py` `bubble.py` `PERFORMANCE_NOTES.md` |
 
 ```
 benchmark/
-├── README.md           # 本文档：方法学
-├── harness.py           # 计时 harness：对 v0/v1 复刻带时间戳的生成循环，产出记录
-├── accuracy.py          # 正确性测试套件
-├── speed.py             # 速度测试：TTFT / TPOT / 时延 / 吞吐
-├── profile_pipeline.py  # 推理链路 profile：torch.profiler + 阶段计时
-├── bubble.py            # 流水线气泡可视化：v0 vs v1 的请求时间线 Gantt 图
+├── README.md            # 本文档：方法学
+├── PERFORMANCE_NOTES.md # 性能思考：微基准方法学 + 实测记录 + 优化清单
+├── harness.py           # 计时 harness：复刻 v0/v1/v2 的生成循环，唯一 worker 进程
+├── accuracy.py          # 正确性测试套件（T1-T4，见 §1）
+├── speed.py             # 速度测试（burst）
+├── capacity.py          # 容量测试（显存/池子/并发数）
+├── stress.py            # 压力测试（到达流 + 时延分位数）
+├── profile_pipeline.py  # 推理链路 profile：torch.profiler + chrome trace
+├── bubble.py            # 流水线气泡可视化（Gantt + 利用率曲线）
 └── results/             # 跑出来的图表和 JSON
 ```
+
+所有脚本都通过**子进程 worker + sys.path 注入**调度三个引擎（机制见
+PERFORMANCE_NOTES.md §4：v0/v1/v2 模块同名，不能同进程导入）。模型路径用环境变量
+`VLLM_LEARN_MODEL` 覆盖，默认相对仓库根定位。
 
 ---
 
@@ -89,16 +103,60 @@ python benchmark/speed.py --engine v1 --num-requests 12 --batch-size 8
 - v1：短请求按时完成并立刻腾出 slot，总吞吐高、长尾时延低；
 - v1 的 TTFT 在"请求陆续到达"场景下显著更低（slot 随时回收随时准入）。
 
-## 3. 推理链路 profile（profile_pipeline.py）
+## 3. 容量测试（capacity.py）
+
+回答四个问题：引擎吃多少显存？池子多大、怎么来的？同样的显存能并发多少？
+峰值显存多少？
+
+```bash
+python benchmark/capacity.py --num-requests 24 --batch-size 16 --max-tokens 48
+```
+
+读数口径：权重 / 池子都是量出来的（`memory_allocated` / 张量自报字节数）；
+v2 的池子大小是 warmup profile 算出来的（见 v2/DESIGN.md §3.2），v0/v1 是拍脑袋参数。
+
+### 实测（Qwen3-0.6B bf16，A800-80G）
+
+| engine | 权重 GB | 池子 GB | 池子怎么来的 | 1024-tok 请求理论并发 |
+|---|---|---|---|---|
+| v0/v1 | 1.19 | 7.52 | batch_size(16) × max_seq_len 拍脑袋 | **16（slot 硬上限）** |
+| v2 | 1.19 | 24.30（util=0.3） | warmup 量出权重+激活 → 算出 block 数 13245 | **203（block 预算）** |
+
+同样的显存，v2 的逻辑并发容量是 v0/v1 的 12 倍以上——这就是 paged 的意义：
+池子的物理大小不变，切分单位从"整条 slot"变成 16-token block 后，
+短请求按实际用量占显存。
+
+## 4. 压力测试（stress.py）
+
+与 speed 的区别：speed 是 burst（一批全到），stress 是**到达流**（每 0.25s 到一个），
+考验准入/驱逐/抢占——这才是迭代级调度的主场。
+
+```bash
+python benchmark/stress.py --num-requests 32 --arrive-interval 0.25 --max-tokens 48
+```
+
+### 实测（32 请求 × 0.25s 间隔，max_tokens=48，batch 16）
+
+| | v1 | v2 |
+|---|---|---|
+| TTFT p50 / p95 / p99 | 32 / 37 / **304** ms | 36 / 41 / **47** ms |
+| E2E p50 | 2738 ms | **1980 ms** (−28%) |
+| 输出吞吐 | 158 tok/s | 162 tok/s |
+
+v1 的 p99 尾巴来自 slot 等待（并发满 16 时新请求排队）；v2 按 block 准入，
+48-token 请求只占 ~9 MB（v1 一条请求占一整个 448 MB slot），同样的池子能塞
+多得多的请求 → 队列短，尾时延低。
+
+## 5. 推理链路 profile（profile_pipeline.py）
 
 两个层次：
 
-### 3.1 阶段计时（宏观：时间花在哪个阶段）
+### 5.1 阶段计时（宏观：时间花在哪个阶段）
 
 harness 在每个关键点打时间戳，汇总出：prefill 总时间 / decode 总时间 / 采样总时间 /
 mask 构造总时间（mask 在 CPU 上构造，是已知的热点候选）。这层回答"慢在哪个阶段"。
 
-### 3.2 算子级 profile（微观：阶段里哪个算子慢）
+### 5.2 算子级 profile（微观：阶段里哪个算子慢）
 
 `torch.profiler` 包住整个生成循环，导出 Chrome trace：
 ```bash
@@ -117,7 +175,7 @@ python benchmark/profile_pipeline.py --engine v1 --num-requests 8 --max-tokens 3
 - 看 softmax 和两个 matmul（QK^T、PV）的形状是否符合预期
   （decode 时 [b,h,1,L] @ [b,h,L,hd]）。
 
-## 4. 气泡可视化（bubble.py）
+## 6. 气泡可视化（bubble.py）
 
 ### 什么是气泡
 
@@ -143,12 +201,12 @@ python benchmark/bubble.py --num-requests 12 --batch-size 8
 读图要点：v0 的红色斜线面积就是静态批处理浪费的算力；v1 的利用率曲线应在短请求
 完成后立刻掉下来再被新请求填回去。
 
-## 5. 结果归档
+## 7. 结果归档
 
 所有脚本把数字存 JSON、图存 PNG 到 `benchmark/results/`（trace 文件较大，已 gitignore）。
 对比结论写进 commit message，原始数字进 JSON，方便以后回溯性能回归。
 
-### 5.1 实测结果（2026-10-25, Qwen3-0.6B bf16, 12 请求 / batch_size=8 / max_tokens 32/96/160）
+### 7.1 实测结果（2026-10-25, Qwen3-0.6B bf16, 12 请求 / batch_size=8 / max_tokens 32/96/160）
 
 | 指标 | v0 静态批处理 | v1 迭代级调度 | 说明 |
 |------|--------------|--------------|------|
@@ -165,7 +223,7 @@ v0 那些"浪费"的 batch 行几乎是免费的；v1 反而背了 gather 的开
 GPU 越忙（模型越大、batch 越满），v0 的气泡成本越高，v1 的优势越大——
 换更大的模型或加重计算负载可以验证这个推论。
 
-## 6. 已知问题与 TODO
+## 8. 已知问题与 TODO
 
 - 采样参数整批共用第 0 条请求的（v0/v1 都这样），做 per-request 温度采样前，
   带温度的吞吐数字不严谨（greedy 不受影响）；

@@ -1,0 +1,46 @@
+[
+ {
+  "engine": "v0",
+  "weights_gb": 1.19,
+  "pool_gb": 7.52,
+  "pool_blocks": null,
+  "block_mb": null,
+  "peak_gb": 9.62,
+  "peak_concurrent": 16,
+  "total_out_tokens": 1152,
+  "wall_s": 11.7,
+  "tok_per_s": 320.2,
+  "max_tokens": 48,
+  "batch_size": 16
+ },
+ {
+  "engine": "v1",
+  "weights_gb": 1.19,
+  "pool_gb": 7.52,
+  "pool_blocks": null,
+  "block_mb": null,
+  "peak_gb": 9.61,
+  "peak_concurrent": 16,
+  "total_out_tokens": 1152,
+  "wall_s": 14.09,
+  "tok_per_s": 193.6,
+  "max_tokens": 48,
+  "batch_size": 16
+ },
+ {
+  "engine": "v2",
+  "weights_gb": 1.2,
+  "pool_gb": 24.3,
+  "pool_blocks": 13245,
+  "block_mb": 1.84,
+  "peak_gb": 25.74,
+  "peak_concurrent": 16,
+  "total_out_tokens": 1152,
+  "wall_s": 6.0,
+  "tok_per_s": 236.0,
+  "max_tokens": 48,
+  "batch_size": 16,
+  "kv_per_req_mb": 9.18,
+  "theoretical_1k_concurrent": 203
+ }
+]

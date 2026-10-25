@@ -14,18 +14,23 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def run(engine, num_requests, batch_size, max_tokens=None):
+    """子进程调 harness worker，JSON 走临时文件（v2 初始化时会打显存预算报告，stdout 不干净）。"""
+    import tempfile
+    out_file = os.path.join(HERE, "results", f"harness_{engine}.json")
+    os.makedirs(os.path.dirname(out_file), exist_ok=True)
     cmd = [sys.executable, os.path.join(HERE, "harness.py"),
            "--engine", engine, "--num-requests", str(num_requests),
-           "--batch-size", str(batch_size)]
+           "--batch-size", str(batch_size), "--out", out_file]
     if max_tokens:
         cmd += ["--max-tokens", str(max_tokens)]
-    out = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
-    return json.loads(out)
+    subprocess.run(cmd, capture_output=True, text=True, check=True)
+    with open(out_file) as f:
+        return json.load(f)
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--engine", choices=["v0", "v1"], required=True)
+    ap.add_argument("--engine", choices=["v0", "v1", "v2"], required=True)
     ap.add_argument("--num-requests", type=int, default=12)
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--max-tokens", type=int, default=None,
