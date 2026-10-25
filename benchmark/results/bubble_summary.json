@@ -1,0 +1,13 @@
+{
+ "v0": {
+  "total_time": 10.606119353324175,
+  "useful_slot_time": 42.81,
+  "occupied_slot_time": 65.8,
+  "bubble_ratio": 0.3494
+ },
+ "v1": {
+  "total_time": 12.134538691490889,
+  "useful_slot_time": 53.19
+ },
+ "speedup_total_wall_time": 0.874
+}
