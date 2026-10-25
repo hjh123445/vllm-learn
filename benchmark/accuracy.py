@@ -16,7 +16,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-MODEL_PATH = "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/Qwen3-0.6B"
+# 模型路径：环境变量 VLLM_LEARN_MODEL 优先；默认相对仓库根的上一级
+MODEL_PATH = os.environ.get("VLLM_LEARN_MODEL") or os.path.join(ROOT, "..", "Qwen3-0.6B")
 QUESTIONS = [
     "天空为什么是蓝色的？用一句话回答",
     "你好",

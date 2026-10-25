@@ -15,7 +15,8 @@ import sys
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_PATH = "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/Qwen3-0.6B"
+# 模型路径：环境变量 VLLM_LEARN_MODEL 优先；默认相对仓库根的上一级（跟仓库走，不锁死机器路径）
+MODEL_PATH = os.environ.get("VLLM_LEARN_MODEL") or os.path.join(ROOT, "..", "Qwen3-0.6B")
 
 # 固定负载问题集（可复现），max_tokens 三挡轮转模拟混合长度流量
 QUESTIONS = [

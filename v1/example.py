@@ -4,7 +4,9 @@ from transformers import AutoTokenizer
 import os
 import torch
 
-path = os.path.expanduser("/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/Qwen3-0.6B")
+# 模型路径：环境变量优先；默认相对本文件定位（跟仓库走，不锁死机器路径）
+path = os.environ.get("VLLM_LEARN_MODEL") or os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "Qwen3-0.6B")
 tokenizer = AutoTokenizer.from_pretrained(path)
 llm = Engine(path, batch_size=8, max_seq_len=4096, dtype=torch.bfloat16)
 prompts = [
