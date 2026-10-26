@@ -65,6 +65,41 @@ class ModelRunner:
         attn_mask = torch.where(causal, 0.0, neg).to(self.dtype)[None, None]  # [1,1,L,L]
         return self.forward(input_ids, positions, cache_rows, write_pos, attn_mask)
 
+    # ---------------- prefill（新准入请求合批） ----------------
+
+    @torch.no_grad()
+    def prefill_batch(self, reqs: list, temperature: float, top_p: float) -> torch.Tensor:
+        """新准入的请求一次 prefill 完（合批，不再逐条）。
+
+        右 padding 而不是左 padding：这样输入列号 = 真实位置 = cache 槽位，
+        每行的 prompt 写进自己 cache 行的 0..len-1 槽；pad 的 k/v 落在
+        len..L-1 槽，未覆盖前被 mask 挡住，之后被生成 token 逐个覆盖。
+
+        注：Orca 混合批次的完整形态是 prefill 和 decode 在同一个 forward 里跑，
+        那需要变长 attention（flattened batch + 每行的 query 起止表），留给 v3；
+        先把 prefill 自己合批已经消掉逐条 prefill 的浪费。"""
+        neg = torch.finfo(self.dtype).min
+        b = len(reqs)
+        lens = [len(r.prompt_ids) for r in reqs]
+        L = max(lens)
+        input_ids = torch.zeros(b, L, dtype=torch.long)              # pad=0（会被 mask）
+        for i, r in enumerate(reqs):
+            input_ids[i, :len(r.prompt_ids)] = torch.tensor(r.prompt_ids)
+        positions = torch.arange(L)[None].expand(b, L)              # 右 padding: 列号=真实位置
+        cache_rows = torch.tensor([r.slot for r in reqs])
+        write_pos = torch.zeros(b, dtype=torch.long)               # 每行从槽位 0 写起
+        slots = torch.arange(L)
+        valid = slots[None, :] < torch.tensor(lens)[:, None]       # key 槽位 < 自己的长度
+        causal = torch.ones(L, L, dtype=torch.bool).tril()
+        allowed = causal[None] & valid[:, None, None]                # [b, L, L]
+        attn_mask = torch.where(allowed, 0.0, neg).to(self.dtype)
+        hidden = self.model(input_ids.to(self.device), positions.to(self.device),
+                            cache_rows.to(self.device), write_pos.to(self.device),
+                            attn_mask.to(self.device))
+        h_last = hidden[torch.arange(b), torch.tensor(lens) - 1]    # 每行最后一个真实 token
+        logits = self.model.compute_logits(h_last)
+        return self.sample(logits, temperature, top_p)
+
     # ---------------- decode（当前活跃请求合批） ----------------
 
     @torch.no_grad()

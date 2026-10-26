@@ -36,14 +36,15 @@ class Engine:
                      if isinstance(p, str) else list(p) for p in prompts]
         reqs = [self.scheduler.add(ids, sp) for ids, sp in zip(token_ids, sps)]
 
-        # 迭代级主循环：每个迭代 = 准入（+prefill）→ 全体活跃请求 decode 一步 → 驱逐
+        # 迭代级主循环：每个迭代 = 准入 → 合批 prefill → 全体活跃请求合批 decode → 驱逐
         while self.scheduler.busy:
-            # 1. 准入 + prefill（batch=1，逐条）
-            for req in self.scheduler.admit():
-                logits = self.runner.prefill(req)
-                sp = req.sp
-                token = self.runner.sample(logits, sp.temperature, sp.top_p)[0].item()
-                req.step(token)
+            # 1. 准入 + 合批 prefill（新请求一次算完，不再逐条）
+            new = self.scheduler.admit()
+            if new:
+                sp = new[0].sp
+                next_tokens = self.runner.prefill_batch(new, sp.temperature, sp.top_p)
+                for req, token in zip(new, next_tokens.tolist()):
+                    req.step(token)
             self.scheduler.evict()
             if not self.scheduler.running:
                 continue

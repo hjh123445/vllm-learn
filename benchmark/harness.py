@@ -52,8 +52,8 @@ def build_workload_impl(num_requests, tokenizer, SamplingParams):
 def run_v0(runner_cls, scheduler_cls, prompt_ids, sps, batch_size, max_seq_len, eos_ids, pad_id):
     import torch
     runner = runner_cls(MODEL_PATH, batch_size=batch_size, max_seq_len=max_seq_len)
-    sch = scheduler_cls(eos_ids=eos_ids, pad_token_id=pad_id,
-                        max_seq_len=max_seq_len, max_batch_size=batch_size)
+    sch = scheduler_cls(eos_id=next(iter(eos_ids)), pad_id=pad_id,
+                        max_batch_size=batch_size, max_len=max_seq_len)
     stage = {"prefill": 0.0, "decode": 0.0, "sample": 0.0, "mask": 0.0}
     t0 = time.perf_counter()
     reqs = []          # 每个请求的记录
@@ -63,57 +63,48 @@ def run_v0(runner_cls, scheduler_cls, prompt_ids, sps, batch_size, max_seq_len, 
         chunk_ids = prompt_ids[start:start + batch_size]
         chunk_sps = sps[start:start + batch_size]
         batch_start = time.perf_counter()
-        batch = sch.schedule(chunk_ids, chunk_sps)
+        sch.add(chunk_ids, chunk_sps)
+        batch = sch.schedule()
         runner.reset_cache()
 
-        recs = [{"prefill_t": None, "first_token_t": None, "finish_t": None,
+        recs = [{"first_token_t": None, "finish_t": None,
                  "batch_start": batch_start - t0, "batch_end": None,
                  "n_tokens": 0} for _ in chunk_ids]
 
         sp = batch.params[0]
-        # prefill
-        ts = time.perf_counter()
-        mask = runner._build_attn_mask(batch, list(range(batch.max_prompt_len)),
-                                       batch.max_prompt_len)
-        stage["mask"] += time.perf_counter() - ts
-        ts = time.perf_counter()
-        logits = runner.forward(batch.input_ids, batch.positions, mask)
-        stage["prefill"] += time.perf_counter() - ts
-        ts = time.perf_counter()
-        next_tok = runner.sample(logits, sp.temperature, 1.0)
-        stage["sample"] += time.perf_counter() - ts
-        batch.step(next_tok)
-        ft = time.perf_counter()
-        for r in recs:
-            r["first_token_t"] = ft - t0
-
-        # decode 循环
-        while not batch.all_finished:
-            tokens, positions = batch.decode_input()
-            cur = runner.cur_len
+        while not batch.is_finished():
+            ids, pos = batch.get()
             ts = time.perf_counter()
-            mask = runner._build_attn_mask(batch, [cur], cur + 1)
+            mask = (runner.prefill_mask(batch) if batch.is_prefill
+                    else runner.decode_mask(batch))
             stage["mask"] += time.perf_counter() - ts
+            key = "prefill" if batch.is_prefill else "decode"
             ts = time.perf_counter()
-            logits = runner.forward(tokens, positions, mask)
-            stage["decode"] += time.perf_counter() - ts
+            logits = runner.forward(ids, pos, mask)
+            stage[key] += time.perf_counter() - ts
             ts = time.perf_counter()
             next_tok = runner.sample(logits, sp.temperature, 1.0)
             stage["sample"] += time.perf_counter() - ts
+            was_prefill = batch.is_prefill
             before = list(batch.finished)
-            batch.step(next_tok)
+            batch.append(next_tok)
             now = time.perf_counter()
-            for j, (was, now_f) in enumerate(zip(before, batch.finished)):
-                if not was and now_f:
-                    recs[j]["finish_t"] = now - t0
-            steps.append({"t": now - t0, "n_running": len(chunk_ids),
-                          "n_active": sum(not f for f in batch.finished)})
+            if was_prefill:
+                for r in recs:
+                    r["first_token_t"] = now - t0
+            else:
+                for j, (was, now_f) in enumerate(zip(before, batch.finished)):
+                    if not was and now_f:
+                        recs[j]["finish_t"] = now - t0
+                steps.append({"t": now - t0, "n_running": len(chunk_ids),
+                              "n_active": sum(not f for f in batch.finished)})
 
         batch_end = time.perf_counter()
+        collected = batch.collect()
         for j, r in enumerate(recs):
             r["batch_end"] = batch_end - t0
-            r["n_tokens"] = len(batch.generated[j])
-            r["output"] = list(batch.generated[j])
+            r["n_tokens"] = len(collected[j]["token_ids"])
+            r["output"] = collected[j]["token_ids"]
         reqs.extend(recs)
 
     return {"requests": reqs, "steps": steps, "stage_times": stage,
@@ -132,16 +123,18 @@ def run_v1(runner_cls, scheduler_cls, prompt_ids, sps, batch_size, max_seq_len, 
     steps = []
 
     while sch.busy:
-        # 准入 + prefill（逐条）
-        for req in sch.admit():
-            recs[req.id] = {"prefill_t": None, "first_token_t": None, "finish_t": None,
-                            "admit_t": time.perf_counter() - t0, "n_tokens": 0}
+        # 准入 + 合批 prefill
+        new = sch.admit()
+        if new:
+            for req in new:
+                recs[req.id] = {"first_token_t": None, "finish_t": None,
+                                "admit_t": time.perf_counter() - t0, "n_tokens": 0}
             ts = time.perf_counter()
-            logits = runner.prefill(req)
+            next_tok = runner.prefill_batch(new, 0.0, 1.0)
             stage["prefill"] += time.perf_counter() - ts
-            token = runner.sample(logits, 0.0, 1.0)[0].item()
-            req.step(token)
-            recs[req.id]["first_token_t"] = time.perf_counter() - t0
+            for req, token in zip(new, next_tok.tolist()):
+                req.step(token)
+                recs[req.id]["first_token_t"] = time.perf_counter() - t0
         sch.evict()
 
         if sch.running:
@@ -267,14 +260,9 @@ def main():
 
     def call():
         if args.engine == "v0":
-            return run_v0(R0, S0(eos_ids=eos_ids, pad_id=pad_id,
-                                 max_seq_len=args.max_seq_len,
-                                 max_batch_size=args.batch_size),
-                          eos_ids=eos_ids, pad_id=pad_id, **kwargs)
+            return run_v0(R0, S0, eos_ids=eos_ids, pad_id=pad_id, **kwargs)
         if args.engine == "v1":
-            return run_v1(R0, S0(eos_ids=eos_ids, max_seq_len=args.max_seq_len,
-                                  max_batch_size=args.batch_size),
-                           eos_ids=eos_ids, **kwargs)
+            return run_v1(R0, S0, eos_ids=eos_ids, **kwargs)
         runner = build_runner()
         return run_v2(runner, S0(eos_ids=eos_ids, max_seq_len=args.max_seq_len,
                                  max_batch_size=args.batch_size, kv=runner.kv),

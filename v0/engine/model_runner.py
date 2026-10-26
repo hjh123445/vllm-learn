@@ -1,5 +1,6 @@
 # engine/model_runner.py
-"""显存与前向的唯一管理者：权重、KV cache、logits、attention mask、采样、生成主循环都在这里。"""
+"""显存与前向：权重、KV cache、logits、attention mask、采样。
+生成主循环在 engine.py（Batch 只管状态，engine 只管流程，runner 只管计算）。"""
 import torch
 
 from config import Qwen3Config
@@ -50,6 +51,14 @@ class ModelRunner:
         allowed = causal[None, None] & valid[:, None, None]     # [b, 1, s_q, cur_len]
         return torch.where(allowed, 0.0, neg).to(self.dtype)
 
+    def prefill_mask(self, batch) -> torch.Tensor:
+        return self._build_attn_mask(batch, list(range(batch.max_prompt_len)),
+                                     batch.max_prompt_len)
+
+    def decode_mask(self, batch) -> torch.Tensor:
+        cur = batch.cache_len                        # cache 已写长度（新 token 即将写入的 slot）
+        return self._build_attn_mask(batch, [cur], cur + 1)
+
     # ---------------- 前向 ----------------
 
     @torch.no_grad()
@@ -89,26 +98,3 @@ class ModelRunner:
             probs = probs / probs.sum(-1, keepdim=True)
         return torch.multinomial(probs, 1).squeeze(-1)
 
-    # ---------------- 生成主循环 ----------------
-
-    @torch.no_grad()
-    def run(self, batch):
-        """prefill → decode 主循环。改写 batch 的生成状态，token 记在 batch.generated 里。"""
-        # v0 限制：整批共用第 0 条请求的 temperature/top_p（max_tokens/ignore_eos 是按请求的）
-        sp = batch.params[0]
-
-        self.reset_cache()
-
-        # prefill：整个 padded prompt 一次前向，取最后位置 logits
-        logits = self.forward(batch.input_ids, batch.positions,
-                              self._build_attn_mask(batch, list(range(batch.max_prompt_len)),
-                                                    batch.max_prompt_len))
-        batch.step(self.sample(logits, sp.temperature, sp.top_p))
-
-        # decode：每步只喂一个 token，直到全部完成
-        while not batch.all_finished:
-            tokens, positions = batch.decode_input()
-            cur = self.cur_len                       # 新 token 即将写入的 slot
-            logits = self.forward(tokens, positions,
-                                  self._build_attn_mask(batch, [cur], cur + 1))
-            batch.step(self.sample(logits, sp.temperature, sp.top_p))
