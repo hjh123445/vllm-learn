@@ -98,7 +98,7 @@ class KVCacheManager:
         self.v[layer_idx].view(-1)[lin] = v_new.reshape(-1)
 
     def read_seq(self, layer_idx: int, tabs: torch.Tensor, read_len: int):
-        """按序列读一个请求的 cache → [1, kvh, read_len, hd]。
+        """按序列读一个请求的 cache → [1, kvh, read_len, hd]（prefill 行用，行数少）。
         只 gather 需要的 block，尾 block 内多出的槽位由调用方的 mask 挡住。"""
         lay_k = self.k[layer_idx][tabs]               # [nblk, kvh, bs, hd]
         lay_v = self.v[layer_idx][tabs]
@@ -106,3 +106,14 @@ class KVCacheManager:
         k = lay_k.permute(1, 0, 2, 3).reshape(H, nblk * bs, D)[:, :read_len]
         v = lay_v.permute(1, 0, 2, 3).reshape(H, nblk * bs, D)[:, :read_len]
         return k.unsqueeze(0), v.unsqueeze(0)
+
+    def read_batch(self, layer_idx: int, tabs: torch.Tensor, read_len: int):
+        """整组一次 gather：tabs [n, nblk]（padded 补 0）→ [n, kvh, read_len, hd]。
+        decode 组用：n 个序列一次 gather 拷贝，替代 n 次 read_seq。
+        多出的槽位由调用方的 mask 挡住。"""
+        lay_k = self.k[layer_idx][tabs]               # [n, nblk, kvh, bs, hd]
+        lay_v = self.v[layer_idx][tabs]
+        n, nblk, H, bs, D = lay_k.shape
+        k = lay_k.permute(0, 2, 1, 3, 4).reshape(n, H, nblk * bs, D)[:, :, :read_len]
+        v = lay_v.permute(0, 2, 1, 3, 4).reshape(n, H, nblk * bs, D)[:, :, :read_len]
+        return k, v

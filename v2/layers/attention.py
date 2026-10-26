@@ -1,12 +1,14 @@
 # v2/layers/attention.py
-"""v2 attention（平铺版）：flattened batch，朴素地逐序列启动注意力。
+"""v2 attention（平铺版，正常做法：按形状分组）。
 
-每层只做三件事：
-  1. write_flat: 把本步新算的 k/v 按 token 一次性散射进各请求的 block（全向量化）；
-  2. 逐序列循环：每个请求各自 read_seq 自己的 block 表 → [1, kvh, L, hd]，
-     一条 [1, h, s_i, L_i] 的注意力（不组批、不 padding——每个序列长度天然可以不同）；
-  3. 拼回 [total_q, h*hd]。
-真·变长 kernel（cu_seqlens 一个 kernel 全算）留 v3；这里按用户要求保持朴素。"""
+平铺批按形状分两组算：
+  - decode 组：全部 s=1 的序列天然同形 → 一次 gather 整组 cache（read_batch），
+    一条 [n, h, 1, L] 的批注意力。这是热路径（每步都跑），必须组批；
+  - prefill 行：s 各不相同没法组批 → 逐行 read_seq 算 [1, h, s_i, L_i]。
+    prefill 每个请求只发生一次，不在热路径上，逐行可接受。
+
+cache 写仍是 write_flat：整个平铺批按 token 一次散射（每层 1 次 kernel）。
+真·变长 kernel（cu_seqlens 单 kernel 全算）留 v3。"""
 import torch
 import torch.nn as nn
 
@@ -29,7 +31,19 @@ class Attention(nn.Module):
         self.kv.write_flat(self.layer_idx, plan.tok_blk, plan.tok_off, k_new, v_new)
         out = q.new_empty(T, self.num_head * self.head_dim)
 
-        # 朴素逐序列：每个序列各自读自己的 block 表、算自己的注意力
+        # ---- decode 组：s=1 天然同形，一次 gather + 一条批注意力 ----
+        d = plan.dec
+        if d is not None:
+            qd = q[d.idx]                                          # [n, h, hd]
+            kd, vd = self.kv.read_batch(self.layer_idx, d.tabs, d.read_len)   # [n, kvh, L, hd]
+            kd = kd.repeat_interleave(n_rep, dim=1)
+            vd = vd.repeat_interleave(n_rep, dim=1)
+            scores = (qd.unsqueeze(2) @ kd.transpose(-2, -1)) * self.scale   # [n, h, 1, L]
+            scores = scores + d.mask
+            od = (scores.softmax(-1) @ vd).squeeze(2)             # [n, h, hd]
+            out[d.idx] = od.reshape(d.n, -1)
+
+        # ---- prefill 行：s 各异，逐行（不在热路径）----
         for sp in plan.spans:
             s = sp.i1 - sp.i0
             qp = q[sp.i0:sp.i1].unsqueeze(0).transpose(1, 2)      # [1, h, s, hd]
