@@ -116,39 +116,36 @@ def run_v0(runner_cls, scheduler_cls, prompt_ids, sps, batch_size, max_seq_len, 
 def run_v1(runner_cls, scheduler_cls, prompt_ids, sps, batch_size, max_seq_len, eos_ids):
     runner = runner_cls(MODEL_PATH, batch_size=batch_size, max_seq_len=max_seq_len)
     sch = scheduler_cls(eos_ids=eos_ids, max_seq_len=max_seq_len, max_batch_size=batch_size)
-    stage = {"prefill": 0.0, "decode": 0.0, "mask": 0.0}   # v1 采样在 decode_step 里，计入 decode
+    stage = {"mixed": 0.0}   # v1 混合批次：prefill+decode 一个 forward
     t0 = time.perf_counter()
     reqs_in = [sch.add(p, sp) for p, sp in zip(prompt_ids, sps)]
     recs = {}
     steps = []
 
     while sch.busy:
-        # 准入 + 合批 prefill
+        # 混合批次：准入的新请求 prefill + 在途请求 decode 在同一个 forward 里跑
         new = sch.admit()
-        if new:
-            for req in new:
-                recs[req.id] = {"first_token_t": None, "finish_t": None,
-                                "admit_t": time.perf_counter() - t0, "n_tokens": 0}
+        new_ids = {r.id for r in new}
+        running = [r for r in sch.running if r.id not in new_ids]
+        for req in new:
+            recs[req.id] = {"first_token_t": None, "finish_t": None,
+                            "admit_t": time.perf_counter() - t0, "n_tokens": 0}
+        if new or running:
             ts = time.perf_counter()
-            next_tok = runner.prefill_batch(new, 0.0, 1.0)
-            stage["prefill"] += time.perf_counter() - ts
-            for req, token in zip(new, next_tok.tolist()):
-                req.step(token)
-                recs[req.id]["first_token_t"] = time.perf_counter() - t0
-        sch.evict()
-
-        if sch.running:
-            ts = time.perf_counter()
-            next_tok = runner.decode_step(list(sch.running), 0.0, 1.0)
-            stage["decode"] += time.perf_counter() - ts
-            for req, token in zip(list(sch.running), next_tok.tolist()):
+            next_tok = runner.step_mixed(new, running, 0.0, 1.0)
+            stage["mixed"] += time.perf_counter() - ts          # 一个 forward 全含
+            for req, token in zip(new + running, next_tok.tolist()):
                 before = req.finished
                 req.step(token)
+                now = time.perf_counter()
+                if req in new:
+                    recs[req.id]["first_token_t"] = now - t0
                 if not before and req.finished:
-                    recs[req.id]["finish_t"] = time.perf_counter() - t0
-            steps.append({"t": time.perf_counter() - t0, "n_running": len(sch.running),
-                          "n_active": len(sch.running)})
-            sch.evict()
+                    recs[req.id]["finish_t"] = now - t0
+            steps.append({"t": time.perf_counter() - t0,
+                          "n_running": len(new) + len(running),
+                          "n_active": len(new) + len(running)})
+        sch.evict()
 
     reqs = []
     for r in reqs_in:
