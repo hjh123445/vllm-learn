@@ -1,0 +1,27 @@
+{
+ "speed_v0": {
+  "tpot_avg_ms": 36.4,
+  "ttft_avg_ms": 1966.3,
+  "tok_per_s": 111.2
+ },
+ "speed_v1": {
+  "tpot_avg_ms": 39.5,
+  "ttft_avg_ms": 762.8,
+  "tok_per_s": 136.5
+ },
+ "speed_v2": {
+  "tpot_avg_ms": 36.6,
+  "ttft_avg_ms": 584.9,
+  "tok_per_s": 141.5
+ },
+ "speed_nano_eager": {
+  "tpot_avg_ms": 48.2,
+  "ttft_avg_ms": 1021.2,
+  "tok_per_s": 108.9
+ },
+ "speed_nano": {
+  "tpot_avg_ms": 4.1,
+  "ttft_avg_ms": 1207.3,
+  "tok_per_s": 581.6
+ }
+}

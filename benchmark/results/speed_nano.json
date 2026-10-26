@@ -1,0 +1,15 @@
+{
+ "engine": "nano-vllm",
+ "num_requests": 12,
+ "max_num_seqs": 8,
+ "enforce_eager": false,
+ "total_time": 1.98,
+ "ttft_avg_ms": 1207.3,
+ "ttft_p50_ms": 1190.9,
+ "ttft_max_ms": 1240.2,
+ "tpot_avg_ms": 4.1,
+ "e2e_p50_ms": 1524.5,
+ "e2e_max_ms": 1980.9,
+ "total_out_tokens": 1152,
+ "tok_per_s": 581.6
+}

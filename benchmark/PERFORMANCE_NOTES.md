@@ -173,3 +173,42 @@ harness.py（worker 进程）
 代价：每次 worker 都要重新加载一遍权重（~15s），accuracy 全套跑一次约 5 分钟。
 如果以后测试项多了，可以换成"每个测试复用常驻 worker 进程"的模式，但 v0/v1
 互斥导入这个约束永远存在，进程隔离是唯一干净的解法。
+
+---
+
+## 7. 对比 nano-vllm（2026-10-26，同负载同方法学）
+
+环境：flash-attn 2.8.4 从源码编译（sm80，nvcc 13.0，无匹配 torch2.9/cu130 的预编译 wheel）；
+nano-vllm 从 GitHub 拉取。负载与计时口径与 speed.py 完全一致
+（12 请求 / max_num_seqs=8 对齐我们的 batch_size / max_tokens 32/96/160 混合 / greedy）。
+注意 nano 禁止 greedy（temperature>1e-10 的 assert），用 1e-6 温度代替（softmax 为 one-hot，
+其 Gumbel 式采样等价 argmax）。
+
+| 引擎 | TPOT avg | TTFT avg | 吞吐 |
+|---|---|---|---|
+| v0 静态批 | 36.4 ms | 1966 ms | 111.2 tok/s |
+| v1 混合批次 | 39.5 ms | 763 ms | 136.5 tok/s |
+| v2 paged KV | 36.6 ms | 585 ms | 141.5 tok/s |
+| **nano-vllm（eager，无 CUDA graph）** | **48.2 ms** | 1021 ms | 108.9 tok/s |
+| **nano-vllm（CUDA graph）** | **4.1 ms** | 1207 ms | **581.6 tok/s** |
+
+### 三个结论
+
+1. **我们的差距 100% 来自 CUDA graph，不是 flash-attn**：nano 关掉 graph（48.2ms）比
+   我们朴素实现的 v2（36.6ms）还慢——我们的 python 循环和调度比 nano 的 eager 路径更轻。
+   kernel 本身在 0.6B decode 里不是瓶颈（profile 早已证明 GPU 87% 时间在等 CPU）。
+2. **CUDA graph 一项就值 12 倍**：48.2 → 4.1ms。4.1ms 就是纯 GPU 计算时间——每步
+   ~200 次 kernel 发射的 CPU 开销被 graph 整体消除，decode 从"CPU 发射瓶颈"变回
+   "GPU 计算瓶颈"。这是 v3 的第一优先级。
+3. **CUDA graph 的前提是静态形状**：graph 捕获要求每步的输入张量形状/地址固定——
+   我们的 flattened plan（固定 max_num_seqs 的 padded 形状 + 预分配 buffer +
+   mask 固定形状）正是这个前提，v2 的结构已经为此铺好了路。
+
+TTFT 口径注意：nano 的 TTFT 偏高是因为 max_num_seqs=8 下第二波请求要排队等
+prefill 优先级调度 + 每个新形状的 graph 捕获，与我们 burst 负载的 TTFT 不可直接比。
+
+复现：
+```bash
+python benchmark/nano.py --num-requests 12 --max-num-seqs 8 --gpu-mem-util 0.3          # graph
+python benchmark/nano.py --num-requests 12 --max-num-seqs 8 --gpu-mem-util 0.3 --enforce-eager
+```
