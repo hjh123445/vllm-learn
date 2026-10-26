@@ -160,7 +160,7 @@ def run_v1(runner_cls, scheduler_cls, prompt_ids, sps, batch_size, max_seq_len, 
 # ---------------------------------------------------------------- v2
 
 def run_v2(runner, sch, prompt_ids, sps, batch_size, max_seq_len, eos_ids):
-    """v2 迭代级 + paged KV。准入/抢占全按 block 账本走。"""
+    """v2 paged KV + scheduler 全权管理（schedule/update 接口）。"""
     kv = runner.kv
     stage = {"prefill": 0.0, "decode": 0.0}
     t0 = time.perf_counter()
@@ -168,41 +168,29 @@ def run_v2(runner, sch, prompt_ids, sps, batch_size, max_seq_len, eos_ids):
     recs, steps = {}, []
 
     while sch.busy:
-        for req in sch.admit():
-            recs[req.id] = {"admit_t": time.perf_counter() - t0,
-                            "first_token_t": None, "finish_t": None,
-                            "n_tokens": 0, "n_preempts": 0}
-            ts = time.perf_counter()
-            logits = runner.prefill(req)
-            stage["prefill"] += time.perf_counter() - ts
-            token = runner.sample(logits, req.sp.temperature, req.sp.top_p)[0].item()
+        batch, is_prefill = sch.schedule()
+        if not batch:
+            continue
+        if is_prefill:
+            for req in batch:
+                recs[req.id] = {"admit_t": time.perf_counter() - t0,
+                                "first_token_t": None, "finish_t": None,
+                                "n_tokens": 0, "n_preempts": 0}
+        ts = time.perf_counter()
+        next_tok = runner.step(batch, is_prefill, 0.0, 1.0)
+        stage["prefill" if is_prefill else "decode"] += time.perf_counter() - ts
+        now = time.perf_counter()
+        for req, token in zip(batch, next_tok.tolist()):
+            before = req.finished
             req.step(token)
-            recs[req.id]["first_token_t"] = time.perf_counter() - t0
+            if is_prefill:
+                recs[req.id]["first_token_t"] = now - t0
+            elif not before and req.finished:
+                recs[req.id]["finish_t"] = now - t0
+        if not is_prefill:
+            steps.append({"t": now - t0, "n_running": len(batch),
+                          "free_blocks": kv.num_free(), "pool_blocks": kv.max_num_blocks})
         sch.evict()
-
-        # decode 前确保写位置有 block；不够 → 抢占占块最多的（和 engine 相同的策略）
-        for req in list(sch.running):
-            while not kv.ensure_append(req.id, req.cur_len):
-                victim = sch.pick_victim()
-                sch.preempt(victim)
-                if victim is not req:
-                    recs[victim.id]["n_preempts"] += 1
-                else:
-                    break
-        if sch.running:
-            ts = time.perf_counter()
-            next_tok = runner.decode_step(list(sch.running), 0.0, 1.0)
-            stage["decode"] += time.perf_counter() - ts
-            for req, token in zip(list(sch.running), next_tok.tolist()):
-                before = req.finished
-                req.step(token)
-                if not before and req.finished:
-                    recs[req.id]["finish_t"] = time.perf_counter() - t0
-            steps.append({"t": time.perf_counter() - t0,
-                          "n_running": len(sch.running),
-                          "free_blocks": kv.num_free(),
-                          "pool_blocks": kv.max_num_blocks})
-            sch.evict()
 
     reqs = []
     for r in reqs_in:

@@ -11,6 +11,8 @@ from layers.embedding import LmHead, Embedding
 
 
 class QwenAttention(nn.Module):
+    """v2 平铺版：输入输出都是 flattened [total_q, hidden]，无 b/s 维。"""
+
     def __init__(self, config: Qwen3Config, kv, layer_idx: int):
         super().__init__()
         self.head_dim = config.head_dim
@@ -34,15 +36,15 @@ class QwenAttention(nn.Module):
                               head_dim=self.head_dim,
                               scale=self.scale)
 
-    def forward(self, x, positions, tabs, attn_mask):
-        b, s, _ = x.shape
-        q = self.q_proj(x).view(b, s, self.num_head, self.head_dim).transpose(1, 2)
-        k = self.k_proj(x).view(b, s, self.num_kv_head, self.head_dim).transpose(1, 2)
-        v = self.v_proj(x).view(b, s, self.num_kv_head, self.head_dim).transpose(1, 2)
+    def forward(self, x, plan):
+        T = x.shape[0]
+        q = self.q_proj(x).view(T, self.num_head, self.head_dim)
+        k = self.k_proj(x).view(T, self.num_kv_head, self.head_dim)
+        v = self.v_proj(x).view(T, self.num_kv_head, self.head_dim)
         q, k = self.q_norm(q), self.k_norm(k)
-        q, k = self.rope(positions=positions, q=q, k=k)
-        o = self.attn(q, k, v, tabs, positions, attn_mask)     # [b, num_head, s, head_dim]
-        return self.o_proj(o.transpose(1, 2).flatten(2))        # [b, s, hidden]
+        q, k = self.rope(plan.positions, q, k)
+        o = self.attn(q, k, v, plan)                   # [total_q, num_head*head_dim]
+        return self.o_proj(o)
 
 
 class QwenMLP(nn.Module):
@@ -65,9 +67,9 @@ class QwenDecoderLayer(nn.Module):
         self.input_layernorm = RmsNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.post_attention_layernorm = RmsNorm(config.hidden_size, eps=config.rms_norm_eps)
 
-    def forward(self, positions, x, tabs, attn_mask):
+    def forward(self, x, plan):
         residual = x
-        x = self.self_attn(self.input_layernorm(x), positions, tabs, attn_mask)
+        x = self.self_attn(self.input_layernorm(x), plan)
         x = x + residual
         residual = x
         x = self.mlp(self.post_attention_layernorm(x))
@@ -88,10 +90,10 @@ class QwenModel(nn.Module):
         for layer in self.layers:
             layer.self_attn.rope = rope
 
-    def forward(self, input_ids, positions, tabs, attn_mask):
-        x = self.embed_tokens(input_ids)
+    def forward(self, input_ids, plan):
+        x = self.embed_tokens(input_ids)                   # [total_q, hidden]
         for layer in self.layers:
-            x = layer(positions, x, tabs, attn_mask)
+            x = layer(x, plan)
         return self.norm(x)
 
 
@@ -104,8 +106,8 @@ class Qwen3ForCausalLM(nn.Module):
         if config.tie_word_embeddings:
             self.lm_head.weight = self.model.embed_tokens.weight
 
-    def forward(self, input_ids, positions, tabs, attn_mask):
-        return self.model(input_ids, positions, tabs, attn_mask)
+    def forward(self, input_ids, plan):
+        return self.model(input_ids, plan)
 
     def compute_logits(self, x):
         return self.lm_head(x)

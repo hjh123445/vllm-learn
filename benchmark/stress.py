@@ -52,31 +52,39 @@ def worker(args):
             _, ids, s = pending.pop(0)
             req = sch.add(ids, s)
             arrive_t[req.id] = t
-        for req in sch.admit():
-            logits = runner.prefill(req)
-            req.step(runner.sample(logits, 0.0, 1.0)[0].item())
-            first_t[req.id] = time.perf_counter() - t0
-            if req.finished:
-                finish_t[req.id] = time.perf_counter() - t0
-        sch.evict()
-        # v2: block 不够时抢占
-        if args.engine == "v2":
-            for req in list(sch.running):
-                while not runner.kv.ensure_append(req.id, req.cur_len):
-                    victim = sch.pick_victim()
-                    sch.preempt(victim)
-                    first_t.pop(victim.id, None)      # 重算后会重新记
-                    if victim is req:
-                        break
-        if sch.running:
-            nt = runner.decode_step(list(sch.running), 0.0, 1.0)
-            for req, token in zip(list(sch.running), nt.tolist()):
-                was = req.finished
-                req.step(token)
-                if not was and req.finished:
-                    finish_t[req.id] = time.perf_counter() - t0
-            sch.evict()
-        elif pending:
+
+        if args.engine == "v1":
+            # v1: 混合批次（新请求 prefill + 在途 decode 同一个 forward）
+            new = sch.admit()
+            new_ids = {r.id for r in new}
+            running = [r for r in sch.running if r.id not in new_ids]
+            if new or running:
+                nt = runner.step_mixed(new, running, 0.0, 1.0)
+                now = time.perf_counter()
+                for req, token in zip(new + running, nt.tolist()):
+                    was = req.finished
+                    req.step(token)
+                    if req in new:
+                        first_t[req.id] = now - t0
+                    elif not was and req.finished:
+                        finish_t[req.id] = now - t0
+                sch.evict()
+        else:
+            # v2: scheduler 全权管理（schedule 给什么跑什么，抢占在 schedule 内部）
+            batch, is_prefill = sch.schedule()
+            if batch:
+                nt = runner.step(batch, is_prefill, 0.0, 1.0)
+                now = time.perf_counter()
+                for req, token in zip(batch, nt.tolist()):
+                    was = req.finished
+                    req.step(token)
+                    if is_prefill:
+                        first_t[req.id] = now - t0
+                    elif not was and req.finished:
+                        finish_t[req.id] = now - t0
+                sch.evict()
+
+        if not sch.running and pending:
             time.sleep(max(0.0, pending[0][0] - (time.perf_counter() - t0)))
 
     total = time.perf_counter() - t0
