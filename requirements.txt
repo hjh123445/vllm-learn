@@ -1,0 +1,19 @@
+# vllm-learn 依赖（v0–v5 + benchmark）
+# 实测环境：python 3.10 / A800-80G (sm80) / cuda 13.0
+# 环境细节（flash-attn 编译、vLLM venv、代理坑）见 ENVIRONMENT.md
+
+# ---- 核心推理 ----
+torch>=2.4              # 实测 2.9.1+cu130；需 CUDA 版本（pip 默认源装的是 CPU/cu12 版，按自己的 CUDA 选）
+triton>=3.0              # 实测 3.5.1；v4 的手写 kernel 依赖
+safetensors>=0.4         # 实测 0.8.0；权重加载
+numpy>=1.24              # 实测 2.2.6；v3+ 的 APC 块哈希
+xxhash>=3.0              # 实测 4.0.1；v3+ 的 APC 链式哈希
+
+# ---- tokenizer（v0/v1/v2 的 utils/tokenizer.py 用 tokenizers 库；
+#      v3+ 与正确性对照用 transformers。只用其中一个版本也可跑）----
+transformers>=4.51       # 实测 5.12.0；注意 5.x 的 rope_theta 挪进了 config.rope_parameters（代码已兜底）
+tokenizers>=0.20        # 实测 0.22.2
+
+# ---- 可选：nano-vllm 对照（benchmark/nano.py）需要 flash-attn ----
+# 无 torch2.9+cu130 的预编译 wheel，需源码编译，流程见 ENVIRONMENT.md §4
+# flash-attn==2.8.4

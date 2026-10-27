@@ -13,8 +13,7 @@
 环境细节（flash-attn 编译 / vLLM 独立 venv / 代理坑 / GPU 共享）见 **[ENVIRONMENT.md](ENVIRONMENT.md)**。
 
 ```bash
-# 依赖：torch / transformers(仅 tokenizer) / safetensors / triton / xxhash
-pip install torch transformers safetensors triton xxhash
+pip install -r requirements.txt          # 依赖清单（含版本实测记录）
 
 # 模型：默认在仓库根的上一级找 Qwen3-0.6B，可用环境变量覆盖
 export VLLM_LEARN_MODEL=/path/to/Qwen3-0.6B     # 或 Qwen3-8B（36 层 / GQA 4:1，已兼容）
