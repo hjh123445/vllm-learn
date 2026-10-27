@@ -1,6 +1,7 @@
 import os
 import torch
-from nanovllm import LLM, SamplingParams
+from engine.llm_engine import LLMEngine as LLM
+from samplingParams import SamplingParams
 
 path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "Qwen3-0.6B")
 llm = LLM(path, enforce_eager=True, max_num_seqs=8, max_model_len=4096, gpu_memory_utilization=0.3)

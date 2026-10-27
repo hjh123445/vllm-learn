@@ -22,8 +22,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from nanovllm.engine.async_engine import AsyncEngine
-from nanovllm.sampling_params import SamplingParams
+from engine.async_engine import AsyncEngine
+from samplingParams import SamplingParams
 
 
 class Handler(BaseHTTPRequestHandler):
