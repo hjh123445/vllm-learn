@@ -212,3 +212,38 @@ prefill 优先级调度 + 每个新形状的 graph 捕获，与我们 burst 负�
 python benchmark/nano.py --num-requests 12 --max-num-seqs 8 --gpu-mem-util 0.3          # graph
 python benchmark/nano.py --num-requests 12 --max-num-seqs 8 --gpu-mem-util 0.3 --enforce-eager
 ```
+
+### 7.1 为什么我们的 v2 反而比 nano eager 快？（profile 归因，2026-10-26）
+
+两边同负载跑 torch.profiler（nano: 223 步；我们: 混合负载）：
+
+| | nano-vllm eager | 我们 v2 |
+|---|---|---|
+| 每步 CPU 时间（主导） | ~40 ms | ~24 ms |
+| 每步 GPU 时间 | **7.4 ms** | 12.6 ms |
+| 每输出 token GPU | **1.43 ms** | 2.27 ms |
+
+**nano 的 CPU 去哪了：torch.compile 的 guard 税。** nano 把 RMSNorm 和 sampler 都用
+@torch.compile 装饰。eager 模式下每次调用都要走 TorchDynamo cache lookup + guard
+评估：profile 实测 **TorchDynamo Cache Lookup 37,910 次（631ms 纯 CPU）**，
+4 个 CompiledFxGraph 的 dispatch 合计 ~2.5s——**约占其 CPU 总时间的 40%**。
+每步 = 28 层 × 2 个 compiled RMSNorm + compiled sampler ≈ 57 次 dynamo guard/步。
+
+我们的 RmsNorm/sampler 是裸 aten 调用，没有 dynamo 层——所以 eager 下我们
+36.6ms vs nano 48.2ms。nano 的设计假设就是跑 CUDA graph 模式（graph 回放完全
+绕过 python/dynamo），eager 只是它的调试通道，我们赢在一个人家不主打的模式上。
+
+**但 GPU 侧 nano 是真的快**：flash decode kernel（flash_fwd_splitkv）+ Inductor
+融合的 RMSNorm（triton_red_fused 单 kernel 替我们的 mean/rsqrt/mul 三连），
+每 token GPU 时间 1.43ms vs 我们 2.27ms（1.6 倍）。
+
+### 7.2 由 profile 推出的路线图（修正 §7 的结论）
+
+1. CUDA graph 仍然第一优先：我们 graph 后预计 TPOT ≈ GPU 时间 12.6ms/步
+   （~350 tok/s），比现在 36.6ms 翻近 3 倍；
+2. 但 graph 之后**瓶颈变成 kernel 质量**：nano 同条件下 4.1ms/步。差距来源
+   按实测排序：(a) flash decode kernel 替代我们的 matmul+softmax 手写注意力；
+   (b) 融合 RMSNorm（我们每层 3 次 elementwise+1 次 reduce，他们 1 个 triton kernel）；
+   (c) 我们的 read_batch gather 拷贝（他们 flash_attn_with_kvcache 直接按 block 表算）。
+3. 所以完整路线：CUDA graph（v3.0）→ flash-attn decode kernel 接入（v3.1）→
+   RMSNorm 融合（v3.2，torch.compile 单层或手写 triton）。
