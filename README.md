@@ -10,8 +10,10 @@
 
 ## Quick Start
 
+环境细节（flash-attn 编译 / vLLM 独立 venv / 代理坑 / GPU 共享）见 **[ENVIRONMENT.md](ENVIRONMENT.md)**。
+
 ```bash
-# 依赖：torch / transformers(仅 tokenizer) / safetensors / tokenizers / triton / xxhash
+# 依赖：torch / transformers(仅 tokenizer) / safetensors / triton / xxhash
 pip install torch transformers safetensors triton xxhash
 
 # 模型：默认在仓库根的上一级找 Qwen3-0.6B，可用环境变量覆盖
