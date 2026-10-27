@@ -265,7 +265,7 @@ def main():
     sys.path.insert(0, os.path.join(ROOT, args.engine))
 
     if args.engine in ("v3", "v4"):
-        from nanovllm.engine.llm_engine import LLMEngine
+        from engine.llm_engine import LLMEngine
         from samplingParams import SamplingParams
         from transformers import AutoTokenizer
     else:

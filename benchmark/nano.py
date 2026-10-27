@@ -33,6 +33,7 @@ def main():
     args = ap.parse_args()
 
     from transformers import AutoTokenizer
+    sys.path.insert(0, NANO)
     from nanovllm import LLM, SamplingParams
 
     tok = AutoTokenizer.from_pretrained(MODEL_PATH)
