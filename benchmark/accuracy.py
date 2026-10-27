@@ -31,6 +31,10 @@ def worker(args):
     """在独立进程里跑单个测试，结果以 JSON 打到 stdout。"""
     sys.path.insert(0, os.path.join(ROOT, args.engine))
     import torch
+    try:
+        from engine.llm_engine import Engine               # v0/v1/v2
+    except ImportError:
+        from engine.llm_engine import LLMEngine as Engine   # v3/v4/v5
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(MODEL_PATH)
     prompts = [tok.apply_chat_template([{"role": "user", "content": q}],
@@ -48,7 +52,6 @@ def worker(args):
         return Engine(MODEL_PATH, batch_size=8, max_seq_len=4096, dtype=dtype, **ekw)
 
     if args.run == "T1":       # greedy 确定性
-        from engine.engine import Engine
         from samplingParams import SamplingParams
         llm = make_engine(torch.bfloat16)
         sp = SamplingParams(temperature=0.0, max_tokens=32)
@@ -60,7 +63,6 @@ def worker(args):
     elif args.run == "T2":     # batch 一致性：batch 里跑 == 单独跑
         # 用 fp32：bf16 下 batch 形状不同会让 kernel 归约顺序不同，长输出会数值性分歧
         # （不是逻辑 bug）。fp32 把数值噪声压掉，只留逻辑错误。
-        from engine.engine import Engine
         from samplingParams import SamplingParams
         llm = make_engine(torch.float32)
         sp = SamplingParams(temperature=0.0, max_tokens=32)
@@ -75,7 +77,6 @@ def worker(args):
         result["detail"] = "(fp32) " + " ".join(detail)
 
     elif args.run == "T3":     # 单请求生成（给 T3 驱动做 v0/v1 对比）
-        from engine.engine import Engine
         from samplingParams import SamplingParams
         llm = make_engine(torch.bfloat16)
         sp = SamplingParams(temperature=0.0, max_tokens=48)
@@ -85,7 +86,6 @@ def worker(args):
     elif args.run == "T4":     # HF transformers 对齐（fp32 逐 token）
         # bf16 下双方 kernel 数值噪声会把 argmax 翻掉（前缀一致 23~32/32），
         # fp32 下实现正确应逐 token 一致（修复 eps + in-place bug 后实测 32/32）
-        from engine.engine import Engine
         from samplingParams import SamplingParams
         from transformers import AutoModelForCausalLM
         llm = make_engine(torch.float32)

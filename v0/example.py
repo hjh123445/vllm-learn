@@ -1,4 +1,4 @@
-from engine.engine import Engine
+from engine.llm_engine import Engine
 from samplingParams import SamplingParams
 from transformers import AutoTokenizer
 import os

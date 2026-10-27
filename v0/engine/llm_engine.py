@@ -1,4 +1,4 @@
-# v0/engine/engine.py
+# v0/engine/llm_engine.py
 """v0 引擎：只做协调。
 generate 主循环在这里——Batch 只管状态（get/append/is_finished），
 Scheduler 只管排队（add/schedule），ModelRunner 只管计算（forward/mask/sample）。"""
