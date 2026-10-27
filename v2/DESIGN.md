@@ -124,3 +124,39 @@ while scheduler.busy:
 3. 合批 prefill + chunked prefill；
 4. per-request 采样参数；
 5. CUDA graph 包 decode 步（0.6B decode 是 CPU 发射瓶颈，这是最大单项收益）。
+
+---
+
+## 7. 与 nano-vllm 的实测对比与 profile 结论（2026-10-26）
+
+环境：flash-attn 2.8.4 源码编译（sm80），同负载同方法学（12 请求 / 并发 8 /
+max_tokens 32/96/160 混合 / 近似 greedy）。数据与复现命令见 `benchmark/PERFORMANCE_NOTES.md` §7。
+
+| 引擎 | TPOT | 吞吐 |
+|---|---|---|
+| v2（本版本） | 36.6 ms | 141.5 tok/s |
+| nano-vllm eager | 48.2 ms | 108.9 tok/s |
+| nano-vllm + CUDA graph | 4.1 ms | 581.6 tok/s |
+
+### 7.1 为什么我们比 nano 的 eager 还快：torch.compile guard 税
+
+双端 torch.profiler 归因（每步）：nano CPU ~40ms / GPU 7.4ms；我们 CPU ~24ms / GPU 12.6ms。
+nano 的 CPU 里约 40% 是 torch.compile 的调度开销——它的 RMSNorm/sampler 带 @torch.compile，
+eager 模式下每次调用都走 TorchDynamo 缓存查找 + guard 评估（实测 Cache Lookup 37,910 次 /
+631ms，CompiledFxGraph dispatch 合计 ~2.5s，每步 ≈ 57 次 guard 调用）。
+我们裸 aten 无 dynamo 层，所以 eager 下赢。nano 的设计目标是 graph 模式（回放绕过全部
+python/dynamo），eager 只是调试通道。
+
+### 7.2 诚实的另一面：GPU 侧 nano 快 1.6 倍
+
+每输出 token GPU 时间：nano 1.43ms vs 我们 2.27ms。来源：flash decode kernel
+（flash_fwd_splitkv，按 block 表直算，零 gather）+ Inductor 融合 RMSNorm
+（1 个 triton kernel 对我们每层 4 个 aten kernel）。
+
+### 7.3 由对比修正的 v3 路线（量化过的总差距 ≈ 4.8 倍）
+
+1. **v3.0 CUDA graph**：graph 后每步时间 ≈ GPU 时间，36.6 → 预计 ~12ms（≈3 倍）。
+   前提我们已具备：v2 的 flattened plan 固定形状 + 预分配 buffer。
+2. **v3.1 flash-attn decode kernel**（flash_attn_with_kvcache，block 表直喂）+ RMSNorm 融合：
+   追 kernel 质量的 1.6 倍，到 ~4ms/步。
+3. 3 倍 × 1.6 倍 ≈ 4.8 倍 ≈ 实测总差距 141.5 → 581.6 tok/s。
