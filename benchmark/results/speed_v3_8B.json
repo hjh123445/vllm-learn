@@ -1,0 +1,10 @@
+{
+ "engine": "v3",
+ "model": "Qwen3-8B",
+ "ttft_avg_ms": 141.7,
+ "tpot_avg_ms": 48.9,
+ "e2e_p50_ms": 4140.6,
+ "total_out_tokens": 1152,
+ "total_time": 9.23,
+ "tok_per_s": 124.8
+}

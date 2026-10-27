@@ -86,7 +86,9 @@ class ModelRunner:
         head_dim = getattr(hf, "head_dim", hf.hidden_size // hf.num_attention_heads)
         block_bytes = 2 * hf.num_hidden_layers * self.block_size * num_kv_heads * head_dim * self.dtype.itemsize
         config.num_kvcache_blocks = int(total * config.gpu_memory_utilization - used - peak + current) // block_bytes
-        assert config.num_kvcache_blocks > 0
+        assert config.num_kvcache_blocks > 0, (
+            f"KV 池预算不足: 总显存 {total/1e9:.1f}GB × 利用率 {config.gpu_memory_utilization} "
+            f"− 其他进程 {(used-current)/1e9:.1f}GB − 激活峰值 {peak/1e9:.1f}GB ≤ 0，调大 gpu_memory_utilization")
         self.kv_cache = torch.empty(2, hf.num_hidden_layers, config.num_kvcache_blocks,
                                     self.block_size, num_kv_heads, head_dim,
                                     dtype=self.dtype, device=self.device)
