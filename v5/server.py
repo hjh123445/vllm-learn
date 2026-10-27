@@ -15,7 +15,9 @@
 import argparse
 import json
 import os
+import signal
 import sys
+import threading
 import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -152,13 +154,25 @@ def main():
     Handler.tokenizer = tok
     ThreadingHTTPServer.request_queue_size = 256   # 64+ 并发同时建连不打爆 accept 队列（默认 5）
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
+
+    # 优雅退出：SIGTERM/SIGINT 都走清理路径（不注册的话 SIGTERM 直接击杀进程，
+    # finally 不执行、在途连接被 RST）。srv.shutdown 必须从别的线程调
+    # （signal handler 跑在 serve_forever 同一个主线程里，直接调会死锁）。
+    def graceful_shutdown(signum, frame):
+        print(f"[server] 收到 {signal.Signals(signum).name}，正在关闭……", flush=True)
+        engine.stop()
+        threading.Thread(target=srv.shutdown, daemon=True).start()
+
+    signal.signal(signal.SIGTERM, graceful_shutdown)
+    signal.signal(signal.SIGINT, graceful_shutdown)
+
     print(f"[server] http://{args.host}:{args.port}/v1/chat/completions  (model={os.path.basename(args.model)})")
     try:
         srv.serve_forever()
-    except KeyboardInterrupt:
-        pass
     finally:
-        engine.stop()
+        engine.stop()                      # 幂等：stop 走两遍安全
+        srv.server_close()
+        print("[server] 已退出", flush=True)
 
 
 if __name__ == "__main__":
