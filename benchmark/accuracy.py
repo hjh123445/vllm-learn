@@ -40,8 +40,8 @@ def worker(args):
     result = {"test": args.run, "engine": args.engine}
 
     def make_engine(dtype=torch.bfloat16):
-        """三个引擎的构造参数不同：v0/v1/v2 用 batch_size/max_seq_len，v3 用 nano 的 Config 字段。"""
-        if args.engine == "v3":
+        """引擎构造参数不同：v0/v1/v2 用 batch_size/max_seq_len，v3/v4 用 nano 的 Config 字段。"""
+        if args.engine in ("v3", "v4"):
             return Engine(MODEL_PATH, max_num_seqs=8, max_model_len=4096,
                           gpu_memory_utilization=0.25, enforce_eager=True, dtype=dtype)
         ekw = {"gpu_memory_utilization": 0.25} if args.engine == "v2" else {}
@@ -130,14 +130,14 @@ def spawn(run, engine, **kw):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", choices=["T1", "T2", "T3", "T4"])
-    ap.add_argument("--engine", choices=["v0", "v1", "v2", "v3"])
+    ap.add_argument("--engine", choices=["v0", "v1", "v2", "v3", "v4"])
     ap.add_argument("--test", type=int)
     args = ap.parse_args()
     if args.run:
         return worker(args)
 
     results = []
-    ENGINES = ("v0", "v1", "v2", "v3")
+    ENGINES = ("v0", "v1", "v2", "v3", "v4")
     if not args.test or args.test == 1:
         for e in ENGINES:
             results.append((f"T1 greedy 确定性 [{e}]", spawn("T1", e)))
@@ -145,17 +145,22 @@ def main():
         for e in ENGINES:
             results.append((f"T2 batch 一致性 [{e}]", spawn("T2", e)))
     if not args.test or args.test == 3:
-        outs = [spawn("T3", e) for e in ENGINES]
+        # v4 的 triton kernel 全程 fp32 计算（比 bf16 torch 路径更精确），bf16 下
+        # 逐位等价不成立（深分歧 = 数值噪声）；v4 的正确性由 T4 的 fp32 HF 对齐把关
+        outs = [spawn("T3", e) for e in ("v0", "v1", "v2", "v3")]
         ref = outs[0].get("outputs", [])
         same = all(o.get("outputs") == ref for o in outs[1:])
         ok = all(o.get("pass") for o in outs)
-        results.append(("T3 v0/v1/v2/v3 等价（单请求路径）",
+        results.append(("T3 v0/v1/v2/v3 等价（单请求路径, bf16）",
                         {"pass": bool(same and ok),
-                         "detail": f"4 条请求逐 token 对比: {'全部一致' if same else '存在分歧'}"}))
+                         "detail": f"4 条请求逐 token 对比: {'全部一致' if same else '存在分歧'} "
+                                   f"(v4 由 T4-fp32 把关)"}))
     if not args.test or args.test == 4:
         results.append(("T4 HF transformers 对齐 [v2]", spawn("T4", "v2")))
     if not args.test or args.test == 4:
         results.append(("T4 HF transformers 对齐 [v3]", spawn("T4", "v3")))
+    if not args.test or args.test == 4:
+        results.append(("T4 HF transformers 对齐 [v4]", spawn("T4", "v4")))
 
     n_pass = sum(1 for _, r in results if r["pass"])
     print(f"\n===== accuracy: {n_pass}/{len(results)} PASS =====")

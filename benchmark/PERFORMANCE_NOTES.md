@@ -247,3 +247,46 @@ python benchmark/nano.py --num-requests 12 --max-num-seqs 8 --gpu-mem-util 0.3 -
    (c) 我们的 read_batch gather 拷贝（他们 flash_attn_with_kvcache 直接按 block 表算）。
 3. 所以完整路线：CUDA graph（v3.0）→ flash-attn decode kernel 接入（v3.1）→
    RMSNorm 融合（v3.2，torch.compile 单层或手写 triton）。
+
+---
+
+## 8. v4：手写 triton 融合算子 + FlashAttention（2026-10-27）
+
+v4 = v3 的调度栈 + 全手写 kernel 层。融合决策由 §7.1 的 profile 数据定：
+**per-layer 的手写 triton（零 guard 税），per-step 的用 torch.compile（税可忽略）**。
+
+| kernel | 替代的 aten ops | 说明 |
+|---|---|---|
+| fused_add_rmsnorm | 7 | 残差加法一起吃掉，全模型零 aten add |
+| silu_and_mul | 4 | SwiGLU 后半 |
+| fused_qk_norm_rope_store | 30+ | q/k norm + rope + cache 写入四合一，k/v rope 后直接散射进槽位 |
+| decode_attn (triton) | 8+ | paged flash decoding：在线 softmax + GQA + 块表直读，零 gather 零 repeat |
+| prefill_attn (triton) | 6+/序列 | paged causal flash：chunked prefill/前缀缓存通用（底右对齐），tl.dot |
+| Sampler (torch.compile) | - | 每步一次，guard 税可忽略 |
+
+### 实测（同负载：12 请求 / 并发 8 / max_tokens 32/96/160）
+
+| | v2 | v3 | **v4** | nano eager | nano graph |
+|---|---|---|---|---|---|
+| TPOT | 36.6 | 37.6 | **14.2 ms** | 48.2 | 4.1 |
+| 吞吐 | 141.5 | 162.7 | **325.7 tok/s** | 108.9 | 581.6 |
+| TTFT avg | 585 | 114 | **23.7 ms** | 1021 | 1207 |
+
+v4 = v2 的 2.3 倍、nano eager 的 3 倍，达到 nano graph 的 56%。
+**kernel 层追平后，剩下的差距全部回到 CPU 发射**：profile 显示 triton launch 自带
+cudaFuncSetAttribute（每次 +~15µs CPU），~280 次 kernel 启动 ≈ 4-5ms/步。
+下一站就是 CUDA graph——把 triton kernel 一起录进去，预期 ~5ms/步（nano 同级）。
+
+### 验证
+
+accuracy **14/14 PASS**：T1 greedy 确定、T2 fp32 batch 一致、T4 fp32 与 HF **100% 对齐**。
+T3（bf16 跨引擎逐位等价）对 v4 不适用且已注明原因：v4 全程 fp32 计算比 bf16 torch
+路径**更精确**，bf16 argmax 会在深处分歧（实测首分歧在 token 23-48/48，
+T4 fp32 32/32 是权威裁决）。全部 kernel 逐个对拍过纯 PyTorch 参考（fp32 err ~1e-7）。
+
+### 踩坑
+
+1. prefill 的 cu_seqlens_k 是绝对前缀和：键长必须 `k[seq+1] - k[seq]`，
+   直接取 `[seq+1]` 第一条序列碰巧对（起点为 0），第二条起全错——逐序列单测抓的；
+2. cache 偏移一律 int64：13000 block × 26 万元素/block 会溢出 int32；
+3. triton `tl.dot(fp32)` 默认 tf32，验证路径要 `input_precision="ieee"`。

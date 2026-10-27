@@ -250,7 +250,7 @@ def run_v3(llm, prompt_ids, sps):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--engine", choices=["v0", "v1", "v2", "v3"], required=True)
+    ap.add_argument("--engine", choices=["v0", "v1", "v2", "v3", "v4"], required=True)
     ap.add_argument("--num-requests", type=int, default=12)
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--max-seq-len", type=int, default=4096)
@@ -264,7 +264,7 @@ def main():
 
     sys.path.insert(0, os.path.join(ROOT, args.engine))
 
-    if args.engine == "v3":
+    if args.engine in ("v3", "v4"):
         from nanovllm.engine.llm_engine import LLMEngine
         from samplingParams import SamplingParams
         from transformers import AutoTokenizer
@@ -292,7 +292,7 @@ def main():
                   eos=tok.eos_token_id, **ekw)
 
     def call():
-        if args.engine == "v3":
+        if args.engine in ("v3", "v4"):
             llm = LLMEngine(MODEL_PATH, max_num_seqs=args.batch_size,
                             max_model_len=args.max_seq_len,
                             gpu_memory_utilization=args.gpu_mem_util, enforce_eager=True)
