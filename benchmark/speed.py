@@ -30,7 +30,7 @@ def run(engine, num_requests, batch_size, max_tokens=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--engine", choices=["v0", "v1", "v2"], required=True)
+    ap.add_argument("--engine", choices=["v0", "v1", "v2", "v3"], required=True)
     ap.add_argument("--num-requests", type=int, default=12)
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--max-tokens", type=int, default=None,

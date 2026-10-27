@@ -203,11 +203,54 @@ def run_v2(runner, sch, prompt_ids, sps, batch_size, max_seq_len, eos_ids):
             "total_time": time.perf_counter() - t0}
 
 
+# ---------------------------------------------------------------- v3
+
+def run_v3(llm, prompt_ids, sps):
+    """v3: nano 的 scheduler/block_manager + 我们的模型。循环 = schedule → run → postprocess。"""
+    import time as _t
+    stage = {"prefill": 0.0, "decode": 0.0}
+    t0 = _t.perf_counter()
+    seqs_in = [llm.add_request(p, sp) for p, sp in zip(prompt_ids, sps)]
+    recs, steps = {}, []
+
+    while not llm.is_finished():
+        seqs, is_prefill = llm.scheduler.schedule()
+        for seq in seqs:
+            recs.setdefault(seq.seq_id, {"first_token_t": None, "finish_t": None,
+                                         "admit_t": _t.perf_counter() - t0, "n_tokens": 0})
+        ts = _t.perf_counter()
+        token_ids = llm.model_runner.run(seqs, is_prefill)
+        stage["prefill" if is_prefill else "decode"] += _t.perf_counter() - ts
+        now = _t.perf_counter()
+        for seq in seqs:
+            if is_prefill and len(seq.completion_token_ids) > 0 and recs[seq.seq_id]["first_token_t"] is None:
+                recs[seq.seq_id]["first_token_t"] = now - t0
+        llm.scheduler.postprocess(seqs, token_ids, is_prefill)
+        now = _t.perf_counter()
+        for seq in seqs:
+            if len(seq.completion_token_ids) > 0 and recs[seq.seq_id]["first_token_t"] is None:
+                recs[seq.seq_id]["first_token_t"] = now - t0
+            if seq.is_finished and recs[seq.seq_id]["finish_t"] is None:
+                recs[seq.seq_id]["finish_t"] = now - t0
+        if not is_prefill:
+            steps.append({"t": now - t0, "n_running": len(seqs),
+                          "n_active": len(seqs)})
+
+    reqs = []
+    for seq in seqs_in:
+        r = recs[seq.seq_id]
+        r["n_tokens"] = len(seq.completion_token_ids)
+        r["output"] = list(seq.completion_token_ids)
+        reqs.append(r)
+    return {"requests": reqs, "steps": steps, "stage_times": stage,
+            "total_time": _t.perf_counter() - t0}
+
+
 # ---------------------------------------------------------------- worker
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--engine", choices=["v0", "v1", "v2"], required=True)
+    ap.add_argument("--engine", choices=["v0", "v1", "v2", "v3"], required=True)
     ap.add_argument("--num-requests", type=int, default=12)
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--max-seq-len", type=int, default=4096)
@@ -221,10 +264,15 @@ def main():
 
     sys.path.insert(0, os.path.join(ROOT, args.engine))
 
-    from engine.scheduler import Scheduler as S0
-    from engine.model_runner import ModelRunner as R0
-    from samplingParams import SamplingParams
-    from transformers import AutoTokenizer
+    if args.engine == "v3":
+        from nanovllm.engine.llm_engine import LLMEngine
+        from samplingParams import SamplingParams
+        from transformers import AutoTokenizer
+    else:
+        from engine.scheduler import Scheduler as S0
+        from engine.model_runner import ModelRunner as R0
+        from samplingParams import SamplingParams
+        from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(MODEL_PATH)
     eos_ids = {tok.eos_token_id}
     pad_id = tok.pad_token_id or tok.eos_token_id
@@ -244,6 +292,11 @@ def main():
                   eos=tok.eos_token_id, **ekw)
 
     def call():
+        if args.engine == "v3":
+            llm = LLMEngine(MODEL_PATH, max_num_seqs=args.batch_size,
+                            max_model_len=args.max_seq_len,
+                            gpu_memory_utilization=args.gpu_mem_util, enforce_eager=True)
+            return run_v3(llm, prompt_ids, sps)
         if args.engine == "v0":
             return run_v0(R0, S0, eos_ids=eos_ids, pad_id=pad_id, **kwargs)
         if args.engine == "v1":

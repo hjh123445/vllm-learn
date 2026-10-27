@@ -2,51 +2,19 @@
 """v2 ModelRunner：显存的唯一所有者 + 平铺前向。
 
 step(reqs, is_prefill) 是唯一的前向入口：
-  把这一步的请求摊平成 [total_q, hidden] 过模型（prefill 和 decode 都一样），
-  plan 一次算好、全部层共享；lm_head 只在要出 token 的位置算。
-池子大小由 warmup 量出来（权重 + 激活峰值都是实测，不是算出来的）。"""
+  1. 把这一步的请求摊平成 [total_q, hidden]；
+  2. 算好 slot 映射 / decode 组 / prefill 行 → set_context 一次（全局 Context 单例）；
+  3. model(input_ids, positions)——模型不带任何 attention 参数；
+  4. lm_head 只在要出 token 的位置算。
+池子大小由 warmup 量出来（权重 + 激活峰值都是实测）。"""
 import torch
 
 from config import Qwen3Config
 from models.qwen3 import Qwen3ForCausalLM
 from engine.kv_cache import KVCacheManager
+from engine.context import set_context, reset_context
 from engine.request import Request
 from utils.loader import load_model
-
-
-class SeqSpan:
-    """平铺批里一个 prefill 请求（序列）的 attention 计划。"""
-    __slots__ = ("i0", "i1", "tabs", "read_len", "mask")
-
-    def __init__(self, i0, i1, tabs, read_len, mask):
-        self.i0, self.i1 = i0, i1
-        self.tabs = tabs                # [nblk] block 表切片
-        self.read_len = read_len
-        self.mask = mask                # [1, 1, s, L] 加性 mask
-
-
-class DecodeGroup:
-    """decode 组（全部 s=1 的序列，天然同形）的 attention 计划。"""
-    __slots__ = ("n", "idx", "tabs", "read_len", "mask")
-
-    def __init__(self, n, idx, tabs, read_len, mask):
-        self.n = n
-        self.idx = idx                  # [n] 组内各序列在 flat 批里的索引
-        self.tabs = tabs                # [n, nblk] padded block 表
-        self.read_len = read_len
-        self.mask = mask                # [n, 1, 1, L] 加性 mask
-
-
-class FlatPlan:
-    """一次平铺 forward 的 attention 计划（全部层共享）。"""
-    __slots__ = ("positions", "tok_blk", "tok_off", "spans", "dec")
-
-    def __init__(self, positions, tok_blk, tok_off, spans, dec):
-        self.positions = positions      # [total_q] RoPE 位置
-        self.tok_blk = tok_blk         # [total_q] 每 token 的目标 block 号（写 cache 用）
-        self.tok_off = tok_off         # [total_q] 块内偏移
-        self.spans = spans             # list[SeqSpan] prefill 行
-        self.dec = dec                 # DecodeGroup | None
 
 
 class ModelRunner:
@@ -84,7 +52,6 @@ class ModelRunner:
         reqs = [Request(10_000 + i, list(range(256)), sp, set()) for i in range(B)]
         for req in reqs:
             self.kv.allocate(req.id, 256)
-        # dummy 覆盖 prefill 和 decode 两种形状
         tokens = self.step(reqs, True, 0.0, 1.0)
         for req, t in zip(reqs, tokens.tolist()):
             req.step(t)
@@ -95,6 +62,7 @@ class ModelRunner:
         peak = torch.cuda.max_memory_allocated()
         for r in reqs:
             self.kv.free(r.id)
+        reset_context()
 
         # 峰值里含临时池，扣掉才是"权重 + 激活"的真预算
         peak_no_pool = peak - self.kv.pool_bytes()
@@ -116,12 +84,12 @@ class ModelRunner:
     @torch.no_grad()
     def step(self, reqs: list, is_prefill: bool,
              temperature: float, top_p: float) -> torch.Tensor:
-        """这一步的请求摊平成一个 [total_q] 批过模型（prefill/decode 同一条路径）。
-        prefill 的进 spans（逐行），decode 的进 DecodeGroup（组批）。
+        """这一步的请求摊平成一个 [total_q] 批：算好 Context → 前向 → 采样。
         返回 [len(reqs)] 个 token，与 reqs 对齐。"""
         neg = torch.finfo(self.dtype).min
         dev, bs = self.device, self.kv.block_size
-        ids, poss, tblks, toffs, spans, logits_idx = [], [], [], [], [], []
+        ids, poss, slots = [], [], []
+        pf_spans, pf_masks, logits_idx = [], [], []
         dec_idx, dec_pos, dec_tabs_rows = [], [], []
         off = 0
 
@@ -132,51 +100,52 @@ class ModelRunner:
                 ids.append(torch.tensor(req.prompt_ids))
                 tabs = self.kv.block_table(req.id, self.kv.nblocks(L))
                 causal = pos[:, None] >= pos[None, :]
-                mask = torch.where(causal, 0.0, neg).to(self.dtype).to(dev)[None, None]
-                spans.append(SeqSpan(off, off + L, tabs, L, mask))
+                pf_masks.append(torch.where(causal, 0.0, neg).to(self.dtype).to(dev)[None, None])
+                pf_spans.append((off, off + L, tabs, L))
                 logits_idx.append(off + L - 1)             # 每行最后一个 prompt token
             else:
                 p = req.cur_len - 1                         # 被喂 token 的位置
                 pos = torch.tensor([p])
                 ids.append(torch.tensor([req.generated[-1]]))
-                tabs_d = self.kv.block_table(req.id, self.kv.nblocks(p + 1))
+                dec_tabs_rows.append(self.kv.block_table(req.id, self.kv.nblocks(p + 1)))
                 dec_idx.append(off)
                 dec_pos.append(p)
-                dec_tabs_rows.append(tabs_d)
                 logits_idx.append(off)
             poss.append(pos)
-            tblks.append(pos // bs)                         # 先记 block 内偏移量，下面统一换算
-            toffs.append(pos % bs)
+            slots.append(pos // bs)                         # 先记块内序号，下面统一换槽位
             off += len(pos)
 
         # ---- decode 组：padded block 表 [n, nblk_max] + 长度 mask ----
-        dec = None
+        dec_n, dec_tabs, dec_read_len, dec_mask, dec_idx_t = 0, None, 0, None, None
         if dec_idx:
-            read_len = max(dec_pos) + 1
-            nblk = self.kv.nblocks(read_len)
-            tabs = torch.stack([t if len(t) == nblk else torch.cat(
+            dec_n = len(dec_idx)
+            dec_read_len = max(dec_pos) + 1
+            nblk = self.kv.nblocks(dec_read_len)
+            dec_tabs = torch.stack([t if len(t) == nblk else torch.cat(
                 [t, torch.zeros(nblk - len(t), dtype=torch.long, device=t.device)])
                 for t in dec_tabs_rows])
-            slots = torch.arange(read_len)
-            valid = slots[None, :] <= torch.tensor(dec_pos)[:, None]   # slot <= 自己的位置
-            mask = torch.where(valid[:, None, None], 0.0, neg).to(self.dtype).to(dev)
-            dec = DecodeGroup(len(dec_idx), torch.tensor(dec_idx), tabs, read_len, mask)
+            slots_d = torch.arange(dec_read_len)
+            valid = slots_d[None, :] <= torch.tensor(dec_pos)[:, None]   # slot <= 自己的位置
+            dec_mask = torch.where(valid[:, None, None], 0.0, neg).to(self.dtype).to(dev)
+            dec_idx_t = torch.tensor(dec_idx, device=dev)
 
-        # ---- 每 token 的目标 block 号：逐请求查一次自己的 block 表 ----
-        blk_list = []
+        # ---- 每 token 的全局槽位：逐请求查一次自己的 block 表 ----
+        slot_list = []
         for j, req in enumerate(reqs):
-            tab = spans[j].tabs if is_prefill else dec_tabs_rows[j]
-            blk_list.append(tab[poss[j] // bs])
-        tok_blk = torch.cat(blk_list).to(dev)
+            tab = pf_spans[j][2] if is_prefill else dec_tabs_rows[j]
+            slot_list.append(tab[poss[j] // bs] * bs + poss[j] % bs)
+        slot_mapping = torch.cat(slot_list).to(dev)
 
         input_ids = torch.cat(ids).to(dev)
-        plan = FlatPlan(positions=torch.cat(poss).to(dev),
-                        tok_blk=tok_blk,
-                        tok_off=torch.cat(toffs).to(dev),
-                        spans=spans, dec=dec)
+        positions = torch.cat(poss).to(dev)
+        # 上下文一次设好，全部层共享；模型只吃 (input_ids, positions)
+        set_context(is_prefill=is_prefill, slot_mapping=slot_mapping,
+                   dec_n=dec_n, dec_idx=dec_idx_t, dec_tabs=dec_tabs,
+                   dec_read_len=dec_read_len, dec_mask=dec_mask,
+                   pf_spans=pf_spans, pf_masks=pf_masks)
 
-        hidden = self.model(input_ids, plan)                    # [total_q, hidden]
-        h_need = hidden[torch.tensor(logits_idx, device=dev)]   # 只在要出 token 的位置算 lm_head
+        hidden = self.model(input_ids, positions)                 # [total_q, hidden]
+        h_need = hidden[torch.tensor(logits_idx, device=dev)]    # 只在要出 token 的位置算 lm_head
         logits = self.model.compute_logits(h_need)
         return self.sample(logits, temperature, top_p)
 

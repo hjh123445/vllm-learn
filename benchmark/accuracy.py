@@ -38,13 +38,19 @@ def worker(args):
                for q in QUESTIONS]
 
     result = {"test": args.run, "engine": args.engine}
-    # v2 会按 gpu_memory_utilization 划池子；测试机上设小一点
-    ekw = {"gpu_memory_utilization": 0.25} if args.engine == "v2" else {}
+
+    def make_engine(dtype=torch.bfloat16):
+        """三个引擎的构造参数不同：v0/v1/v2 用 batch_size/max_seq_len，v3 用 nano 的 Config 字段。"""
+        if args.engine == "v3":
+            return Engine(MODEL_PATH, max_num_seqs=8, max_model_len=4096,
+                          gpu_memory_utilization=0.25, enforce_eager=True, dtype=dtype)
+        ekw = {"gpu_memory_utilization": 0.25} if args.engine == "v2" else {}
+        return Engine(MODEL_PATH, batch_size=8, max_seq_len=4096, dtype=dtype, **ekw)
 
     if args.run == "T1":       # greedy 确定性
         from engine.engine import Engine
         from samplingParams import SamplingParams
-        llm = Engine(MODEL_PATH, batch_size=8, max_seq_len=4096, dtype=torch.bfloat16, **ekw)
+        llm = make_engine(torch.bfloat16)
         sp = SamplingParams(temperature=0.0, max_tokens=32)
         a = llm.generate([prompts[0]], sp)[0]["token_ids"]
         b = llm.generate([prompts[0]], sp)[0]["token_ids"]
@@ -56,7 +62,7 @@ def worker(args):
         # （不是逻辑 bug）。fp32 把数值噪声压掉，只留逻辑错误。
         from engine.engine import Engine
         from samplingParams import SamplingParams
-        llm = Engine(MODEL_PATH, batch_size=8, max_seq_len=4096, dtype=torch.float32, **ekw)
+        llm = make_engine(torch.float32)
         sp = SamplingParams(temperature=0.0, max_tokens=32)
         batched = llm.generate(prompts, sp)
         result["pass"] = True
@@ -71,7 +77,7 @@ def worker(args):
     elif args.run == "T3":     # 单请求生成（给 T3 驱动做 v0/v1 对比）
         from engine.engine import Engine
         from samplingParams import SamplingParams
-        llm = Engine(MODEL_PATH, batch_size=8, max_seq_len=4096, dtype=torch.bfloat16, **ekw)
+        llm = make_engine(torch.bfloat16)
         sp = SamplingParams(temperature=0.0, max_tokens=48)
         result["outputs"] = [llm.generate([p], sp)[0]["token_ids"] for p in prompts]
         result["pass"] = all(len(o) == 48 for o in result["outputs"])
@@ -82,7 +88,7 @@ def worker(args):
         from engine.engine import Engine
         from samplingParams import SamplingParams
         from transformers import AutoModelForCausalLM
-        llm = Engine(MODEL_PATH, batch_size=8, max_seq_len=4096, dtype=torch.float32, **ekw)
+        llm = make_engine(torch.float32)
         sp = SamplingParams(temperature=0.0, max_tokens=32)
         ours = [llm.generate([p], sp)[0]["token_ids"] for p in prompts]
 
@@ -124,14 +130,14 @@ def spawn(run, engine, **kw):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", choices=["T1", "T2", "T3", "T4"])
-    ap.add_argument("--engine", choices=["v0", "v1", "v2"])
+    ap.add_argument("--engine", choices=["v0", "v1", "v2", "v3"])
     ap.add_argument("--test", type=int)
     args = ap.parse_args()
     if args.run:
         return worker(args)
 
     results = []
-    ENGINES = ("v0", "v1", "v2")
+    ENGINES = ("v0", "v1", "v2", "v3")
     if not args.test or args.test == 1:
         for e in ENGINES:
             results.append((f"T1 greedy 确定性 [{e}]", spawn("T1", e)))
@@ -143,11 +149,13 @@ def main():
         ref = outs[0].get("outputs", [])
         same = all(o.get("outputs") == ref for o in outs[1:])
         ok = all(o.get("pass") for o in outs)
-        results.append(("T3 v0/v1/v2 等价（单请求路径）",
+        results.append(("T3 v0/v1/v2/v3 等价（单请求路径）",
                         {"pass": bool(same and ok),
                          "detail": f"4 条请求逐 token 对比: {'全部一致' if same else '存在分歧'}"}))
     if not args.test or args.test == 4:
         results.append(("T4 HF transformers 对齐 [v2]", spawn("T4", "v2")))
+    if not args.test or args.test == 4:
+        results.append(("T4 HF transformers 对齐 [v3]", spawn("T4", "v3")))
 
     n_pass = sum(1 for _, r in results if r["pass"])
     print(f"\n===== accuracy: {n_pass}/{len(results)} PASS =====")
