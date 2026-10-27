@@ -115,7 +115,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(b"0\r\n\r\n")
             self.wfile.flush()
             print(f"[server] {rid} stream done: {len(ids)} tok, "
-                  f"ttft {first_t*1e3:.0f}ms, total {time.perf_counter()-t0:.2f}s")
+                  f"ttft {first_t*1e3:.0f}ms, total {time.perf_counter()-t0:.2f}s", flush=True)
         else:
             toks = []
             while True:
@@ -128,7 +128,7 @@ class Handler(BaseHTTPRequestHandler):
                              "choices": [{"index": 0, "message": {"role": "assistant", "content": text},
                                            "finish_reason": st.finish_reason or "stop"}],
                              "usage": {"completion_tokens": len(toks)}})
-            print(f"[server] {rid} done: {len(toks)} tok, {time.perf_counter()-t0:.2f}s")
+            print(f"[server] {rid} done: {len(toks)} tok, {time.perf_counter()-t0:.2f}s", flush=True)
 
 
 def main():
@@ -150,6 +150,7 @@ def main():
 
     Handler.engine = engine
     Handler.tokenizer = tok
+    ThreadingHTTPServer.request_queue_size = 256   # 64+ 并发同时建连不打爆 accept 队列（默认 5）
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"[server] http://{args.host}:{args.port}/v1/chat/completions  (model={os.path.basename(args.model)})")
     try:

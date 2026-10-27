@@ -1,0 +1,22 @@
+{
+ "url": "http://127.0.0.1:8020",
+ "tag": "ours64",
+ "error_samples": [
+  "[Errno 104] Connection reset by peer"
+ ],
+ "num_requests": 64,
+ "arrive_interval_s": 0.0,
+ "max_tokens": 128,
+ "temperature": 0.0,
+ "wall_s": 3.75,
+ "errors": 1,
+ "ttft_avg_ms": 227.0,
+ "ttft_p50_ms": 50.4,
+ "ttft_p95_ms": 1082.8,
+ "ttft_p99_ms": 1088.1,
+ "tpot_avg_ms": 20.3,
+ "e2e_p50_ms": 1932.5,
+ "e2e_max_ms": 3745.2,
+ "total_out_tokens": 8023,
+ "out_tok_per_s": 2138.7
+}

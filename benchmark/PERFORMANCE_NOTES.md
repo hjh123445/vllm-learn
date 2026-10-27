@@ -290,3 +290,46 @@ T4 fp32 32/32 是权威裁决）。全部 kernel 逐个对拍过纯 PyTorch 参�
    直接取 `[seq+1]` 第一条序列碰巧对（起点为 0），第二条起全错——逐序列单测抓的；
 2. cache 偏移一律 int64：13000 block × 26 万元素/block 会溢出 int32；
 3. triton `tl.dot(fp32)` 默认 tf32，验证路径要 `input_precision="ieee"`。
+
+---
+
+## 9. 与正经 vLLM 的服务级压测对比（2026-10-27）
+
+环境：vLLM 0.31.0（独立 venv，自带 torch 2.13+cu130），Qwen3-0.6B，
+通用流式压测工具 `serve_bench.py`（任意 OpenAI 兼容端点，同一客户端同一口径）。
+负载：128 请求 × 128 token，20ms 到达间隔（稳态满压）。
+
+### 关键发现 0：两边"并发"语义不同，先对齐口径
+
+nano 系 scheduler（v3-v5 沿用）的 `max_num_seqs` 只限制**每步**的批大小，
+**不限制总运行数**——128 请求全部同时进入 decode（batch=128，TTFT 20.6ms）。
+vLLM 的 `max_num_seqs` 是总并发硬顶（其余排队，TTFT 涨到 3s）。
+要对齐口径必须给 vLLM 配 max_num_seqs=128。这不是 bug，是**服务策略差异**：
+我们 = 低 TTFT 高 TPOT（吞吐优先），vLLM 默认 = 高 TTFT 低 TPOT（时延优先）。
+
+### 同口径对比（batch≈128）
+
+| | v5（我们） | vLLM graph | vLLM eager |
+|---|---|---|---|
+| TTFT avg | 20.6 ms | **14.2 ms** | 3021 ms*（32 并发排队） |
+| TPOT avg | 38.8 ms | **2.8 ms** | 18.2 ms*（batch 32） |
+| E2E p50 | 5355 ms | **374 ms** | 5837 ms |
+| 吞吐 | 1800 tok/s | **5551 tok/s** | 1602 tok/s |
+
+### 差距归因（三段，全部可从数字验证）
+
+1. **vLLM 的 decode 是显存带宽瓶颈**：0.6B 权重 1.2GB ÷ 2.8ms ≈ 430GB/s ≈ A800
+   HBM 带宽——**恰好打满**。且 batch 越大权重读取摊得越薄：TPOT 从 batch 32 到
+   batch 128 几乎不变（2.8→2.8ms），稳态瞬时吞吐 ~40k tok/s。
+2. **我们的 decode 仍是 CPU 发射瓶颈**：每步 ~280 次 kernel 启动与 batch 无关，
+   TPOT 13.4ms（b8）→38.8ms（b128）。1800 tok/s vs vLLM eager 的 1602——
+   **两个 eager 引擎在同一量级**（我们略胜）。
+3. **CUDA graph 一项 ≈ 3 倍吞吐 / 13.9 倍 TPOT**（5551 vs 1800；2.8 vs 38.8）。
+   vLLM 的 kernel 已带宽封顶追无可追——**我们上 graph 后预期能到同量级**。
+
+### 踩坑
+
+- 64+ 连接**瞬时 SYN 风暴**会打爆 stdlib http.server 的 accept 队列
+  （Connection reset；request_queue_size 默认 5，v5 已改 256 + 日志 flush）；
+  20ms 到达间隔的稳态满压下 0 错误——单次建连风暴 ≠ 稳态压力。
+- vLLM kill 父进程后 EngineCore 子进程仍占显存，需 pkill 清场再启。

@@ -1,0 +1,20 @@
+{
+ "url": "http://127.0.0.1:8031",
+ "tag": "vllm_eager",
+ "error_samples": [],
+ "num_requests": 128,
+ "arrive_interval_s": 0.02,
+ "max_tokens": 128,
+ "temperature": 0.0,
+ "wall_s": 10.18,
+ "errors": 0,
+ "ttft_avg_ms": 3020.9,
+ "ttft_p50_ms": 3634.3,
+ "ttft_p95_ms": 5719.4,
+ "ttft_p99_ms": 5749.0,
+ "tpot_avg_ms": 18.2,
+ "e2e_p50_ms": 5837.2,
+ "e2e_max_ms": 8055.0,
+ "total_out_tokens": 16304,
+ "out_tok_per_s": 1601.9
+}

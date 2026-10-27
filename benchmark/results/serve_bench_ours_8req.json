@@ -1,0 +1,19 @@
+{
+ "url": "http://127.0.0.1:8020",
+ "tag": "ours",
+ "num_requests": 8,
+ "arrive_interval_s": 0.1,
+ "max_tokens": 32,
+ "temperature": 0.0,
+ "wall_s": 1.09,
+ "errors": 0,
+ "ttft_avg_ms": 164.1,
+ "ttft_p50_ms": 152.3,
+ "ttft_p95_ms": 440.8,
+ "ttft_p99_ms": 440.8,
+ "tpot_avg_ms": 13.0,
+ "e2e_p50_ms": 565.8,
+ "e2e_max_ms": 867.9,
+ "total_out_tokens": 256,
+ "out_tok_per_s": 233.8
+}

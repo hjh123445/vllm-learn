@@ -1,0 +1,20 @@
+{
+ "url": "http://127.0.0.1:8020",
+ "tag": "ours128",
+ "error_samples": [],
+ "num_requests": 128,
+ "arrive_interval_s": 0.02,
+ "max_tokens": 128,
+ "temperature": 0.0,
+ "wall_s": 9.1,
+ "errors": 0,
+ "ttft_avg_ms": 20.6,
+ "ttft_p50_ms": 20.2,
+ "ttft_p95_ms": 27.5,
+ "ttft_p99_ms": 28.4,
+ "tpot_avg_ms": 38.8,
+ "e2e_p50_ms": 5354.7,
+ "e2e_max_ms": 6870.3,
+ "total_out_tokens": 16380,
+ "out_tok_per_s": 1800.1
+}

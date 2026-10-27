@@ -1,0 +1,20 @@
+{
+ "url": "http://127.0.0.1:8030",
+ "tag": "vllm128",
+ "error_samples": [],
+ "num_requests": 128,
+ "arrive_interval_s": 0.02,
+ "max_tokens": 128,
+ "temperature": 0.0,
+ "wall_s": 2.94,
+ "errors": 0,
+ "ttft_avg_ms": 13.9,
+ "ttft_p50_ms": 14.4,
+ "ttft_p95_ms": 16.1,
+ "ttft_p99_ms": 17.6,
+ "tpot_avg_ms": 2.8,
+ "e2e_p50_ms": 366.2,
+ "e2e_max_ms": 402.4,
+ "total_out_tokens": 16317,
+ "out_tok_per_s": 5559.4
+}

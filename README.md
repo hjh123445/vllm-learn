@@ -51,6 +51,19 @@
 - v3 的 8B 池子用 0.5 利用率（0.3 下 warmup 峰值就吃满预算，触发抢占风暴——
   **大模型要按权重+激活峰值重新选 util**，这是量出来的教训）。
 
+### 与正经 vLLM 的服务级压测（Qwen3-0.6B，128 请求 × 128 tok，20ms 到达流）
+
+| | v5（我们，在线服务） | vLLM 0.31 graph | vLLM eager |
+|---|---|---|---|
+| TPOT | 38.8 ms | **2.8 ms** | 18.2 ms |
+| 吞吐 | 1800 tok/s | **5551 tok/s** | 1602 tok/s |
+| TTFT avg | 20.6 ms | 14.2 ms | 3021 ms（排队） |
+
+归因（详见 PERFORMANCE_NOTES §9）：vLLM 的 decode **已打满显存带宽**（权重 1.2GB ÷ 2.8ms
+≈ 430GB/s ≈ A800 HBM），batch 摊薄权重读取，TPOT 与 batch 无关；我们仍是 CPU 发射瓶颈。
+两个 eager 引擎吞吐同量级（1800 vs 1602），**CUDA graph 一项 = 3 倍吞吐 / 13.9 倍 TPOT**。
+工具：`benchmark/serve_bench.py`（通用流式压测，任意 OpenAI 兼容端点，同为 v5 server / vllm serve 服务）。
+
 ### 与 nano-vllm 对照（同负载，0.6B）
 
 | | 我们 v4 | nano eager | nano graph |
@@ -81,6 +94,7 @@ v4 ≈ nano eager 的 3.7 倍、nano graph 的 70%。剩余差距全部是 CUDA 
 | bubble.py | 可视化 | 静态批处理气泡 Gantt 图 |
 | nano.py | 外部对照 | 同负载跑 nano-vllm（graph/eager 两组） |
 | profile_pipeline.py | 归因 | torch.profiler + chrome trace |
+| serve_bench.py | 服务级压测 | 通用流式压测（任意 OpenAI 端点）：TTFT/TPOT/E2E 分位数/吞吐 |
 
 模型路径：`VLLM_LEARN_MODEL` 环境变量（默认仓库根的上一级找 `Qwen3-0.6B`）。
 性能矩阵复现：
