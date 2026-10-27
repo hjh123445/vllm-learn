@@ -1,22 +1,56 @@
 # vllm-learn：从零手搓 LLM 推理引擎
 
-从 v0 到 v4，五个版本把一个推理引擎的核心机制逐层造出来：静态批处理 → 迭代级调度（Orca 混合批次）
-→ PagedAttention 显存管理 → 手写 triton kernel 层。**每一步都有 benchmark 数字和正确性裁决，
-结论全部实测（方法学见 `benchmark/README.md`，思考过程见 `benchmark/PERFORMANCE_NOTES.md`）**。
+六个版本把一个推理引擎的核心机制逐层造出来：静态批处理 → 迭代级调度（Orca 混合批次）
+→ PagedAttention 显存管理 → nano 调度栈（APC/chunked prefill）→ 手写 triton kernel 层 → 在线推理服务。
+**每一步都有 benchmark 数字和正确性裁决，结论全部实测**（方法学 `benchmark/README.md`，
+思考过程 `benchmark/PERFORMANCE_NOTES.md`，每版详解 `vX/README.md`）。
 
 - 正确性：**fp32 下与 HuggingFace transformers 逐 token 100% 对齐**（v2/v3/v4 三版都验过）
-- 性能：v4 达到 nano-vllm（CUDA graph 模式）的 56%，**超过其 eager 模式 3 倍**（见下表）
+- 性能：v4 吞吐 405.6 tok/s（Qwen3-0.6B），超过 vLLM eager 模式、达其 graph 模式 56%–70%
+
+## Quick Start
+
+```bash
+# 依赖：torch / transformers(仅 tokenizer) / safetensors / tokenizers / triton / xxhash
+pip install torch transformers safetensors triton xxhash
+
+# 模型：默认在仓库根的上一级找 Qwen3-0.6B，可用环境变量覆盖
+export VLLM_LEARN_MODEL=/path/to/Qwen3-0.6B     # 或 Qwen3-8B（36 层 / GQA 4:1，已兼容）
+
+# 1) 跑一个版本（每版都是独立完整的引擎）
+cd v4 && python example.py                      # 批量推理：4 条 prompt，流式打印
+cd v5 && python server.py --port 8000 &          # 在线服务：OpenAI 兼容 + SSE 流式
+curl localhost:8000/v1/chat/completions -d '{"messages":[{"role":"user","content":"你好"}],"stream":true}'
+
+# 2) 验证正确性（14/14 PASS 应全绿）
+python benchmark/accuracy.py                     # 确定性/batch 一致/跨版本等价/HF fp32 对齐
+
+# 3) 跑性能
+python benchmark/speed.py --engine v4            # TTFT/TPOT/吞吐
+python benchmark/serve_bench.py --url http://127.0.0.1:8000 --num-requests 64   # 服务级压测
+```
+
+## 版本文档（每个版本一份详细 README：代码结构 + 技术原理 + 实现 + 踩坑）
+
+| 版本 | 主题 | 文档 |
+|---|---|---|
+| v0 | 静态批处理（左 padding / 加性 mask / 装载对账） | [v0/README.md](v0/README.md) |
+| v1 | 迭代级调度 + Orca 混合批次（平铺批 / 逐序列朴素注意力） | [v1/README.md](v1/README.md) |
+| v2 | PagedAttention + 显存统一管理（warmup 预算 / 抢占 / Context） | [v2/README.md](v2/README.md) · [v2/DESIGN.md](v2/DESIGN.md) |
+| v3 | nano-vllm 调度栈原样搬入（APC / chunked prefill / 引用计数） | [v3/README.md](v3/README.md) |
+| v4 | 手写 triton kernel 层（融合算子 / FlashAttention / guard 税策略） | [v4/README.md](v4/README.md) |
+| v5 | 在线推理（异步引擎 / OpenAI SSE / 优雅退出） | [v5/README.md](v5/README.md) |
 
 ## 版本演进
 
 | 版本 | 核心机制 | 关键文件 |
 |---|---|---|
-| **v0** | 静态批处理：Batch 组好跑到整批完成，左 padding + mask | `v0/engine/{batch,scheduler,engine}.py` |
+| **v0** | 静态批处理：Batch 组好跑到整批完成，左 padding + mask | `v0/engine/`（每版 README 有完整结构） |
 | **v1** | 迭代级调度 + **Orca 混合批次**：prefill 和 decode 摊平在同一个 forward 里跑（flattened batch，逐序列朴素注意力） | `v1/engine/` |
 | **v2** | **PagedAttention**：16-token block + block table + warmup 实测池子预算 + 按 block 准入 + 抢占（recompute）+ attention 上下文收进全局 Context | `v2/engine/{kv_cache,context}.py` |
 | **v3** | nano-vllm 的调度栈**原样搬入**（APC 前缀缓存 + block 引用计数 + chunked prefill + max_num_batched_tokens）+ 我们的模型；重写 model_runner（单卡单进程）/llm_engine | `v3/nanovllm/engine/` |
-| **v4** | **全手写 triton kernel 层**：融合算子（残差+RMSNorm、q/k norm+rope+cache 写入、SiLU×up）+ 手写 paged FlashAttention（decode 在线 softmax / prefill causal）+ torch.compile 只用于采样器 | `v4/nanovllm/layers/{kernels,flash_attn}.py` |
-| **v5** | **在线推理**：异步引擎（后台循环线程 + 每请求流式队列）+ stdlib HTTP 服务（OpenAI 兼容 SSE 流式），请求随到随入（并发 4 路流式中 TTFT 16-23ms，中途新请求 24ms 立即准入） | `v5/server.py`、`v5/nanovllm/engine/async_engine.py` |
+| **v4** | **全手写 triton kernel 层**：融合算子（残差+RMSNorm、q/k norm+rope+cache 写入、SiLU×up）+ 手写 paged FlashAttention（decode 在线 softmax / prefill causal）+ torch.compile 只用于采样器 | `v4/layers/{kernels,flash_attn}.py` |
+| **v5** | **在线推理**：异步引擎（后台循环线程 + 每请求流式队列）+ stdlib HTTP 服务（OpenAI 兼容 SSE 流式），请求随到随入（并发 4 路流式中 TTFT 16-23ms，中途新请求 24ms 立即准入） | `v5/server.py`、`v5/engine/async_engine.py` |
 
 每一版都是独立可运行的完整引擎（`python example.py`），模型加载不依赖 transformers（tokenizer 用它）。
 
