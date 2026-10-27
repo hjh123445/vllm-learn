@@ -333,3 +333,41 @@ vLLM 的 `max_num_seqs` 是总并发硬顶（其余排队，TTFT 涨到 3s）。
   （Connection reset；request_queue_size 默认 5，v5 已改 256 + 日志 flush）；
   20ms 到达间隔的稳态满压下 0 错误——单次建连风暴 ≠ 稳态压力。
 - vLLM kill 父进程后 EngineCore 子进程仍占显存，需 pkill 清场再启。
+
+---
+
+## 10. nano-vllm 的吞吐数字怎么读（bench 方法学对比 + 本机三方实测，2026-10-27）
+
+### 流传的对比表（vLLM 1361 vs nano 1434 tok/s）不是本机的数字
+
+| 引擎 | Total | Time | 吞吐 |
+|---|---|---|---|
+| vLLM 0.31 | 133,966 | 98.37s | 1,361.84 |
+| nano-vllm | 133,966 | 93.41s | 1,434.13 |
+
+这两个数字的负载（133,966 = nano bench.py seed(0) 的输出）与方法学一致，但**硬件不是本机**
+——同方法学在本机 A800-80G 上重跑：
+
+| 引擎 | Total | Time | 吞吐 |
+|---|---|---|---|
+| **vLLM 0.31（CUDA graph）** | 133,966 | 13.05s | **10,262 tok/s** |
+| **nano-vllm（CUDA graph）** | 133,966 | 13.73s | **9,755 tok/s** |
+| 我们 v4（eager） | 133,966 | 27.30s | **4,906 tok/s** |
+
+**本机上 vLLM 反而比 nano 快 5%**。结论：那张表来自别的（弱得多的）GPU，别拿来对比。
+
+### nano bench.py 与我们 serve_bench 的口径差异（为什么数字差好几倍）
+
+| 维度 | nano bench.py | 我们 serve_bench |
+|---|---|---|
+| 协议 | **Python 直连引擎 API**，无 HTTP | HTTP + SSE 流式 + 每 token detokenize |
+| 并发 | 256（max_num_seqs=512 全准入） | 128 |
+| EOS | **ignore_eos=True**：纯稳态 decode，batch 永不收缩 | 自然 EOS：batch 随完成收缩 |
+| 吞吐算法 | sum(max_tokens)/墙钟 | 实收 token/墙钟 |
+| 负载 | 随机 token prompt（无共享前缀） | chat 模板 prompt |
+
+两者的关系：**nano bench 测的是"引擎裸吞吐上限"，serve_bench 测的是"在线服务全栈"**——都是有效指标，
+回答不同问题。我们的 v4 eager 在 256 并发直连下 4,906 tok/s（batch 摊薄发射开销的收益），
+vs HTTP 128 并发 1,800——中间的差是协议层 + batch 翻倍。
+
+复现：`/tmp/bench_nano_method.py`（ours|nano|vllm 三引擎同负载同口径）。
