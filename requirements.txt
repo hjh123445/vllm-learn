@@ -1,6 +1,11 @@
 # vllm-learn 依赖（v0–v5 + benchmark）
 # 实测环境：python 3.10 / A800-80G (sm80) / cuda 13.0
-# 环境细节（flash-attn 编译、vLLM venv、代理坑）见 ENVIRONMENT.md
+# 环境细节（flash-attn 编译、vLLM 统一环境、代理坑）见 ENVIRONMENT.md
+#
+# 与 vLLM 统一环境的方法（推荐，见 ENVIRONMENT.md §5）：
+#   python -m venv xxx && xxx/bin/pip install vllm && xxx/bin/pip install xxhash
+#   —— vllm 会带全 torch/triton/numpy/transformers/safetensors/tokenizers，本项目只需再补 xxhash
+#   不直接装主环境的原因：vllm 会把 torch 2.9.1 顶成 2.13.0
 
 # ---- 核心推理 ----
 torch>=2.4              # 实测 2.9.1+cu130；需 CUDA 版本（pip 默认源装的是 CPU/cu12 版，按自己的 CUDA 选）

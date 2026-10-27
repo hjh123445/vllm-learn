@@ -64,16 +64,26 @@ MAX_JOBS=32 CUDA_HOME=/usr/local/cuda-13.0 TORCH_CUDA_ARCH_LIST="8.0" \
 
 验证：`import flash_attn; flash_attn_varlen_func(...)` 能在 GPU 上跑通即 OK。
 
-## 5. vLLM 对照（独立 venv，**不要装进主环境**）
+## 5. vLLM：统一环境（一个 venv 同时跑我们的引擎和 vllm）
 
-vLLM 会拉自己的 torch（会顶掉主环境的版本）：
+**为什么不直接装进主环境**：vLLM 锁死 torch 版本（0.31 要求 2.13.0，实测会把主环境
+torch 2.9.1 顶掉），连带后果：(a) 主环境按 torch 2.9 ABI 编译的 flash-attn 直接挂；
+(b) base conda 是多项目共用的。所以正确做法是**一个专用 venv 统一装 vllm + 本项目依赖**，
+我们的引擎和 vllm 对照在同一个环境里跑：
 
 ```bash
-python -m venv /tmp/vllm_venv
-/tmp/vllm_venv/bin/pip install vllm          # 本项目实测 vLLM 0.31.0 / torch 2.13.0+cu130
-/tmp/vllm_venv/bin/vllm serve $VLLM_LEARN_MODEL --port 8030 \
+python -m venv /path/to/vllm-learn-unified     # 持久路径（别放 /tmp，重启就没了）
+pip install vllm                               # 会带入 torch 2.13.0+cu130 / triton 3.7 / transformers 等
+pip install xxhash                             # vllm 没带的只有这一个（其余项目依赖 vllm 都带全了）
+# 验证统一环境：全引擎回归 + vllm serve 都用它
+/path/to/venv/bin/python benchmark/accuracy.py --test 1        # 实测 5/5 PASS（torch 2.13 上）
+/path/to/venv/bin/python benchmark/speed.py --engine v4       # 实测 TPOT 16.2ms（主环境 13.8，triton 3.7 vs 3.5 的 codegen 差异）
+/path/to/venv/bin/vllm serve $VLLM_LEARN_MODEL --port 8030 \
     --gpu-memory-utilization 0.3 --max-model-len 4096 --max-num-seqs 128
 ```
+
+**例外：nano-vllm 对照（benchmark/nano.py）需要 flash-attn**，它是按主环境 torch 2.9 编译的——
+nano 对照在主环境跑（或对统一环境的 torch 2.13 重编译一遍 flash-attn，约 25 分钟，流程见 §4）。
 
 **坑**：`kill` 父进程后 **EngineCore 子进程仍占着显存**，必须 `pkill -f "vllm serve"`
 清场，否则下次启动报 "Free memory less than desired"。
