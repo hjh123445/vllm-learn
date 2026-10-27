@@ -16,6 +16,7 @@
 | **v2** | **PagedAttention**：16-token block + block table + warmup 实测池子预算 + 按 block 准入 + 抢占（recompute）+ attention 上下文收进全局 Context | `v2/engine/{kv_cache,context}.py` |
 | **v3** | nano-vllm 的调度栈**原样搬入**（APC 前缀缓存 + block 引用计数 + chunked prefill + max_num_batched_tokens）+ 我们的模型；重写 model_runner（单卡单进程）/llm_engine | `v3/nanovllm/engine/` |
 | **v4** | **全手写 triton kernel 层**：融合算子（残差+RMSNorm、q/k norm+rope+cache 写入、SiLU×up）+ 手写 paged FlashAttention（decode 在线 softmax / prefill causal）+ torch.compile 只用于采样器 | `v4/nanovllm/layers/{kernels,flash_attn}.py` |
+| **v5** | **在线推理**：异步引擎（后台循环线程 + 每请求流式队列）+ stdlib HTTP 服务（OpenAI 兼容 SSE 流式），请求随到随入（并发 4 路流式中 TTFT 16-23ms，中途新请求 24ms 立即准入） | `v5/server.py`、`v5/nanovllm/engine/async_engine.py` |
 
 每一版都是独立可运行的完整引擎（`python example.py`），模型加载不依赖 transformers（tokenizer 用它）。
 
@@ -98,8 +99,19 @@ done
 ```
 v0/  静态批处理                v3/  nano 调度栈 + 我们的模型
 v1/  迭代级调度 + 混合批次       v4/  + 手写 triton kernel 层
-v2/  PagedAttention + Context   benchmark/  测试体系 + 结果 JSON/图表
+v2/  PagedAttention + Context   v5/  + 在线推理（server.py / async_engine）
+benchmark/  测试体系 + 结果 JSON/图表
 ```
+
+## 在线推理（v5）
+
+```bash
+cd v5 && python server.py --model ../Qwen3-0.6B --port 8000 --gpu-mem-util 0.3
+curl http://127.0.0.1:8000/v1/chat/completions -d '{"messages":[{"role":"user","content":"你好"}],"stream":true}'  # SSE 流式
+```
+
+线程模型：HTTP 线程 tokenize→入队→从流式队列读 token；引擎循环线程（唯一写者）schedule→run→postprocess→
+推增量。队列安全依据：scheduler 的 deque append/popleft 在 CPython 原子（单写多读无竞态）。
 
 ## 环境
 
