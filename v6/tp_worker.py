@@ -22,7 +22,7 @@ torch.cuda.set_device(int(os.environ.get("LOCAL_RANK", rank % 4)))
 import torch.distributed as dist
 dist.init_process_group("nccl")
 
-from engine.parallel import shard_model_for_tp
+from engine.parallel import shard_model_for_tp, set_tp_enabled
 from engine.llm_engine import LLMEngine
 from engine.scheduler import Scheduler
 from samplingParams import SamplingParams
@@ -43,6 +43,7 @@ llm = LLMEngine(path, max_num_seqs=8, max_model_len=2048,
                 gpu_memory_utilization=0.55, enforce_eager=True,
                 tensor_parallel_size=tp)
 runner = llm.model_runner
+set_tp_enabled(True)
 shard_model_for_tp(runner.model, rank, tp)
 runner._shard_kv_heads_for_tp(rank, tp)
 runner.allocate_kv_cache()

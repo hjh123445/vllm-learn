@@ -19,7 +19,7 @@ tp_group = dist.new_group(ranks=[r for r in range(world) if r // ep == rank // e
 # 简化拓扑: rank = tp_rank * ep + ep_rank（tp_rank 选 TP 组, ep_rank 选专家片）
 tp_rank, ep_rank = rank // ep, rank % ep
 
-from engine.parallel import shard_model_for_tp, shard_model_for_ep, set_tp_group
+from engine.parallel import shard_model_for_tp, set_tp_enabled, shard_model_for_ep, set_tp_group
 # TP 组覆盖全部 rank 时不需要子组（world group 即 TP 组）
 if ep > 1:
     set_tp_group(tp_group)
@@ -41,7 +41,9 @@ llm = LLMEngine(path, max_num_seqs=8, max_model_len=2048,
                 expert_parallel_size=ep if ep > 1 else 1)
 runner = llm.model_runner
 if tp > 1:
-    shard_model_for_tp(runner.model, tp_rank, tp)
+    set_tp_enabled(True)
+set_tp_enabled(True)
+shard_model_for_tp(runner.model, tp_rank, tp)
     runner._shard_kv_heads_for_tp(tp_rank, tp)
 if ep > 1:
     shard_model_for_ep(runner.model, ep_rank, ep)

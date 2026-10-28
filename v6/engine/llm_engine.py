@@ -3,6 +3,7 @@
 
 引擎只做协调：tokenizer → Scheduler（nano 的，原封不动）→ ModelRunner（我们的）。
 scheduler 管准入/驱逐/抢占/chunked prefill/APC，ModelRunner 管前向和采样。"""
+import os
 from dataclasses import fields
 
 import torch
@@ -47,7 +48,10 @@ class LLMEngine:
         import torch.distributed as dist
         if dist.is_available() and dist.is_initialized() and dist.get_world_size() > 1:
             t = torch.tensor(token_ids, device="cuda")
-            dist.broadcast(t, src=0)
+            # PP 模式: 真 token 在最后 stage（它持有 lm_head）；TP/EP 在 rank0。
+            # 从环境变量拿 broadcast 源（pp_worker 设置）
+            src = int(os.environ.get("BROADCAST_SRC", "0"))
+            dist.broadcast(t, src=src)
             token_ids = t.tolist()
         self.scheduler.postprocess(seqs, token_ids, is_prefill)
         return [(seq.seq_id, seq.completion_token_ids) for seq in seqs if seq.is_finished]
