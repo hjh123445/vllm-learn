@@ -62,6 +62,35 @@ bf16 累加顺序差异 → logits 差 ~0.1 → 概率接近的 token argmax 翻
 
 ## 二、GPU 显存问题
 
+### 2.0 ⭐⭐ narrow().contiguous() 的视图陷阱：切分后显存纹丝不动（v6 TP/EP）
+
+**现象**：EP 切分（每卡只留 64/128 个专家）后显存不降——61.1GB 纹丝不动；
+TP 切分同样症状（当时靠提高 util 绕过没深究）。
+
+**排查**（EP 时终于逼出根因）：
+1. `sum(p.numel() for p in model.parameters())` 只有 32GB，但
+   `torch.cuda.memory_allocated()` 61GB——**29GB 幽灵分配不在任何 Parameter 里**；
+2. `torch.cuda.memory_snapshot()` 显示大量 0.81GB 的 active block
+   （= 旧 w13 的整块尺寸 [128,1536,2048]×2B）；
+3. gc.get_referrers 找不到 Python 引用——**引用在 C 层**；
+4. 最小复现：`m.w = Parameter(m.w.data[:500].contiguous())` 后 allocated 不降；
+   换 `.clone()` 立即降 2MB——**复现成功，根因锁定**。
+
+**根因**：**`narrow()` 沿 dim0 的切片本来就是内存连续的，`.contiguous()` 发现
+无需整理直接返回 view（共享 storage）**。"新"Parameter 与旧的全量权重共享同一块
+显存——切分在逻辑上完成、物理上什么都没省。
+
+**解决**：切分点全部 `.contiguous()` → `.clone()`（clone 无条件拷贝）。
+修复后 EP 切分实测 61.1GB → 32.1GB。
+
+**原理/教训**：
+- PyTorch 的视图语义（view/share storage）是性能优化默认行为，**"这个调用
+  会不会拷贝"不能靠方法名直觉，要靠 `data_ptr()` 对比或隔离测试**；
+- 同一根因在两个版本各踩一次（TP 时绕过、EP 时才逼出）——**绕过的坑会回来
+  找你**，第一次就该用最小复现定位；
+- 这是并行切分代码的第一坑：vLLM/Megatron 用分片加载（每 rank 只读自己的
+  shard）从根上避免整量加载再切。
+
 ### 2.1 ⭐ KV cache 预分配的隐式批广播（v0/v1）
 
 **现象**：`IndexError: list index out of range`，报错位置在生成循环，
