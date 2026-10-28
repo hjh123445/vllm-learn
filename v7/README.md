@@ -1,75 +1,53 @@
-# v5：在线推理
+# v7：投机解码（Speculative Decoding）
 
-v4 的引擎 + **异步化 + HTTP 流式服务**。请求随到随入：客户端提交后立刻拿到流式队列，
-引擎后台线程持续调度生成，每步把新 token 推进各请求的队列——这就是"在线"
-区别于批处理的本质行为。
+建立在 **v6**（多卡并行引擎）之上——版本叠加，目录 = v6 全部 + 投机解码组件。
 
-## 快速开始
+## 小版本演进
 
-```bash
-cd v5 && python server.py --port 8000 --gpu-mem-util 0.3 --max-num-seqs 32
-# 另一个终端：
-curl http://127.0.0.1:8000/v1/chat/completions -d '{
-  "messages": [{"role": "user", "content": "你好"}], "stream": true, "max_tokens": 64}'   # SSE 流式
-python ../benchmark/serve_bench.py --url http://127.0.0.1:8000 --num-requests 64 --arrive-interval 0.02   # 压测
+| 小版本 | 主题 | 状态 | 独立文档 |
+|---|---|---|---|
+| v7.0 | n-gram draft + verify 循环（正确性验证） | ✓ | 本文 §实现记录 |
+| v7.1 | MTP 层 draft（Qwen3 自带权重，零训练） | 待做 | — |
+| v7.2 | APC 前缀缓存加速 verify（性能反转点） | 待做 | — |
+| v7.3 | 动态 draft 长度（接受率滑动窗口自适应 k） | 待做 | — |
+
+## v7.0 实现记录（n-gram draft + verify）
+
+**架构**（`layers/mtp.py`）：
+```
+1. draft:   NGramDrafter 在上下文找 n-gram 前缀匹配 → k=4 个候选
+2. verify:  候选拼进序列，一次全量 prefill 取 [L-k-1:-1] 位置的 logits
+            （logits[j] 预测位置 j+1——候选 i 的 target 分布在 L-k+i-1）
+3. 接受:    从左到右，target argmax == 候选则接受；分歧处用 target token
+4. k=0:     draft 无匹配时退化为普通一步（防零产出死循环）
 ```
 
-## 代码结构
+**验证**（Qwen3-Omni-30B，48 token greedy）：
 
-```
-server.py               stdlib HTTP 服务（零额外依赖）：OpenAI 兼容接口 + SSE + 优雅退出
-engine/async_engine.py  异步引擎：后台循环线程 + 每请求流式队列
-engine/ 其余             = v4（nano 调度栈 + 手写 triton kernel 引擎，批量接口不变）
-```
+| 请求 | 输出与基线一致 | 接受率 |
+|---|---|---|
+| 数数（1 2 3...） | ✓ 逐 token | 1%（模型转述而非复读——n-gram 匹配不到） |
+| 重复这句话三遍 | ✓ 逐 token | **31%**（复读场景 n-gram 命中） |
+| 普通文本 | ✓ 逐 token | 0%（无重复结构，预期） |
 
-## 主要技术原理与实现
+**当前是慢的（30s vs 基线 4s）**——verify 用全量 prefill（每轮重算整个序列），
+这是简化实现。**性能反转点在 v7.2**：接 APC 后 verify 只算 k+1 个新位置，
+每轮成本从 O(L) 降到 O(k)。加速比公式：`(α+1) / (1 + k·c_draft/c_target)`。
 
-### 线程模型（单卡单进程内）
+**踩坑**（四个，全记录）：
+1. **零产出死循环**：draft 空 + 全接受时 n_out 不涨 → while 卡死 25 分钟；
+2. **verify logits off-by-one**（投机解码第一坑）：logits[j] 预测 j+1 位置的
+   token，验证候选 cand[i]（在位置 L-k+i）要用 logits[L-k+i-1]——
+   取 `logits[-k:]` 是预测了候选之后的位置，输出整体错位；
+3. **脏状态-序列**：手动驱动的 seq 滞留 waiting 队列（cleanup 只查了 running）
+   → 下一请求 CUDA assert；
+4. **脏状态-cache**：verify 手动写 cache 后 cur_len 未复位 → 下一请求
+   attention 越界。
 
-```
-HTTP 处理线程（多个）                     引擎循环线程（唯一写者，daemon）
-─────────────────────                    ─────────────────────
-tokenize → async_engine.add()            被 add() 的 wake 事件唤醒
-        ↓ 立刻返回                        schedule → run → postprocess
-拿到 queue.Queue                          → 把每序列的新 token 推进它的 queue
-从 queue 逐个取 token → SSE 写出          空转时 wait 让出 CPU
-```
+## v7.1-v7.3 规划
 
-**线程安全的依据**（不加锁）：scheduler 的 `waiting` 是 deque，`append`/`popleft`
-在 CPython 里原子；block_manager 和 Sequence 状态**只有循环线程写**；
-HTTP 线程只通过 `add()` 往 waiting 投放数据——**单写多读无竞态**。
-
-### 增量文本（`server.py`）
-
-BPE 字节级切词，**单 token decode 不安全**（可能切出半个字），所以每个新 token 到达后
-**全量 decode 取差量**作为 delta 推给客户端。
-
-### SSE 流式
-
-`Transfer-Encoding: chunked` 手写分块（stdlib http.server 不自动处理）：
-每个 chunk 是 `data: {...}\n\n`，按 http chunked 协议加长度前缀；结束发 `data: [DONE]` + `0\r\n\r\n`。
-
-### 优雅退出
-
-SIGTERM/SIGINT 都注册了 handler → `engine.stop()`（join 引擎线程）→ `srv.shutdown()`
-（**必须从别的线程调**——signal handler 跑在 serve_forever 同一个主线程里）→ `server_close()`。
-实测：`kill -TERM <真实pid>` → 日志三步 → 显存全释放。
-已知边界：在途请求不 drain（连接直接断），vLLM 会 drain。
-
-## 与 v4 的差异
-
-引擎 = v4 原样；v5 只是异步化和协议层。批量接口（`example.py`）不变。
-
-## 实测（serve_bench.py，同客户端同口径）
-
-- 4 路并发流式：TTFT 16-23ms，全部 1.15s 完成
-- 运行中 1s 后到达的新请求：TTFT 24ms 立即准入（有空闲 slot 即插）
-- 128 请求 × 128 tok（20ms 到达流）：TPOT 38.8ms / 1800 tok/s / TTFT 20.6ms
-  （vs vLLM 0.31 graph：2.8ms / 5551 tok/s——差距全部来自 CUDA graph，见 PERFORMANCE_NOTES §9）
-
-## 已知限制
-
-- 在途请求不 drain；没有请求取消（客户端断连请求会生成完才被驱逐）
-- GIL 下 HTTP 线程的 tokenize 会偶发抢走 GIL 抬高 TPOT（decode 本来就是 CPU 发射瓶颈）
-- stdlib http.server 的 accept 队列已调 256，但**瞬时 SYN 风暴**（64+ 同时建连）仍可能 reset——
-  稳态满压（20ms 到达流）0 错误；生产应换 asyncio/独立引擎进程（vLLM AsyncLLMEngine 的做法）
+- **v7.1 MTP draft**：Qwen3-30B-A3B 的 MTP 层权重当 draft head（一次前向
+  出多 token 预测，比 n-gram 的接受率高一个量级）；
+- **v7.2 APC 加速 verify**：前缀缓存命中后 verify 只算新位置——性能反转；
+- **v7.3 动态 k**：接受率的滑动窗口 → 自适应 draft 长度（与 v6 的 P3
+  "统计驱动调度"一脉相承）。

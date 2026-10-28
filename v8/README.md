@@ -1,75 +1,66 @@
-# v5：在线推理
+# v8：上下文并行 CP / DCP
 
-v4 的引擎 + **异步化 + HTTP 流式服务**。请求随到随入：客户端提交后立刻拿到流式队列，
-引擎后台线程持续调度生成，每步把新 token 推进各请求的队列——这就是"在线"
-区别于批处理的本质行为。
+建立在 **v7**（投机解码）之上——版本叠加，目录 = v7 全部 + CP/DCP 组件。
+前置依赖：v6.4 调度集中化（DCP 块染色要求所有 rank 对 block 表有一致视图）。
 
-## 快速开始
+## 小版本演进
 
-```bash
-cd v5 && python server.py --port 8000 --gpu-mem-util 0.3 --max-num-seqs 32
-# 另一个终端：
-curl http://127.0.0.1:8000/v1/chat/completions -d '{
-  "messages": [{"role": "user", "content": "你好"}], "stream": true, "max_tokens": 64}'   # SSE 流式
-python ../benchmark/serve_bench.py --url http://127.0.0.1:8000 --num-requests 64 --arrive-interval 0.02   # 压测
-```
+| 小版本 | 主题 | 状态 | 独立文档 |
+|---|---|---|---|
+| v8.0 | LSE 合并数学（partial + log-sum-exp 加权合并） | ✓ ALL PASS | 本文 §v8.0 |
+| v8.1 | DCP2 双卡端到端（块染色 + partial/LSE + ag 合并） | ✓ ALL PASS | 本文 §v8.1 |
+| v8.2 | 混合并行坐标系统接线引擎（TP×DCP 组合） | 待做 | — |
+| v8.3 | CP2 prefill（长序列对半分 + partial attention） | 待做 | — |
+| v8.4 | a2a 通信后端（3 次 NCCL→2 次）+ 长序列压测 | 待做 | — |
 
-## 代码结构
+## CP/DCP 是什么（一句话版）
 
-```
-server.py               stdlib HTTP 服务（零额外依赖）：OpenAI 兼容接口 + SSE + 优雅退出
-engine/async_engine.py  异步引擎：后台循环线程 + 每请求流式队列
-engine/ 其余             = v4（nano 调度栈 + 手写 triton kernel 引擎，批量接口不变）
-```
+- **CP（prefill 计算并行）**：序列维度切到多卡解决 O(L²) 计算放不下（扩 world size）；
+- **DCP（decode cache 并行）**：KV cache 沿序列交错分片解决 O(L) 显存放不下
+  （**不扩 world size**——复用 TP rank）；
+- 两者正交；**DCP ≠ DP**：DP 切请求（每卡完整跑一个请求），DCP 切单请求的
+  cache（多卡协作跑一个请求）——128K 单请求场景 DP 无能为力，DCP 是唯一解。
 
-## 主要技术原理与实现
+完整原理（vLLM 0.31 源码调研）：[DESIGN.md](DESIGN.md)。
 
-### 线程模型（单卡单进程内）
+## v8.0 —— LSE 合并数学 ✓
 
-```
-HTTP 处理线程（多个）                     引擎循环线程（唯一写者，daemon）
-─────────────────────                    ─────────────────────
-tokenize → async_engine.add()            被 add() 的 wake 事件唤醒
-        ↓ 立刻返回                        schedule → run → postprocess
-拿到 queue.Queue                          → 把每序列的新 token 推进它的 queue
-从 queue 逐个取 token → SSE 写出          空转时 wait 让出 CPU
-```
+`lse_merge_test.py`：CP/DCP 共用的核心数学——各卡的 partial attention 带
+softmax 的 m（最大值）和 l（分母），合并端 `w_i ∝ exp(m_i - m*)·l_i` 加权求和。
 
-**线程安全的依据**（不加锁）：scheduler 的 `waiting` 是 deque，`append`/`popleft`
-在 CPython 里原子；block_manager 和 Sequence 状态**只有循环线程写**；
-HTTP 线程只通过 `add()` 往 waiting 投放数据——**单写多读无竞态**。
+**验证**：N=1/2/3/4/8 分片 vs 全量 attention，fp32 **逐位一致**（diff ~3e-7）。
+这是在线 softmax 数学在空间分片上的扩展（与 v4 decode kernel 的流式在线
+softmax 同一数学：时间流式块 → 空间卡间分片）。
 
-### 增量文本（`server.py`）
+## v8.1 —— DCP2 双卡端到端 ✓
 
-BPE 字节级切词，**单 token decode 不安全**（可能切出半个字），所以每个新 token 到达后
-**全量 decode 取差量**作为 delta 推给客户端。
+**三层实现**：
+1. `parallel_coords.py`：**混合并行的地基**——进程多维坐标向量
+   `(dp, tp, cp, ep, pp)`，rank = row-major 线性化解码，每维一个进程组
+   （对齐 vLLM parallel_state 设计）。单元验证：坐标往返编解码 8/8 + 分组成员正确；
+2. `layers/dcp.py`：DCPCacheCoordinator（块染色：`block_id % dcp_size ==
+   cp_rank` 归本卡）+ partial_attention_with_lse + lse_merge_stack；
+3. `test_dcp.py`：双卡各持一半 KV，decode 步每卡算自己分片的 partial+LSE →
+   all_gather → 本地 LSE 合并。
 
-### SSE 流式
+**验证**：8 步 decode 的 DCP 合并 vs 全量 attention **max diff ~1e-8 ALL PASS**；
+KV cache 显存精确减半（32/64 位置，4/8 块）。
 
-`Transfer-Encoding: chunked` 手写分块（stdlib http.server 不自动处理）：
-每个 chunk 是 `data: {...}\n\n`，按 http chunked 协议加长度前缀；结束发 `data: [DONE]` + `0\r\n\r\n`。
+**为什么交错染色而不是各持一半**：causal attention 下靠后位置 attends 更多，
+连续分片把长位置负载全压给后段 rank；交错让每卡工作量均匀（vLLM 的
+`interleave_size` 同理）。
 
-### 优雅退出
+## v8.2-v8.4 规划
 
-SIGTERM/SIGINT 都注册了 handler → `engine.stop()`（join 引擎线程）→ `srv.shutdown()`
-（**必须从别的线程调**——signal handler 跑在 serve_forever 同一个主线程里）→ `server_close()`。
-实测：`kill -TERM <真实pid>` → 日志三步 → 显存全释放。
-已知边界：在途请求不 drain（连接直接断），vLLM 会 drain。
+- **v8.2**：坐标系统接进 v6 引擎（parallel_worker 改用 ParallelCoords），
+  跑通 TP2×DCP2 四卡组合（TP 组内 allreduce + cp 组内 ag/merge）；
+- **v8.3**：CP2 prefill——长序列对半分，各卡 partial attention + LSE 合并
+  （复用 v8.0 数学），验证 64K 序列的 TTFT 加速；
+- **v8.4**：ag_rs → a2a 后端（AllGather/ReduceScatter 换 All-to-All，
+  3 次 NCCL→2 次/层）+ triton 化 LSE 合并 kernel + 128K 压测。
 
-## 与 v4 的差异
+## 与投机解码（v7）的交互
 
-引擎 = v4 原样；v5 只是异步化和协议层。批量接口（`example.py`）不变。
-
-## 实测（serve_bench.py，同客户端同口径）
-
-- 4 路并发流式：TTFT 16-23ms，全部 1.15s 完成
-- 运行中 1s 后到达的新请求：TTFT 24ms 立即准入（有空闲 slot 即插）
-- 128 请求 × 128 tok（20ms 到达流）：TPOT 38.8ms / 1800 tok/s / TTFT 20.6ms
-  （vs vLLM 0.31 graph：2.8ms / 5551 tok/s——差距全部来自 CUDA graph，见 PERFORMANCE_NOTES §9）
-
-## 已知限制
-
-- 在途请求不 drain；没有请求取消（客户端断连请求会生成完才被驱逐）
-- GIL 下 HTTP 线程的 tokenize 会偶发抢走 GIL 抬高 TPOT（decode 本来就是 CPU 发射瓶颈）
-- stdlib http.server 的 accept 队列已调 256，但**瞬时 SYN 风暴**（64+ 同时建连）仍可能 reset——
-  稳态满压（20ms 到达流）0 错误；生产应换 asyncio/独立引擎进程（vLLM AsyncLLMEngine 的做法）
+v8 建立在 v7 之上：投机 verify 的多 token 一次前向与 DCP 分片天然互补——
+verify 批次扩大 k 倍摊薄 DCP 的每步通信，DCP 让长序列的 verify cache
+显存减半。两者组合是长序列 + 低时延场景的方向（v8.4 压测验证）。

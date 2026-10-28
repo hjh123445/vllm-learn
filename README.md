@@ -42,6 +42,9 @@ python benchmark/serve_bench.py --url http://127.0.0.1:8000 --num-requests 64   
 | v3 | nano-vllm 调度栈原样搬入（APC / chunked prefill / 引用计数） | [v3/README.md](v3/README.md) |
 | v4 | 手写 triton kernel 层（融合算子 / FlashAttention / guard 税策略） | [v4/README.md](v4/README.md) |
 | v5 | 在线推理（异步引擎 / OpenAI SSE / 优雅退出） | [v5/README.md](v5/README.md) |
+| v6 | 多卡并行（TP/EP/PP 及组合，单机矩阵+跨节点实测） | [v6/README.md](v6/README.md) · 小版本: [v6/MILESTONES.md](v6/MILESTONES.md) |
+| v7 | 投机解码（n-gram draft + verify，正确性 3/3） | [v7/README.md](v7/README.md)（含 v7.0-v7.3 小版本） |
+| v8 | 上下文并行 CP/DCP（LSE 数学 + DCP2 端到端） | [v8/README.md](v8/README.md)（含 v8.0-v8.4 小版本） |
 
 ## 版本演进
 

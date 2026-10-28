@@ -1,75 +1,56 @@
-# v5：在线推理
+# v6：多卡并行（TP / EP / PP 及组合）
 
-v4 的引擎 + **异步化 + HTTP 流式服务**。请求随到随入：客户端提交后立刻拿到流式队列，
-引擎后台线程持续调度生成，每步把新 token 推进各请求的队列——这就是"在线"
-区别于批处理的本质行为。
+建立在 v5（在线推理引擎）之上。从单卡到双节点 12 张 A800，系统实现并实测对比了
+TP/EP/PP 三种并行及组合，产出了通信量公式、单机矩阵、跨节点崩塌曲线和组合选型决策树。
 
-## 快速开始
+## 小版本演进（每个小版本有独立文档，见 MILESTONES.md）
 
-```bash
-cd v5 && python server.py --port 8000 --gpu-mem-util 0.3 --max-num-seqs 32
-# 另一个终端：
-curl http://127.0.0.1:8000/v1/chat/completions -d '{
-  "messages": [{"role": "user", "content": "你好"}], "stream": true, "max_tokens": 64}'   # SSE 流式
-python ../benchmark/serve_bench.py --url http://127.0.0.1:8000 --num-requests 64 --arrive-interval 0.02   # 压测
-```
+| 小版本 | 主题 | 状态 |
+|---|---|---|
+| v6.0 | Qwen3-Omni-30B MoE 单卡（router + grouped experts + fp32 对拍 0.0） | ✓ |
+| v6.1 | TP2/TP4/TP8 单机 + 跨节点 TP8（Megatron 切分） | ✓ |
+| v6.2 | EP2 单机 + 跨节点（专家对半 + all_reduce 聚合） | ✓ |
+| v6.3 | DeepSeek-V4 模型文件（MLA + sqrtsoftplus + FP8 反量化） | 待做 |
+| v6.4 | 调度集中化（rank0 决策 + broadcast，解 EP>2/PP lockstep） | 待做 |
+
+## 核心实测结论（数据全在 PARALLEL_ANALYSIS.md）
+
+**单机 8 卡矩阵**（Qwen3-Omni-30B，3 请求 × 48 tok greedy）：
+
+| 配置 | 吞吐 | 输出 |
+|---|---|---|
+| EP2 | **11.3 tok/s** | ✓ |
+| TP2 | 10.7 | ✓ |
+| TP4 | 10.4 | ✓ |
+| TP8 | 8.3 | ✓（小 batch 下 TP 越多越慢——通信稀释计算） |
+
+**跨节点对比**（bond0 TCP，节点 56 IB 端口全 DOWN 是环境约束）：
+
+| 配置 | 吞吐 | 相对 |
+|---|---|---|
+| EP2 单机 | 11.8 | 1× |
+| **EP2 跨节点** | **9.3** | **0.79×（只损 21%）** |
+| TP4 单机 | 10.0 | — |
+| TP8 跨节点 | 1.2-3.7 | **崩塌 69-88%** |
+
+**组合最优**（§10.3）：最优组合 = f(显存矛盾位置, batch 大小, 链路带宽)。
+12 卡推荐 EP4×3 副本 DP。
+
+## 文档索引
+
+- [PARALLEL_ANALYSIS.md](PARALLEL_ANALYSIS.md) —— 通信量公式 / 重叠分析 / 决策树（§2-4）/
+  跨节点崩塌实测（§8-9）/ 单机矩阵与组合探讨（§10）
+- [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md) —— 五个实验的设计方法
+- [MILESTONES.md](MILESTONES.md) —— **每个小版本的独立工作文档**（现象→排查→根因→解决）
 
 ## 代码结构
 
 ```
-server.py               stdlib HTTP 服务（零额外依赖）：OpenAI 兼容接口 + SSE + 优雅退出
-engine/async_engine.py  异步引擎：后台循环线程 + 每请求流式队列
-engine/ 其余             = v4（nano 调度栈 + 手写 triton kernel 引擎，批量接口不变）
+engine/parallel.py     TP/EP 切分 + 通信原语（kv 复制 / clone 教训 / 组管理）
+tp_worker.py           TP worker（独立进程——spawn+Manager 的坑见 MILESTONES）
+ep_worker.py           EP worker
+pp_worker.py           PP worker（层切分 + p2p）
+parallel_worker.py     TP×EP 组合 worker
+run_tp.py / run_ep.py / run_pp.py / run_parallel.py / run_tp_crossnode.py   启动器
+comm_bench.py          TP vs EP 通信微基准
 ```
-
-## 主要技术原理与实现
-
-### 线程模型（单卡单进程内）
-
-```
-HTTP 处理线程（多个）                     引擎循环线程（唯一写者，daemon）
-─────────────────────                    ─────────────────────
-tokenize → async_engine.add()            被 add() 的 wake 事件唤醒
-        ↓ 立刻返回                        schedule → run → postprocess
-拿到 queue.Queue                          → 把每序列的新 token 推进它的 queue
-从 queue 逐个取 token → SSE 写出          空转时 wait 让出 CPU
-```
-
-**线程安全的依据**（不加锁）：scheduler 的 `waiting` 是 deque，`append`/`popleft`
-在 CPython 里原子；block_manager 和 Sequence 状态**只有循环线程写**；
-HTTP 线程只通过 `add()` 往 waiting 投放数据——**单写多读无竞态**。
-
-### 增量文本（`server.py`）
-
-BPE 字节级切词，**单 token decode 不安全**（可能切出半个字），所以每个新 token 到达后
-**全量 decode 取差量**作为 delta 推给客户端。
-
-### SSE 流式
-
-`Transfer-Encoding: chunked` 手写分块（stdlib http.server 不自动处理）：
-每个 chunk 是 `data: {...}\n\n`，按 http chunked 协议加长度前缀；结束发 `data: [DONE]` + `0\r\n\r\n`。
-
-### 优雅退出
-
-SIGTERM/SIGINT 都注册了 handler → `engine.stop()`（join 引擎线程）→ `srv.shutdown()`
-（**必须从别的线程调**——signal handler 跑在 serve_forever 同一个主线程里）→ `server_close()`。
-实测：`kill -TERM <真实pid>` → 日志三步 → 显存全释放。
-已知边界：在途请求不 drain（连接直接断），vLLM 会 drain。
-
-## 与 v4 的差异
-
-引擎 = v4 原样；v5 只是异步化和协议层。批量接口（`example.py`）不变。
-
-## 实测（serve_bench.py，同客户端同口径）
-
-- 4 路并发流式：TTFT 16-23ms，全部 1.15s 完成
-- 运行中 1s 后到达的新请求：TTFT 24ms 立即准入（有空闲 slot 即插）
-- 128 请求 × 128 tok（20ms 到达流）：TPOT 38.8ms / 1800 tok/s / TTFT 20.6ms
-  （vs vLLM 0.31 graph：2.8ms / 5551 tok/s——差距全部来自 CUDA graph，见 PERFORMANCE_NOTES §9）
-
-## 已知限制
-
-- 在途请求不 drain；没有请求取消（客户端断连请求会生成完才被驱逐）
-- GIL 下 HTTP 线程的 tokenize 会偶发抢走 GIL 抬高 TPOT（decode 本来就是 CPU 发射瓶颈）
-- stdlib http.server 的 accept 队列已调 256，但**瞬时 SYN 风暴**（64+ 同时建连）仍可能 reset——
-  稳态满压（20ms 到达流）0 错误；生产应换 asyncio/独立引擎进程（vLLM AsyncLLMEngine 的做法）
