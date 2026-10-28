@@ -10,6 +10,8 @@
 
 EP 扩展点（v6.2）：本文件只做"本地专家子集"的计算，dispatch/combine 的
 all-to-all 在 model_runner 层做（experts 的输入输出张量按 expert 分片搬运）。"""
+import os
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

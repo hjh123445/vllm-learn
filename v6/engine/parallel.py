@@ -34,11 +34,23 @@ def init_distributed(tp_size: int = 1, backend: str = "nccl"):
     }
 
 
+_TP_GROUP = None   # 由 set_tp_group 设置（TP×EP 组合时 ≠ world group）
+
+
+def set_tp_group(group):
+    global _TP_GROUP
+    _TP_GROUP = group
+
+
 def tp_allreduce(x: torch.Tensor) -> torch.Tensor:
-    """TP 的层输出同步。单卡直通（零开销）。"""
+    """TP 的层输出同步。单卡直通（零开销）。
+    TP×EP 组合时在 TP 子组上做（不是 world group——否则 EP 的 rank 会被卷进来）。"""
     if not dist.is_initialized() or dist.get_world_size() == 1:
         return x
-    dist.all_reduce(x)
+    if _TP_GROUP is not None and _TP_GROUP != dist.GroupMember.WORLD:
+        dist.all_reduce(x, group=_TP_GROUP)
+    else:
+        dist.all_reduce(x)
     return x
 
 

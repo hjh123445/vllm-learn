@@ -4,6 +4,8 @@
 引擎只做协调：tokenizer → Scheduler（nano 的，原封不动）→ ModelRunner（我们的）。
 scheduler 管准入/驱逐/抢占/chunked prefill/APC，ModelRunner 管前向和采样。"""
 from dataclasses import fields
+
+import torch
 from transformers import AutoTokenizer
 
 from config import Config
@@ -40,6 +42,13 @@ class LLMEngine:
     def step(self):
         seqs, is_prefill = self.scheduler.schedule()
         token_ids = self.model_runner.run(seqs, is_prefill)
+        # 多卡(EP/TP)时: 各卡的 argmax 可能在概率并列处翻转 → eos 判定分叉 →
+        # scheduler 决策分叉 → 集合通信错位死锁。rank0 广播采样结果消除分叉。
+        import torch.distributed as dist
+        if dist.is_available() and dist.is_initialized() and dist.get_world_size() > 1:
+            t = torch.tensor(token_ids, device="cuda")
+            dist.broadcast(t, src=0)
+            token_ids = t.tolist()
         self.scheduler.postprocess(seqs, token_ids, is_prefill)
         return [(seq.seq_id, seq.completion_token_ids) for seq in seqs if seq.is_finished]
 
