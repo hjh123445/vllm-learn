@@ -40,8 +40,9 @@ class ModelRunner:
         # TP 模式下 warmup 在切分前跑会按全量权重分配爆显存 → 跳过 warmup，
         # 池子由 run_tp.py 在切分后手动分配
         self.kv_cache = None
-        if getattr(config, "tensor_parallel_size", 1) > 1:
-            return
+        if getattr(config, "tensor_parallel_size", 1) > 1 or \
+           getattr(config, "expert_parallel_size", 1) > 1:
+            return          # TP/EP: 切分后由启动器手动分配
         self._warmup_model()
         self.allocate_kv_cache()
 

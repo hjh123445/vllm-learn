@@ -100,7 +100,14 @@ class GroupedExperts(nn.Module):
 
 
 class MoEMLP(nn.Module):
-    """一层完整 MoE：router + experts。无共享专家（Qwen3-Omni 配置为 0）。"""
+    """一层完整 MoE：router + experts。无共享专家（Qwen3-Omni 配置为 0）。
+
+    EP 模式（v6.2）：expert_parallel=True 时——
+      1. 本地 experts 只持有自己一半专家的权重（loader/shard 切）；
+      2. router 全卡跑（全专家 logits，冗余）；
+      3. dispatch: 把 (token, expert, weight) 中 expert 属于对端的条目 all-to-all 发过去；
+      4. 本地算完 partial 和，combine: all-to-all 收回对端算的结果，就地累加。
+    通信量 = 2 × tokens × h × 2B（每层），与 TP 的 b×s×h×N 倍形成对照。"""
 
     def __init__(self, config):
         super().__init__()
@@ -109,7 +116,62 @@ class MoEMLP(nn.Module):
                                 getattr(config, "norm_topk_prob", True))
         self.experts = GroupedExperts(config.num_experts, config.hidden_size,
                                       config.moe_intermediate_size)
+        # EP 状态（由 shard_model_for_ep 设置）
+        self.expert_parallel = False
+        self.ep_rank = 0
+        self.ep_size = 1
+        self.local_expert_start = 0        # 本地专家区间 [start, start + local_E)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        import torch.distributed as dist
         idx, w = self.router(x)
-        return self.experts(x, idx, w)
+        if not self.expert_parallel or not dist.is_initialized() or dist.get_world_size() == 1:
+            return self.experts(x, idx, w)
+        return self._ep_forward_clean(x, idx, w)
+
+    def _experts_local(self, xs, eids, ws):
+        """本地专家子集的分组计算（eids 是本地编号）。"""
+        E = self.local_E
+        final = torch.zeros_like(xs)
+        counts = torch.bincount(eids, minlength=E)
+        offsets = counts.cumsum(0)
+        order = torch.argsort(eids, stable=True)
+        xs_s, ws_s = xs[order], ws[order]
+        start = 0
+        for e, end in enumerate(offsets.tolist()):
+            if end == start:
+                continue
+            toks = order[start:end]
+            h13 = xs_s[start:end] @ self.experts.w13[e].t()
+            gate, up = h13.chunk(2, dim=-1)
+            act = torch.nn.functional.silu(gate) * up
+            out = act @ self.experts.w2[e].t()
+            final[toks] = out * ws_s[start:end, None].to(out.dtype)
+            start = end
+        return final
+
+    def _ep_forward_clean(self, x, idx, w):
+        """EP 的清晰实现：dispatch 用 all_gather（v6.4 换 all_to_all 省带宽）。
+        每卡算自己专家的部分和 → all_reduce 聚合。"""
+        import torch.distributed as dist
+        T, H = x.shape
+        k = idx.shape[1]
+        flat_expert = idx.reshape(-1)                      # [T*k] 全局 expert 号
+        flat_w = w.reshape(-1)
+        # 每张卡独立算自己本地专家的部分和（非本地条目跳过）——零 dispatch 通信！
+        # 这是 "DP-style EP"：输入 x 全卡冗余（TP allreduce 已保证），
+        # 每卡只算本地专家, 输出 all_reduce。
+        out = torch.zeros(T, H, device=x.device, dtype=x.dtype)
+        local_mask = (flat_expert >= self.local_expert_start) & \
+                     (flat_expert < self.local_expert_start + self.local_E)
+        if local_mask.any():
+            eids_local = flat_expert[local_mask] - self.local_expert_start
+            # 每个条目的全局行号 → token 号
+            rows = torch.nonzero(local_mask).squeeze(1)
+            toks = rows // k
+            ws = flat_w[local_mask]
+            xs = x[toks]
+            outs = self._experts_local(xs, eids_local, ws)
+            out.index_add_(0, toks, outs)
+        dist.all_reduce(out)
+        return out

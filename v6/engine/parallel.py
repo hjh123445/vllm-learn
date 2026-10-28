@@ -48,11 +48,13 @@ class ColumnParallelLinear:
 
     @staticmethod
     def shard_weight(w: torch.Tensor, tp_rank: int, tp_size: int, dim: int = 0) -> torch.Tensor:
-        """按 dim 切权重给本 rank。整除校验防静默错误。"""
+        """按 dim 切权重给本 rank。整除校验防静默错误。
+        ⚠ 必须 clone(): narrow().contiguous() 对连续切片返回 view，
+        旧 storage 被共享 → 切分后显存不降（v6 实测 61GB 纹丝不动的根因）。"""
         assert w.shape[dim] % tp_size == 0, \
             f"TP{tp_size} 切不动 dim{dim}={w.shape[dim]}（必须整除）"
         per = w.shape[dim] // tp_size
-        return w.narrow(dim, tp_rank * per, per).contiguous()
+        return w.narrow(dim, tp_rank * per, per).clone()
 
 
 def shard_model_for_tp(model, tp_rank: int, tp_size: int):
@@ -87,11 +89,11 @@ def shard_model_for_tp(model, tp_rank: int, tp_size: int):
         kv_idx = tp_rank * n_kv_shards // tp_size
         attn.k_proj.weight = __import__("torch").nn.Parameter(
             attn.k_proj.weight.data.narrow(0, kv_idx * per_kv * attn.head_dim,
-                                           per_kv * attn.head_dim).contiguous(),
+                                           per_kv * attn.head_dim).clone(),
             requires_grad=False)
         attn.v_proj.weight = __import__("torch").nn.Parameter(
             attn.v_proj.weight.data.narrow(0, kv_idx * per_kv * attn.head_dim,
-                                           per_kv * attn.head_dim).contiguous(),
+                                           per_kv * attn.head_dim).clone(),
             requires_grad=False)
         # o_proj [H, q_size] 列切（输入是本 rank 的头）
         attn.o_proj.weight = __import__("torch").nn.Parameter(
@@ -113,11 +115,46 @@ def shard_model_for_tp(model, tp_rank: int, tp_size: int):
         gate_r = w13[:, tp_rank * per_inter:(tp_rank + 1) * per_inter, :]      # [E, I/2, H]
         up_r = w13[:, I_total + tp_rank * per_inter:I_total + (tp_rank + 1) * per_inter, :]
         moe.w13 = __import__("torch").nn.Parameter(
-            __import__("torch").cat([gate_r, up_r], dim=1).contiguous(), requires_grad=False)
+            __import__("torch").cat([gate_r, up_r], dim=1),   # cat 本身就是拷贝
+            requires_grad=False)
         moe.w2 = __import__("torch").nn.Parameter(
-            moe.w2.data.narrow(2, tp_rank * per_inter, per_inter).contiguous(),
+            moe.w2.data.narrow(2, tp_rank * per_inter, per_inter).clone(),
             requires_grad=False)
         moe.inter = per_inter
         # router 全卡冗余（不切）——每卡都要算完整的 topk 路由
     torch.cuda.empty_cache()          # 释放被替换的全量权重
+    return model
+
+
+def shard_model_for_ep(model, ep_rank: int, ep_size: int):
+    """EP 切分：每卡只保留自己一半专家的权重（其余置空）。
+    router/embedding/attention 全卡冗余——输入 x 已被 TP allreduce 同步，
+    每卡算本地专家的部分和再 all_reduce 聚合（DP-style EP，v6.4 换 all_to_all）。
+    权重显存: 专家部分 /ep_size（30B 模型专家占 ~80% → 显存约省 40%/卡）。"""
+    h = model.config
+    E = h.num_experts
+    assert E % ep_size == 0, f"专家数 {E} 切不动 EP{ep_size}"
+    per = E // ep_size
+    for layer in model.model.layers:
+        moe = layer.mlp
+        moe.expert_parallel = True
+        moe.ep_rank = ep_rank
+        moe.ep_size = ep_size
+        moe.local_E = per
+        moe.local_expert_start = ep_rank * per
+        # 权重切片: 只留本地专家（显存真正释放）
+        import torch as _t
+        old13, old2 = moe.experts.w13, moe.experts.w2
+        # 先解除 weight_loader（挂在 Parameter 属性上的方法引用会延长生命周期）
+        for p_ in (old13, old2):
+            if hasattr(p_, "weight_loader"):
+                del p_.weight_loader
+        moe.experts.w13 = _t.nn.Parameter(
+            old13.data[ep_rank * per:(ep_rank + 1) * per].clone(),
+            requires_grad=False)
+        moe.experts.w2 = _t.nn.Parameter(
+            old2.data[ep_rank * per:(ep_rank + 1) * per].clone(),
+            requires_grad=False)
+        del old13, old2
+    torch.cuda.empty_cache()
     return model
