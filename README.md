@@ -10,7 +10,8 @@
 
 ## Quick Start
 
-环境细节（flash-attn 编译 / vLLM 独立 venv / 代理坑 / GPU 共享）见 **[ENVIRONMENT.md](ENVIRONMENT.md)**。
+环境细节（flash-attn 编译 / vLLM 统一环境 / 代理坑 / GPU 共享）见 **[ENVIRONMENT.md](ENVIRONMENT.md)**；
+全程踩坑与排查过程（⭐ 面向面试的深度复盘）见 **[ENGINEERING_NOTES.md](ENGINEERING_NOTES.md)**。
 
 ```bash
 pip install -r requirements.txt          # 依赖清单（含版本实测记录）
