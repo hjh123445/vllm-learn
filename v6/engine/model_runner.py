@@ -37,6 +37,11 @@ class ModelRunner:
         self.sampler = Sampler()
 
         # ---- warmup 量激活峰值 → 按 nano 的公式定池子 ----
+        # TP 模式下 warmup 在切分前跑会按全量权重分配爆显存 → 跳过 warmup，
+        # 池子由 run_tp.py 在切分后手动分配
+        self.kv_cache = None
+        if getattr(config, "tensor_parallel_size", 1) > 1:
+            return
         self._warmup_model()
         self.allocate_kv_cache()
 
@@ -51,6 +56,17 @@ class ModelRunner:
                 module.v_cache = kv_cache[1, layer_id]
                 layer_id += 1
         assert layer_id == self.config.hf_config.num_hidden_layers
+
+    def _shard_kv_heads_for_tp(self, tp_rank: int, tp_size: int):
+        """TP 切分后 attention 的 kv 头数变 kv/TP——池子和 Attention 模块同步缩。
+        在 shard_model_for_tp 之后、allocate_kv_cache 之前调用。"""
+        hf = self.config.hf_config
+        # kv 头数 < TP 时复制（parallel.py 同语义）：per_kv = max(1, kv/TP)
+        per_kv = max(1, hf.num_key_value_heads // tp_size)
+        for m in self.model.modules():
+            if hasattr(m, "num_kv_head"):
+                m.num_kv_head = per_kv
+        self._tp_kv_heads = per_kv
 
     def _warmup_model(self):
         """dummy 最大压力前向量激活峰值（prefill + decode 两种形状都量到）。
@@ -81,17 +97,25 @@ class ModelRunner:
         # 池子分配后层缓存会被重新指，临时池靠引用消失回收
 
     def allocate_kv_cache(self):
-        """nano 的公式：池子 = (总显存×利用率 − 已用 − 激活峰值) ÷ 每 block 字节。"""
+        """池子预算。单卡路径 = nano 公式（warmup 量激活峰值）；
+        TP 手动路径（无 warmup）= util×total − 其他进程 − 本进程权重 − 激活余量(6GB)。"""
         config = self.config
         hf = config.hf_config
         free, total = torch.cuda.mem_get_info()
         used = total - free
-        peak = torch.cuda.memory_stats()["allocated_bytes.all.peak"]
         current = torch.cuda.memory_stats()["allocated_bytes.all.current"]
-        num_kv_heads = hf.num_key_value_heads
+        num_kv_heads = getattr(self, "_tp_kv_heads", None) or hf.num_key_value_heads
         head_dim = getattr(hf, "head_dim", hf.hidden_size // hf.num_attention_heads)
         block_bytes = 2 * hf.num_hidden_layers * self.block_size * num_kv_heads * head_dim * self.dtype.itemsize
-        config.num_kvcache_blocks = int(total * config.gpu_memory_utilization - used - peak + current) // block_bytes
+        if self.kv_cache is None:
+            budget = int(total * config.gpu_memory_utilization) - (used - current) - current - 6 * 10**9
+        else:
+            peak = torch.cuda.memory_stats()["allocated_bytes.all.peak"]
+            budget = int(total * config.gpu_memory_utilization) - used - peak + current
+        config.num_kvcache_blocks = budget // block_bytes
+        if config.num_kvcache_blocks <= 0:
+            print(f"[池诊断] total={total/1e9:.1f} used={used/1e9:.1f} current={current/1e9:.1f} "
+                  f"block={block_bytes/1e6:.1f}MB budget={budget/1e9:.1f}GB", flush=True)
         assert config.num_kvcache_blocks > 0
         self.kv_cache = torch.empty(2, hf.num_hidden_layers, config.num_kvcache_blocks,
                                     self.block_size, num_kv_heads, head_dim,

@@ -15,6 +15,7 @@ from layers.norm import RmsNorm
 from layers.attention import Attention
 from layers.kernels import fused_add_rmsnorm
 from layers.moe import MoEMLP
+from engine.parallel import tp_allreduce
 
 
 class Qwen3MoeAttention(nn.Module):
@@ -61,9 +62,13 @@ class Qwen3MoeDecoderLayer(nn.Module):
         x, residual = fused_add_rmsnorm(x, residual, self.input_layernorm.weight,
                                        self.input_layernorm.eps)
         x = self.self_attn(x, positions)
+        # TP 同步点 1: o_proj 是列切的——每卡只有自己头的结果，allreduce 求和
+        x = tp_allreduce(x)
         x, residual = fused_add_rmsnorm(x, residual, self.post_attention_layernorm.weight,
                                        self.post_attention_layernorm.eps)
-        return self.mlp(x), residual
+        x = self.mlp(x)
+        # TP 同步点 2: MoE w2 列切——同上
+        return tp_allreduce(x), residual
 
 
 class Qwen3MoeModel(nn.Module):

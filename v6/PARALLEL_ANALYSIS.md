@@ -190,3 +190,57 @@ permutation 后每卡只收到自己专家对应的 token 子集——**均摊�
 
 对于 MoE 模型（激活参数 << 总参），**EP 让每卡只碰激活参数的 1/N，TP 让每卡碰全部 token 的 1/N**
 ——EP 的本质优势是计算量跟激活参数走，TP 的计算量跟总 token 走。
+
+---
+
+## 8. 实测结果：跨节点 TP 的性能崩塌（2026-10-28，Qwen3-Omni-30B）
+
+### 8.1 实验设置
+
+- 模型：Qwen3-Omni-30B-A3B thinker（48 层 MoE，128 专家 top-8）
+- 负载：3 请求 × 48 token，greedy
+- 对照组：**TP4 单机**（本机 4×A800，NVLink）
+- 实验组：**TP8 跨节点**（本机 4 + 节点 56 4，bond0 以太网，IB 端口全 DOWN → NCCL 走 TCP）
+- 每组跑 3 次取中位数
+
+### 8.2 结果
+
+| 配置 | wall | 吞吐 | 相对 TP4 |
+|---|---|---|---|
+| TP4 单机（NVLink） | 7.8s | **10.0 tok/s** | 1× |
+| TP8 跨节点 #1 | 22.1s | 3.7 tok/s | 0.37× |
+| TP8 跨节点 #2 | 61.7s | 1.3 tok/s | 0.13× |
+| TP8 跨节点 #3 | 68.2s | 1.2 tok/s | 0.12× |
+
+**TP8 跨节点的吞吐崩塌到 TP4 的 12-37%**——卡数翻倍性能反而降 3-8 倍。
+
+### 8.3 归因（与 §2 公式对上）
+
+每步 decode 的 TP 通信：48 层 × 2 次 allreduce × [3, 1, 2048] bf16 ≈ 2.4MB/步。
+- NVLink（≈300GB/s 有效）：2.4MB ≈ 8µs/步 → 不可见
+- 跨节点 TCP（bond0，实测 rsync 110MB/s，NCCL 有效带宽更低）：2.4MB ≈ 25-100ms/步
+  × 48 token = **1.2-4.8s 纯通信**——与实测 wall 差值吻合（22-68s vs 7.8s）。
+
+且 TCP 模式下 allreduce 的延迟抖动大（三次结果 3.7/1.3/1.2 差 3 倍）——
+NCCL 的 TCP 路径没有 QoS 保证，慢排队会级联（Straggler 效应放大到每层）。
+
+### 8.4 结论（这条曲线就是"跨节点别用 TP"的实证）
+
+- **TP 的通信频率（每层 2 次）× 串行依赖 × 低带宽链路 = 性能毒药**。
+  卡数翻倍（4→8）吞吐反而降 73-88%。
+- 正确的跨节点策略（§4 决策树）：**DP（零通信）或 PP（每 stage 边界一次 p2p）**；
+  EP 在 decode 场景通信量 ∝ token 数（比 TP 小 b×s 倍），是 MoE 跨节点的正解。
+- 本机 IB 端口 DOWN 是环境约束（节点 56 全 DOWN）——即使 IB 可用（40Gb/s），
+  TP8 的每步 2.4MB ≈ 0.5ms × 48 层边界也比 NVLink 慢一个量级，结论方向不变。
+
+### 8.5 跨节点踩坑记录（ENGINEERING_NOTES 增补）
+
+1. **NCCL_SOCKET_IFNAME 必须指向有 IP 的网卡**：两台机器的 IP 都在 `bond0`，
+   填 `ens19f0`（物理口）报 "no socket interface found"——IFNAME 要的是
+   **持有本机 IP 的接口**（bond 是逻辑口）。
+2. **节点 56 的 IB 端口全部 DOWN**（对端 mlx5 全无 ACTIVE）→ NCCL 必须显式
+   `NCCL_IB_DISABLE=1` 走 TCP，否则握手出 "wrong type" 崩溃。
+3. **两节点的 /data 不是同一挂载**（都是本地 NVMe）——模型 66GB 用 rsync
+   推过去（110MB/s，10 分钟），代码同步同理。
+4. kv 头数（4）< TP8 时的切分：**复制不切**（多个 rank 持有同一 kv 切片），
+   assert 放宽为 `max(1, kv // tp)`。
