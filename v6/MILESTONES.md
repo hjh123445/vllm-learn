@@ -99,7 +99,18 @@ v6.4 调度集中化**（与 PP lockstep 同根）。
 | yarn rope | factor=16, original 65536 | 待做 |
 | MTP | num_nextn_predict_layers=1（v7 投机解码直接用）| 待做 |
 
-**第一阶段实测**（test_dsv4_stage1.py ALL PASS）：
+**第二阶段实测**（tests/test_dsv4_stage2.py ALL PASS，layers/dsv4_components.py）：
+- HyperConnection（mHC 4 残差流 + Sinkhorn 20 轮）：**与 HF 逐位对拍 diff=0.0**
+  （post/comb/collapsed 三个输出全对）；
+- HCA 压缩器（128:1 窗口压缩）：**与 HF 逐位对拍 diff=0.0**（64 tok → 2 条压缩 KV）；
+- MLA 核心数学：无 sink 时精确退化为普通 attention（diff=0.0）+ partial rope
+  维度语义（前 32 维旋转/后 32 维不变）验证。
+
+**第二阶段踩坑**：HF 组件对拍的输入维序是 [B,S,H]（我们平铺是 [T,H]）——
+HCA 对拍时传反了维序导致输出 0 长度；HF 的 rope 初始化依赖完整 config
+（yarn 等），对拍用 nn.Module 的 NoRope monkeypatch 跳过。
+
+**第一阶段实测**（tests/test_dsv4_stage1.py ALL PASS）：
 - FP8 反量化：w1 [2048,2048] → 均值 -0.0001 / std 0.77（合理分布），块级
   手算自检 diff=0.0；
 - sqrtsoftplus 路由：top6 归一化 × scaling 后权重和精确 = 1.5；
