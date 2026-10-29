@@ -16,6 +16,8 @@ world_size = dp × tp × cp × ep × pp（各维独立切分，笛卡尔积）�
     coords["cp"]       # 本进程的 cp 维坐标
     coords.group("cp") # 本进程所属的 DCP 组
 """
+import os
+
 import torch
 import torch.distributed as dist
 
@@ -73,9 +75,31 @@ class ParallelCoords:
         return f"Coords[{c}] (world={self.world_rank}/{self.world_size})"
 
 
-def init_coords(dp=1, tp=1, cp=1, ep=1, pp=1) -> ParallelCoords:
-    """初始化坐标系统。要求 dist 已初始化。"""
+def warmup_groups(coords: ParallelCoords):
+    """每个维度的组做一次小 collective——强制 NCCL communicator 立即完成
+    wire-up（惰性初始化在多组交错时是死锁雷区：v8.2 实测 cp 组第一次
+    all_gather 的 bootstrap TCP 连接被拒 → 卡 barrier 25 分钟）。
+    所有 rank 以相同顺序调用（DIMES 顺序）。"""
+    if not dist.is_initialized():
+        return
+    for dim in ParallelCoords.DIMS:
+        g = coords.group(dim)
+        if g is not None:
+            t = torch.zeros(1, device="cuda")
+            dist.all_reduce(t, group=g)
+    torch.cuda.synchronize()
+
+
+def init_coords(dp=1, tp=1, cp=1, ep=1, pp=1, init_dist=False) -> ParallelCoords:
+    """初始化坐标系统。
+    init_dist=True 时自动 init_process_group（带 device_id——多 new_group 交错
+    时 NCCL bootstrap 有竞态：不绑设备 → TCP wire-up 被拒 → 卡死第一个组通信，
+    v8.2 实测 25 分钟死锁的根因）。"""
     sizes = {"dp": dp, "tp": tp, "cp": cp, "ep": ep, "pp": pp}
+    if init_dist and not dist.is_initialized():
+        rank = int(os.environ.get("RANK", "0"))
+        dist.init_process_group(
+            "nccl", device_id=torch.device(f"cuda:{torch.cuda.current_device()}"))
     if not dist.is_initialized():
         assert sum(sizes.values()) == 5, "单进程模式（所有维度=1）"
         return ParallelCoords(0, sizes)

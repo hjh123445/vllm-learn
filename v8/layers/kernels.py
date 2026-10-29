@@ -116,13 +116,19 @@ def _qk_norm_rope_store_kernel(Q, K, V, WQ, WK, QOUT, CS, POS, SLOT, KC, VC,
     wk2 = tl.load(WK + HD // 2 + d2).to(tl.float32)
     k1 = k1 * inv[:, None] * wk1[None, :]
     k2 = k2 * inv[:, None] * wk2[None, :]
-    tl.store(KC + off_c1, (cos[None, :] * k1 - sin[None, :] * k2).to(KC.dtype.element_ty))
-    tl.store(KC + off_c2, (sin[None, :] * k1 + cos[None, :] * k2).to(KC.dtype.element_ty))
+    # slot < 0 = DCP 门控丢弃（本 rank 不持有该块）——mask 掉 store。
+    # mask 需与 value 同形可广播（标量不行，构 [1, HD//2]）
+    keep = (d2[None, :] >= 0) & (slot >= 0)
+    tl.store(KC + off_c1, (cos[None, :] * k1 - sin[None, :] * k2).to(KC.dtype.element_ty),
+             mask=keep)
+    tl.store(KC + off_c2, (sin[None, :] * k1 + cos[None, :] * k2).to(KC.dtype.element_ty),
+             mask=keep)
     # v：[HK, HD] 原样
     d = tl.arange(0, HD)
     off_v = t.to(tl.int64) * HK * HD + hk * HD + d[None, :]
     off_cv = slot * HK * HD + hk * HD + d[None, :]
-    tl.store(VC + off_cv, tl.load(V + off_v))
+    tl.store(VC + off_cv, tl.load(V + off_v),
+             mask=(d[None, :] >= 0) & (slot >= 0))
 
 
 def fused_qk_norm_rope_store(q, k, v, q_norm_w, k_norm_w, cos_sin_cache,

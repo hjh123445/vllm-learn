@@ -9,7 +9,7 @@
 |---|---|---|---|
 | v8.0 | LSE 合并数学（partial + log-sum-exp 加权合并） | ✓ ALL PASS | 本文 §v8.0 |
 | v8.1 | DCP2 双卡端到端（块染色 + partial/LSE + ag 合并） | ✓ ALL PASS | 本文 §v8.1 |
-| v8.2 | 混合并行坐标系统接线引擎（TP×DCP 组合） | 待做 | — |
+| v8.2 | 混合并行坐标系统接线引擎（TP2×DCP2 四卡） | ✓ 78/78 一致 | 本文 §v8.2 |
 | v8.3 | CP2 prefill（长序列对半分 + partial attention） | 待做 | — |
 | v8.4 | a2a 通信后端（3 次 NCCL→2 次）+ 长序列压测 | 待做 | — |
 
@@ -50,14 +50,72 @@ KV cache 显存精确减半（32/64 位置，4/8 块）。
 连续分片把长位置负载全压给后段 rank；交错让每卡工作量均匀（vLLM 的
 `interleave_size` 同理）。
 
-## v8.2-v8.4 规划
+## v8.3-v8.4 规划
 
-- **v8.2**：坐标系统接进 v6 引擎（parallel_worker 改用 ParallelCoords），
-  跑通 TP2×DCP2 四卡组合（TP 组内 allreduce + cp 组内 ag/merge）；
 - **v8.3**：CP2 prefill——长序列对半分，各卡 partial attention + LSE 合并
   （复用 v8.0 数学），验证 64K 序列的 TTFT 加速；
 - **v8.4**：ag_rs → a2a 后端（AllGather/ReduceScatter 换 All-to-All，
-  3 次 NCCL→2 次/层）+ triton 化 LSE 合并 kernel + 128K 压测。
+  3 次 NCCL→2 次/层）+ triton 化 partial attention（v8.2 的 eager 实现慢 8 倍）
+  + 128K 压测。
+
+## v8.2 实现记录：混合并行接线引擎（TP2×DCP2 四卡）
+
+**架构**（`tests/run_dcp_tp.py` 三相位验证：单卡 base / TP2 / TP2×DCP2）：
+
+```
+rank = tp*cp_size + cp   （ParallelCoords row-major: (dp,tp,cp,ep,pp)）
+r0=(tp0,cp0) r1=(tp0,cp1) r2=(tp1,cp0) r3=(tp1,cp1)
+
+tp 组 = 坐标除 tp 外全同 = {r0,r2} {r1,r3}   ← o_proj/MoE 后的 allreduce（头切分）
+cp 组 = 坐标除 cp 外全同 = {r0,r1} {r2,r3}   ← DCP partial/LSE 合并（位置切分）
+```
+
+**TP 与 DCP 的正交性**在组结构上直接可见：TP 组内各 rank 头不同、cache 分片相同
+（allreduce 求和）；cp 组内各 rank 头相同、分片不同（LSE 加权合并）。
+同一个全局块表，两种切法互不干扰——这就是多维坐标向量设计的意义。
+
+**三层接线**：
+1. **store 门控**（`kernels.py`）：全局块 g 归 `g%cp_size==cp_rank` 的 rank，
+   本地槽位 = `g//cp_size`（静态映射保证增量写落在同一物理位置）；
+   非本 rank 颜色的 token 槽位置 -1，融合 kernel 的 store 带 mask 跳过；
+2. **partial attention**（`attention.py _dcp_attention`）：只对本 rank 颜色的行
+   算未归一化 partial + m + l（causal 门 = 块表展开位置 ≤ q 位置）；
+3. **合并**：part/m/l pack 成单 buffer **1 次** all_gather（cp 组）→ 本地
+   `out = Σ e_i·part_i / Σ e_i·l_i`（约定 B：part 未归一化，w=exp(m_i-m*)）。
+
+**验证**（Qwen3-Omni-30B，48 tok greedy ×3 请求）：
+
+| 配置 | wall | 输出 vs 单卡 base |
+|---|---|---|
+| base（单卡） | 5.0s | — |
+| TP2 | 6.8s | **ALL MATCH 78/78** |
+| TP2×DCP2（4 卡） | 42.0s* | **ALL MATCH 78/78** |
+| DCP 本地池 | 575→288 blocks | **KV 显存精确减半**（3.62GB/rank） |
+
+*DCP 慢 8 倍是预期内的：partial attention 是纯 PyTorch 逐层实现（`_dcp_attention`
+的 python 块表展开循环 + eager einsum），triton 化在 v8.4（decode 路径复用
+v4 的 paged flash kernel + 每 rank 只扫自己颜色的行）。本版的裁决点是
+**正确性与正交性**：混合坐标下 4 卡输出逐 token 一致 + 显存减半。
+
+**踩坑实录**（两个，都是硬骨头）：
+
+1. **NCCL 多 communicator bootstrap 竞态（25 分钟死锁）**：`new_group` 创建的
+   tp/cp 组第一次使用时惰性 wire-up，多组交错初始化时 TCP bootstrap 连接被拒
+   （`socketPollConnect: Connection refused` 重试 35 次）——4 卡下稳定复现
+   于 layer0 的第一个 cp 组 all_gather。**根因**：`init_process_group` 未绑
+   `device_id`，NCCL communicator 的设备亲和在多组并发建立时竞态。
+   **修复**：`init_process_group("nccl", device_id=...)` + `warmup_groups`
+   （每维组启动时做一次小 all_reduce 强制完成 wire-up）。定位工具是
+   faulthandler.dump_traceback_later——把"挂在哪个 collective"变成铁证
+   （两个进程在 tp_allreduce、两个在 cp all_gather 的交叉等待）。
+2. **LSE 合并的约定混用**：partial 输出是未归一化的（Σexp(s-m_i)·v），合并却
+   用了 v8.1 归一化约定的公式（w 含 l_i）——两套自洽约定 (A) parts 已归一化 +
+   w=exp·l；(B) parts 未归一化 + 分母 Σ exp·l——实现里 A 的公式配 B 的 parts，
+   输出乱码（从 tok0 就错）。单进程数学对拍（不经 NCCL，合成 KV）3 分钟定位。
+
+**正交性收益**：4 卡 = TP2 的计算吞吐 × DCP2 的 cache 容量——同一批 rank 上
+同时拿到两个维度的扩展。DCP 不扩 world size 的意义在此：128K 单请求场景
+TP8 已用满 8 卡时，DCP 是继续扩 cache 的唯一手段（v8.4 压测验证）。
 
 ## 与投机解码（v7）的交互
 
