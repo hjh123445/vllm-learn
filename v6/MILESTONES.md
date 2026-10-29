@@ -153,9 +153,32 @@ HCA 对拍时传反了维序导致输出 0 长度；HF 的 rope 初始化依赖�
 
 ---
 
-## v6.4 —— 调度集中化（待做，三个 open issue 的共同解）
+## v6.4 —— 调度集中化（进行中）
 
-现状：各 rank 独立跑 scheduler、假设决策相同——在请求完成边界/抢占边界脆弱，
-导致 EP>2 退化、PP lockstep 死锁、TP×EP 重复相加。
-方案：**rank0 独占跑 scheduler，决策（batch 组成/块分配）broadcast 到全部 rank**
-（vLLM 同款）。这是 v6 剩余工作的第一优先级。
+**已交付**（engine/centralized.py + tests/test_centralized.py）：
+- 框架: CentralizedCoordinator（rank0 独占 scheduler）+
+  make_centralized_step（替换 engine.step）——计划广播（seq id/
+  num_scheduled_tokens/block_table/is_prefill）+ 状态广播（completion/
+  finished/num_cached_tokens 镜像）+ follower 的 is_finished 跟随。
+- EP4 集中化跑通（不再 lockstep 死锁，exit 0×4，wall 5.1s）——
+  **通信对齐目标达成**。
+
+**验证结果（诚实记录）**：
+- ZEROCOMM 对照（零额外广播，每 rank 独立 scheduler）: EP2 输出**完全正确**
+  （与原版 step 逐字一致）——证明 step 逻辑本身无 bug；
+- 全量集中化: EP2/EP4 输出**退化**（'你好你好'重复模式）——由额外的
+  broadcast 引入。二分定位到 send_plan 的 broadcast 一加入即退化。
+- **候选根因**: NCCL broadcast 异步语义下，buf 张量离开 Python 作用域被
+  caching allocator 复用/释放而通信未完成（stream use-after-free）→
+  后续 MoE all_reduce 数据损坏。broadcast 后加 synchronize 未完全解决
+  （变长 tail 的序列错位引入新死锁）。
+
+**本轮修的 5 个坑**（全部留档）：
+1. sync_sequences 的 master 发 follower 不收（broadcast 需双端对称）→ 死锁；
+2. 空计划边界（master 完成后 follower 多跑一步空 forward）→ IndexError；
+3. plan 未广播 num_scheduled_tokens → follower 的 prefill 输入长度算 0；
+4. plan 未广播 block_table → follower 的 slot_mapping 越界；
+5. broadcast 尺寸两端不一致（master 4096+tail vs follower 4096）→ NCCL hang。
+
+**下一步（架构简化）**：固定大小计划张量（变长是死锁之源）+ follower 哑
+forward（不镜像本地状态，只按计划跑）——借鉴 ZEREROCOMM 已验证的部分。
