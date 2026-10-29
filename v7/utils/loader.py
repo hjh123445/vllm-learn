@@ -49,22 +49,31 @@ def _ckpt_name(name: str):
 
 
 def _load_into(param: torch.Tensor, loaded: torch.Tensor, shard):
+    """weight_loader 协议：装载逻辑归组件（param 所属模块的 weight_loader），
+    本函数只负责调用——融合布局（w13 两半/w2）由 GroupedExperts.weight_loader 自己处理。"""
+    owner = _param_owner.get(id(param))
     if shard is None:
         assert param.shape == loaded.shape, (param.shape, loaded.shape)
         param.data.copy_(loaded)
         return
-    i, half = shard
-    if half is not None:                       # gate/up → w13 第 i 个专家的上/下半
-        I = loaded.shape[0]
-        param.data[i, half * I:(half + 1) * I, :] = loaded
-    else:                                      # down → w2 第 i 个专家
-        param.data[i] = loaded
+    if owner is not None and hasattr(owner, "weight_loader"):
+        owner.weight_loader(param, loaded, shard)
+    else:
+        raise RuntimeError(f"参数 {param.shape} 带 shard {shard} 但所属模块无 weight_loader")
 
 
 def load_model(model: nn.Module, model_dir: str, device="cuda", dtype=torch.bfloat16):
-    """装载 + 对账。MoE 专家按需融合（gate/up 拼 w13）。"""
+    """装载 + 对账。MoE 专家按需融合（gate/up 拼 w13）。
+    装载逻辑走 weight_loader 协议（组件自持），本函数只做名字映射和调用。"""
     files = sorted(glob(os.path.join(model_dir, "*.safetensors")))
     assert files, f"没找到 safetensors: {model_dir}"
+
+    # param → 所属模块 的查找表（weight_loader 协议的调用目标）
+    global _param_owner
+    _param_owner = {}
+    for mod_name, mod in model.named_modules():
+        for p_name, p in mod.named_parameters(recurse=False):
+            _param_owner[id(p)] = mod
 
     loaded = set()
     skipped = set()

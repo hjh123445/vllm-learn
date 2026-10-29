@@ -46,11 +46,12 @@ TP/EP/PP 三种并行及组合，产出了通信量公式、单机矩阵、跨�
 ## 代码结构
 
 ```
-engine/parallel.py     TP/EP 切分 + 通信原语（kv 复制 / clone 教训 / 组管理）
-tp_worker.py           TP worker（独立进程——spawn+Manager 的坑见 MILESTONES）
-ep_worker.py           EP worker
-pp_worker.py           PP worker（层切分 + p2p）
-parallel_worker.py     TP×EP 组合 worker
-run_tp.py / run_ep.py / run_pp.py / run_parallel.py / run_tp_crossnode.py   启动器
-comm_bench.py          TP vs EP 通信微基准
+models/qwen3.py            dense Qwen3（与 qwen3_moe 并存——模型互不排斥）
+models/qwen3_moe.py        MoE 版 thinker
+engine/parallel.py         TP/EP 切分 + 通信原语（kv 复制 / clone 教训 / 组管理）
+layers/moe.py              MoE 组件（weight_loader 协议：融合逻辑在组件内）
+tests/                     全部实验/启动脚本：
+  run_tp.py / run_ep.py / run_pp.py / run_parallel.py / run_tp_crossnode.py   启动器
+  tp_worker.py / ep_worker.py / pp_worker.py / parallel_worker.py             worker
+  test_dsv4_stage1.py / verify_hf.py / comm_bench.py                          测试与微基准
 ```

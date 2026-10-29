@@ -26,10 +26,11 @@ class MoERouter(nn.Module):
         self.weight = nn.Parameter(torch.empty(num_experts, hidden_size))
         self.top_k = top_k
         self.norm_topk_prob = norm_topk_prob
-        self.weight.weight_loader = self._load
         self.num_experts = num_experts
 
-    def _load(self, param, loaded):
+    def weight_loader(self, param, loaded, shard_id=None):
+        """HF 名 mlp.gate.weight（loader 已映射到 router.weight）。直装。"""
+        assert param.shape == loaded.shape
         param.data.copy_(loaded)
 
     def forward(self, x: torch.Tensor):
@@ -56,12 +57,18 @@ class GroupedExperts(nn.Module):
         # 权重以 fp 存储由 loader 决定；结构上保持完整专家维度（EP 时 loader 只装本地切片）
         self.w13 = nn.Parameter(torch.empty(num_experts, 2 * intermediate, hidden_size))
         self.w2 = nn.Parameter(torch.empty(num_experts, hidden_size, intermediate))
-        self.w13.weight_loader = self._load
-        self.w2.weight_loader = self._load
 
-    def _load(self, param, loaded):
-        # loader 负责：gate_proj/up_proj 两个 [I,H] → 拼进 w13 的两半
-        param.data.copy_(loaded)
+    def weight_loader(self, param, loaded, shard_id):
+        """weight_loader 协议（与 BaseLinear/RmsNorm 同约定）：
+        loader 做名字映射后调 param 所属模块的 weight_loader，shard_id 携带
+        融合信息——(expert_idx, half) 装进 w13 的对应半区，(expert_idx, None) 装 w2。
+        装载逻辑在组件内（loader 不感知 w13 的内部布局）。"""
+        i, half = shard_id
+        if param is self.w13:
+            I = loaded.shape[0]
+            param.data[i, half * I:(half + 1) * I, :] = loaded
+        else:
+            param.data[i] = loaded
 
     def forward(self, x: torch.Tensor, topk_idx: torch.Tensor, topk_w: torch.Tensor) -> torch.Tensor:
         """x: [T, H]; topk_idx: [T, k]; topk_w: [T, k] → [T, H]。
