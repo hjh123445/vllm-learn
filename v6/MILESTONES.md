@@ -99,6 +99,31 @@ v6.4 调度集中化**（与 PP lockstep 同根）。
 | yarn rope | factor=16, original 65536 | 待做 |
 | MTP | num_nextn_predict_layers=1（v7 投机解码直接用）| 待做 |
 
+**第三阶段实测**（tests/test_dsv4_e2e.py）——管线全通：
+- `models/deepseek_v4.py`：完整模型（43 层 MLA+MoE+mHC）；
+- `utils/dsv4_loader.py`：MXFP4 + FP8 双格式反量化装载（1038 张量）；
+- **8 卡分放跑通**（反量化后 ~584GB bf16：FP4 专家×4 + FP8 其他×2，
+  单卡放不下是数学必然）——layer_device_map 分层 + 前向跨卡自动搬运激活；
+- 生成 16 token 完成，输出目前是乱码（管线正确性 ✅，数值正确性待查——
+  已知简化项见下）。
+
+**已知简化项（乱码的候选原因，按嫌疑排序）**：
+1. yarn rope 未实现（config: factor=16, original_max=65536）——当前用
+   theta=10000 的标准 rope 近似，长位置下频率完全错；
+2. HCA/CSA 压缩器未接入（长上下文组件，短序列影响应小但 block_bias 语义
+   可能影响注意力分布）；
+3. 反旋转的共轭方向可能有正负号问题（HF 是 query 位置的 -sin）。
+
+**第三阶段踩坑（4 个，全部记录）**：
+1. **模型构造 fp32 陷阱**：`torch.empty` 默认 fp32 → 搬运时每个 w1 是
+   8.6GB（bf16 的两倍），4 层就爆卡。修：搬运带 `dtype=dtype`；
+2. **shard 中途搬运垃圾**：第一个专家装完就把含 255 个未装垃圾的整 param
+   搬上 GPU。修：统一在装载完成后搬；
+3. **反旋转半宽 bug**：cos/sin 是半宽（32 维覆盖 64 维 rope），
+   `rd = cos.shape[-1]` 把覆盖区算成了 32——应为 `2 * half`；
+4. **跨卡设备的四个散点**：input_ids/embed 设备、rope buffer 共享单卡、
+   路由 fp32 产物、einsum dtype 混合——分层分放模型的必然代价。
+
 **第二阶段实测**（tests/test_dsv4_stage2.py ALL PASS，layers/dsv4_components.py）：
 - HyperConnection（mHC 4 残差流 + Sinkhorn 20 轮）：**与 HF 逐位对拍 diff=0.0**
   （post/comb/collapsed 三个输出全对）；

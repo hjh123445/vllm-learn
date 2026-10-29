@@ -40,23 +40,27 @@ def mla_attention(q, kv, sink, scale, mask=None, cos=None, sin=None):
     out = torch.einsum("htl,ld->thd", probs, kv)  # V=kv
     # 共轭反旋转：V 的 rope 部分在输出里被 -sin 抵消（相对位置语义）
     if cos is not None and sin is not None:
-        # 只对每头前 rope_dim 维（cos/sin 的宽度）
-        rd = cos.shape[-1]
-        o1, o2 = out[..., :rd // 2], out[..., rd // 2:rd]
-        c = cos[:T].unsqueeze(1)                # [T, 1, rd//2]
+        # rope 覆盖前 rope_dim 维（= cos 宽度的 2 倍：cos/sin 是半宽）
+        half = cos.shape[-1]                     # 32
+        dtype = out.dtype
+        o1, o2 = out[..., :half].float(), out[..., half:2 * half].float()
+        c = cos[:T].unsqueeze(1)                # [T, 1, half]
         s = sin[:T].unsqueeze(1)
-        out = torch.cat([c * o1 + s * o2, -s * o1 + c * o2, out[..., rd:]], dim=-1)
+        out = torch.cat([(c * o1 + s * o2).to(dtype), (-s * o1 + c * o2).to(dtype),
+                         out[..., 2 * half:]], dim=-1)
     return out
 
 
 def apply_partial_rope(x, cos, sin, rope_dim):
     """partial RoPE：只有前 rope_dim 维旋转。
-    x: [T, H, D]; cos/sin: [T, rope_dim//2]。"""
+    x: [T, H, D]（任意 dtype）; cos/sin: [T, rope_dim//2]（fp32）。
+    fp32 计算后转回原 dtype（与 HF 的 fp32 rope 一致）。"""
     rd = rope_dim // 2
-    x1, x2 = x[..., :rd], x[..., rd:rope_dim]
+    dtype = x.dtype
+    x1, x2 = x[..., :rd].float(), x[..., rd:rope_dim].float()
     c, s = cos.unsqueeze(1), sin.unsqueeze(1)   # [T, 1, rd]
     rot = torch.cat([c * x1 - s * x2, s * x1 + c * x2], dim=-1)
-    return torch.cat([rot, x[..., rope_dim:]], dim=-1)
+    return torch.cat([rot.to(dtype), x[..., rope_dim:]], dim=-1)
 
 
 # ============ 2. HyperConnection（mHC） ============
