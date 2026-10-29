@@ -45,6 +45,7 @@ python benchmark/serve_bench.py --url http://127.0.0.1:8000 --num-requests 64   
 | v6 | 多卡并行（TP/EP/PP 及组合，单机矩阵+跨节点实测） | [v6/README.md](v6/README.md) · 小版本: [v6/MILESTONES.md](v6/MILESTONES.md) |
 | v7 | 投机解码（n-gram draft + verify，正确性 3/3） | [v7/README.md](v7/README.md)（含 v7.0-v7.3 小版本） |
 | v8 | 上下文并行 CP/DCP（LSE 数学 + DCP2 端到端） | [v8/README.md](v8/README.md)（含 v8.0-v8.4 小版本） |
+| v9 | 并行×量化联合优化（设计定稿，RTN 误差已实测） | [v9/DESIGN.md](v9/DESIGN.md) |
 
 ## 版本演进
 
