@@ -53,8 +53,7 @@ if ep > 1:
 runner.allocate_kv_cache()
 llm.scheduler = Scheduler(llm.config)
 
-# ===== v6.4 核心：替换 step 为集中化版本 =====
-# 对照模式（环境变量 CONTROL=1 时用原版 step）
+# ===== v6.4 核心：替换 step 为集中化哑 forward 版本 =====
 import os as _os
 if _os.environ.get("CONTROL"):
     class _FakeCoord:
@@ -71,15 +70,25 @@ ps = [tok.apply_chat_template([{"role": "user", "content": m}], tokenize=False,
 
 # 手动驱动（走我们替换过的 step）——保留 seq 引用供收集
 my_seqs = [llm.add_request(p, SamplingParams(temperature=0.0, max_tokens=48)) for p in ps]
-coord.sync_sequences(list(llm.scheduler.waiting))
 
 t0 = time.time()
-if _os.environ.get("CONTROL"):
-    _fin = llm.is_finished
-    llm.is_finished = lambda: _fin()
 while not llm.is_finished():
     llm.step()
 wall = time.time() - t0
+
+# master 发终止计划（空批）——follower 收到 n=0 才能退出循环
+if _os.environ.get("CONTROL"):
+    pass
+else:
+    # 先等最后一步 forward 的异步 allreduce 落地，再发终止通知——
+    # 否则两者抢 communicator 会乱序（收尾死锁的根因）
+    torch.cuda.synchronize()
+    coord.plan_buf[:, 0] = -1
+    if torch.distributed.is_available() and torch.distributed.is_initialized():
+        torch.distributed.broadcast(coord.plan_buf, src=coord.master)
+        torch.distributed.broadcast(coord.bt_buf, src=coord.master)
+        torch.distributed.broadcast(coord.tok_buf, src=coord.master)
+        torch.cuda.synchronize()
 
 if rank == 0:
     print(f"[TP{tp}xEP{ep}-cent] wall={wall:.2f}s", flush=True)
