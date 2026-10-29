@@ -8,7 +8,7 @@
 |---|---|---|---|
 | v7.0 | n-gram draft + verify 循环（正确性验证） | ✓ | 本文 §实现记录 |
 | v7.1 | MTP 层 draft（Qwen3 自带权重，零训练） | 待做 | — |
-| v7.2 | APC 前缀缓存加速 verify（性能反转点） | 待做 | — |
+| v7.2 | 增量 verify（KV 轮间持久，性能反转） | ✓ | 本文 §v7.2 |
 | v7.3 | 动态 draft 长度（接受率滑动窗口自适应 k） | 待做 | — |
 
 ## v7.0 实现记录（n-gram draft + verify）
@@ -44,10 +44,60 @@
 4. **脏状态-cache**：verify 手动写 cache 后 cur_len 未复位 → 下一请求
    attention 越界。
 
+## v7.2 实现记录：增量 verify（性能反转点）
+
+**v7.0 的 verify 为什么慢**：每轮把 [prompt + 已接受 + 候选] 全量重新 prefill，
+成本 O(L)——比普通 decode（O(1)）还贵，性能永远无法反转。原计划"接 APC 前缀缓存
+加速 verify"，实现时发现 APC 只能救 prompt 前缀，救不了逐轮增长的已接受段；
+真正的解法是**让 KV cache 轮间持久**（同一序列不换块表），verify 只 forward
+新 token——这是同一目标的更优实现（APC 是跨请求共享前缀，这里是同请求
+跨轮持久，底层都是"位置→槽位映射稳定则 KV 可复用"）。
+
+**轮次结构**（`layers/mtp.py`，greedy verify）：
+```
+不变量：进入每轮时 cache 含位置 0..L-2，最后确认 token（位置 L-1）未前向
+1. draft:  n-gram 从历史找尾部匹配 → k 个候选（位置 L..L+k-1）
+2. forward [x_{L-1}, d_0..d_{k-1}]（k+1 个 token 一次 varlen 前向，
+   复用 chunked-prefill 的 "q 是 k 的尾段" 形态：cu_seqlens_k = L+k）
+   logits[i] = 位置 L+i 的分布 → greedy[i] 验证 d_i，greedy[k] 是全接受 bonus
+3. 提交:   接受 draft[:n_acc] + 修正 greedy[n_acc]（最后 token 不前向 → 回到不变量）
+```
+成本从 O(L) 降到 O(k+1)。引擎直接驱动 model_runner + block_manager（绕开
+scheduler），与普通 greedy 共享同一份权重和 KV 池——投机/普通模式切换零成本。
+
+**被拒候选的垃圾 KV 为什么不污染**：forward 会把 d_{n_acc+1}.. 的 KV 写进
+"未来位置"槽位，这些槽位在下一轮写入前不会被读——prefill kernel 的 key 循环
+界是 cu_seqlens_k（确认长度），decode 是 context_lens，都只扫确认前缀；
+下一轮同位置写入直接覆盖。PagedAttention 的位置→槽位映射固定是天然红利，
+不需要任何清理逻辑。
+
+**实测**（Qwen3-Omni-30B，H20，48 token greedy，`tests/test_speculative.py`）：
+
+| 请求 | 基线 | 投机 | 加速 | 接受率 | 输出一致 |
+|---|---|---|---|---|---|
+| 重复这句话三遍 | 1.4s | 0.9s | **1.55x** | 83% | ✓ 逐 token |
+| 介绍一下你自己 | 3.6s | 3.7s | ~1.0x | 0% | ✓ 逐 token |
+| 数数 1-12 | 3.9s | 5.2s* | 0.75x* | 2% | ✓ 逐 token |
+
+*req0 首轮包含 M=5 形状的 cuBLAS/MoE 首次选核开销（req2 热身后同场景
+投机轮 ~79ms ≈ decode 步 76ms）。
+
+**两个关键读数**：
+1. **5-token verify 前向 ≈ 1-token decode 步**（79 vs 76ms）：decode 步是
+   launch 开销主导（MoE 48 个 expert GEMM + 28 层 kernel 串联），多 4 个
+   token 的算力是白送的——这是投机的收益空间：接受率越高白送越多。
+   83% 接受率 → 每轮 ~3.5 token/5-token 前向 → 1.55x。
+2. **接受率完全由 draft 质量/格式决定**：数数 prompt 用空格（"1 2 3"）生成
+   用逗号（"1, 2, 3"），n-gram 上下文里根本没有这个格式的后续 → 2% 接受。
+   n-gram draft 只在"生成内容复读上下文"时有效（重复句 83%）——这正是
+   v7.1 MTP draft 的动机：模型自己的预测才不挑格式。
+
+**踩坑**：无新增——v7.0 的四个坑（死循环/logits off-by-one/脏状态）在重写
+架构下自然消失（手动状态只有块表和"末 token 未前向"一个不变量）。
+
 ## v7.1-v7.3 规划
 
 - **v7.1 MTP draft**：Qwen3-30B-A3B 的 MTP 层权重当 draft head（一次前向
   出多 token 预测，比 n-gram 的接受率高一个量级）；
-- **v7.2 APC 加速 verify**：前缀缓存命中后 verify 只算新位置——性能反转；
 - **v7.3 动态 k**：接受率的滑动窗口 → 自适应 draft 长度（与 v6 的 P3
   "统计驱动调度"一脉相承）。
