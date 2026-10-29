@@ -33,14 +33,36 @@ from layers.dsv4_components import (
 # ---------- 平铺版 RoPE（theta 可配，yarn 近似留后） ----------
 
 class DSV4Rope(nn.Module):
-    def __init__(self, head_dim, rope_dim, base=10000, max_position=8192):
+    """yarn 缩放的 RoPE（V4-Flash: factor=16, original_max=65536, theta=10000）。
+    yarn 的低频/高频斜坡基于 beta_fast/beta_slow，这里用标准实现。"""
+
+    def __init__(self, head_dim, rope_dim, base=10000, max_position=8192,
+                 yarn_factor=16.0, yarn_original_max=65536,
+                 beta_fast=32.0, beta_slow=1.0):
         super().__init__()
         self.rope_dim = rope_dim
+        # pos / factor 作为有效位置（长序列外推压缩）
+        low, high = yarn_original_max // yarn_factor, yarn_original_max
         inv = 1.0 / (base ** (torch.arange(0, rope_dim, 2, dtype=torch.float) / rope_dim))
-        pos = torch.arange(max_position, dtype=torch.float)
+        # yarn 斜坡：低频维度缩 factor，高频不动
+        if isinstance(yarn_factor, float) and yarn_factor > 1.0 and low < high:
+            import math
+            floor_f, ceil_f = math.floor(rope_dim / 2 * math.log(high / low, base)), \
+                math.ceil(rope_dim / 2 * math.log(high / low, base))
+            bl, bh = beta_fast, beta_slow
+            ramp = torch.zeros(rope_dim // 2)
+            lo_idx, hi_idx = max(0, (rope_dim // 2) - ceil_f) - bl, \
+                min(rope_dim // 2, floor_f) + bh
+            idx = torch.arange(rope_dim // 2, dtype=torch.float)
+            ramp = torch.clamp((idx - lo_idx) / max(hi_idx - lo_idx, 1), 0.0, 1.0)
+            inv = inv / (1 + (yarn_factor - 1) * ramp)   # 高频(ramp=1)缩factor, 低频不动
+            self._attention_scaling = 0.1 * math.log(yarn_factor) + 1.0
+        else:
+            self._attention_scaling = 1.0
+        pos = torch.arange(max_position, dtype=torch.float) / (yarn_factor if yarn_factor > 1 else 1.0)
         freq = torch.outer(pos, inv)
-        self.register_buffer("cos", freq.cos(), persistent=False)   # [P, rd/2]
-        self.register_buffer("sin", freq.sin(), persistent=False)
+        self.register_buffer("cos", freq.cos() * self._attention_scaling, persistent=False)
+        self.register_buffer("sin", freq.sin() * self._attention_scaling, persistent=False)
 
     def get(self, positions):
         """positions [T] → (cos [T, rd/2], sin)。rope buffer 固定在一张卡
@@ -84,6 +106,11 @@ class DSV4Attention(nn.Module):
     def _load_sink(self, param, loaded, shard_id=None):
         param.data.copy_(loaded)
 
+    @staticmethod
+    def _q_b_norm(x):
+        # HF DeepseekV4UnweightedRMSNorm（无学习权重——与带权重的 q_a_norm 不同）
+        return x * torch.rsqrt(x.float().pow(2).mean(-1, keepdim=True) + 1e-6)
+
     def forward(self, x, positions, attn_mask=None):
         """x [T, hidden]; positions [T] → [T, hidden]。"""
         T = x.shape[0]
@@ -91,6 +118,7 @@ class DSV4Attention(nn.Module):
 
         qr = self.q_a_norm(self.q_a_proj(x))                       # [T, q_lora]
         q = self.q_b_proj(qr).view(T, self.H, self.D)
+        q = self._q_b_norm(q)                                     # 无权重 RMSNorm
         q = apply_partial_rope(q, cos, sin, self.rd)
         kv = self.kv_norm(self.kv_proj(x))                         # [T, D] 单 KV 头
         kv = apply_partial_rope(kv.unsqueeze(1), cos, sin, self.rd).squeeze(1)

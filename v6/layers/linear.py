@@ -14,6 +14,9 @@ class BaseLinear(nn.Module):
             self.register_parameter("bias", None)
     
     def forward(self,x:torch.Tensor):
+        # dtype 自适应：上游 fp32 中间量（rope/norm 的 fp32 计算）不再炸下游
+        if x.dtype != self.weight.dtype:
+            x = x.to(self.weight.dtype)
         return F.linear(x,self.weight,self.bias)
     
     def weight_loader(self,param:torch.Tensor,loader_weight:torch.Tensor):

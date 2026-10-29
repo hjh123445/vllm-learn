@@ -102,13 +102,13 @@ def test_mla_math():
     print(f"MLA 无 sink 退化对拍: {d:.2e}")
     assert d < 1e-5
 
-    # partial rope: 前 32 维旋转、后 32 维不变
+    # partial rope（interleaved + 尾部 rope 维）: 前 D-32 维不变、尾 32 维旋转
     cos = torch.randn(T, 16)
     sin = torch.randn(T, 16)
     x = torch.randn(T, H, D)
     xr = apply_partial_rope(x, cos, sin, rope_dim=32)
-    assert xr[..., 32:].equal(x[..., 32:]), "非 rope 区必须不变"
-    assert not xr[..., :32].equal(x[..., :32])
+    assert xr[..., :-32].equal(x[..., :-32]), "nope 区（头部）必须不变"
+    assert not xr[..., -32:].equal(x[..., -32:])
     print("MLA partial rope 维度语义: PASS")
 
 

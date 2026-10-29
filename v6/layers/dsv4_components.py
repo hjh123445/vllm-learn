@@ -30,6 +30,9 @@ def mla_attention(q, kv, sink, scale, mask=None, cos=None, sin=None):
     返回 [T, H, D]（已反旋转，可直接 o_proj）。"""
     T, H, D = q.shape
     L = kv.shape[0]
+    in_dtype = q.dtype                          # 出口转回（下游线性层是 bf16）
+    # fp32 计算（bf16 下 einsum 要求同 dtype 且 softmax 精度不够）
+    q, kv = q.float(), kv.float()
     # scores: 每头与单 KV 头的点积 → [H, T, L]
     scores = torch.einsum("thd,ld->htl", q, kv) * scale
     # attention sink：cat 到 key 维尾部参与 softmax（gpt-oss 式）
@@ -38,29 +41,35 @@ def mla_attention(q, kv, sink, scale, mask=None, cos=None, sin=None):
     probs = combined.softmax(dim=-1)
     probs = probs[..., :-1]                     # drop sink（它只吸收概率不贡献值）
     out = torch.einsum("htl,ld->thd", probs, kv)  # V=kv
-    # 共轭反旋转：V 的 rope 部分在输出里被 -sin 抵消（相对位置语义）
+    # 共轭反旋转（对齐 HF：attention 后用 -sin 再 apply 一次把 V 的 rope 抵消）
     if cos is not None and sin is not None:
-        # rope 覆盖前 rope_dim 维（= cos 宽度的 2 倍：cos/sin 是半宽）
-        half = cos.shape[-1]                     # 32
-        dtype = out.dtype
-        o1, o2 = out[..., :half].float(), out[..., half:2 * half].float()
-        c = cos[:T].unsqueeze(1)                # [T, 1, half]
-        s = sin[:T].unsqueeze(1)
-        out = torch.cat([(c * o1 + s * o2).to(dtype), (-s * o1 + c * o2).to(dtype),
-                         out[..., 2 * half:]], dim=-1)
-    return out
+        rd = cos.shape[-1] * 2
+        neg_sin = -sin
+        out = apply_partial_rope(out, cos, neg_sin, rd)
+    return out.to(in_dtype)
 
 
 def apply_partial_rope(x, cos, sin, rope_dim):
-    """partial RoPE：只有前 rope_dim 维旋转。
-    x: [T, H, D]（任意 dtype）; cos/sin: [T, rope_dim//2]（fp32）。
-    fp32 计算后转回原 dtype（与 HF 的 fp32 rope 一致）。"""
-    rd = rope_dim // 2
+    """V4 的 interleaved partial RoPE（对齐 HF apply_rotary_pos_emb）。
+
+    三个关键点：
+    1. rope 维在【尾部】x[..., -rope_dim:]，nope 在头部（V4 布局）；
+    2. 偶奇交错配对（rotate_half: x[0::2] 与 x[1::2]），
+       cos/sin 是半宽（rd/2 个频率），repeat_interleave(2) 展开；
+    3. fp32 计算后转回原 dtype。
+    x: [T, H, D]（或 [T, D]）; cos/sin: [T, rope_dim//2]（fp32）。"""
     dtype = x.dtype
-    x1, x2 = x[..., :rd].float(), x[..., rd:rope_dim].float()
-    c, s = cos.unsqueeze(1), sin.unsqueeze(1)   # [T, 1, rd]
-    rot = torch.cat([c * x1 - s * x2, s * x1 + c * x2], dim=-1)
-    return torch.cat([rot.to(dtype), x[..., rope_dim:]], dim=-1)
+    ndim_extra = x.dim() - 2               # [T, (H,) D] → unsqueeze 到头维后 1
+    c = cos.repeat_interleave(2, dim=-1)    # [T, rd]
+    s = sin.repeat_interleave(2, dim=-1)
+    if x.dim() == 3:                        # [T, H, D]
+        c, s = c.unsqueeze(1), s.unsqueeze(1)
+    nope, rope = x[..., :-rope_dim], x[..., -rope_dim:]
+    x1 = rope[..., 0::2].float()
+    x2 = rope[..., 1::2].float()
+    rot = torch.stack((-x2, x1), dim=-1).flatten(-2)  # rotate_half
+    rotated = (rope.float() * c) + (rot * s)
+    return torch.cat([nope, rotated.to(dtype)], dim=-1)
 
 
 # ============ 2. HyperConnection（mHC） ============
