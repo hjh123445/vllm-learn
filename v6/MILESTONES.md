@@ -85,11 +85,35 @@ v6.4 调度集中化**（与 PP lockstep 同根）。
 
 ---
 
-## v6.3 —— DeepSeek-V4 模型文件（待做）
+## v6.3 —— DeepSeek-V4 模型文件（进行中）
 
-目标：`deepseek_v4` 架构——MLA（q_lora_rank 1024 / qk_rope_head_dim 64 压缩
-注意力）、256 专家 top-6 + 1 shared、sqrtsoftplus 新路由、FP8 block 量化
-（128×128）反量化。149GB @ /data/xmhuang6/deepseek/（只读）。
+**架构调研完成**（权重结构 + HF 源码全读）——远超 MLA+FP8 的复杂度：
+
+| 组件 | 内容 | 状态 |
+|---|---|---|
+| FP8 block 量化 | int8 存储 + e8m0 scale（128×128 块） | ✓ 反量化对拍通过 |
+| 路由 | sqrtsoftplus（√softplus 打分）+ 前 3 层 hash 路由（tid2eid 查表）+ routed_scaling 1.5 | ✓ 单元通过 |
+| MLA | q_lora 1024 → 64 头×512 dim；kv 单投影 512 + 压缩 KV（CSA/HCA compressor）| 待做 |
+| attention sink | 每头可学习 sink logit（gpt-oss 式）| 待做 |
+| hyper-connections | 4 残差流 + Sinkhorn 双随机混合（mHC）| 待做 |
+| yarn rope | factor=16, original 65536 | 待做 |
+| MTP | num_nextn_predict_layers=1（v7 投机解码直接用）| 待做 |
+
+**第一阶段实测**（test_dsv4_stage1.py ALL PASS）：
+- FP8 反量化：w1 [2048,2048] → 均值 -0.0001 / std 0.77（合理分布），块级
+  手算自检 diff=0.0；
+- sqrtsoftplus 路由：top6 归一化 × scaling 后权重和精确 = 1.5；
+- hash 路由：tid2eid [129280, 6] 查表语义验证。
+
+**踩坑（FP8 反量化的三个坑，全记录）**：
+1. **e4m3fn 的 NaN pad 字节是 0x7F 和 0xFF（=127 和 -1）**——不是直觉的
+   ±127/±128。逐字节扫描 256 个值定位（`torch.arange(-128,128).view(float8_e4m3fn)`）。
+   0.36% 的字节是 pad，替换为 0 后分布正常；
+2. **e8m0 scale 的正确解码是直接 `.float()`**（torch 已实现 2^(bits-127)
+   语义）；`view(torch.uint8)` 拿到的位模式与存储值不一致（120 存储值
+   view 出 134）——不能用位操作解码；
+3. int8 存储的 e4m3 需要 `view(torch.float8_e4m3fn)` 位重解释后 `.float()`，
+   与直接 int8 数值不同（-84 → -0.375）。
 
 ---
 
