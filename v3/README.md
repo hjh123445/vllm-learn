@@ -1,7 +1,9 @@
-# v3：nano-vllm 调度栈 + 我们的模型
+# v3：完整调度栈（APC / chunked prefill / 抢占）
 
-把 nano-vllm 的调度栈**原样搬入**——APC 前缀缓存、block 引用计数、chunked prefill、
-max_num_batched_tokens、抢占——模型沿用我们的 v2 实现。ModelRunner / LLMEngine 重写为单卡单进程。
+参照 nano-vllm 的调度设计，在我们的引擎里重写完整调度栈——APC 前缀缓存、
+block 引用计数、chunked prefill、max_num_batched_tokens、抢占。
+模型与执行层沿用我们的 v2 实现，ModelRunner / LLMEngine 重写为单卡单进程
+（去掉 mp/共享内存/分布式，调度决策与执行同进程直连）。
 
 ## 快速开始
 
@@ -12,13 +14,13 @@ cd v3 && python example.py
 ## 代码结构
 
 ```
-# ↓ 原样搬入 nano-vllm（仅改 import 路径）
+# 调度栈（参照 nano-vllm 设计重写，适配我们的 Context/平铺批）
 engine/block_manager.py   Block 引用计数 + xxhash 链式哈希的前缀缓存（APC）
 engine/scheduler.py       prefill 优先 + chunked prefill + max_num_batched_tokens + 抢占
 engine/sequence.py        Sequence（token_ids 全量保存 + block_table + 分块语义）
 utils/context.py          Context 全局单例（cu_seqlens/slot_mapping/context_lens/block_tables）
-# ↓ 我们的实现
-engine/model_runner.py    重写：warmup → nano 公式算池子 → 注入每层 → prepare 构造 Context
+# 执行层（我们的实现）
+engine/model_runner.py    重写：warmup → 显存公式算池子 → 注入每层 → prepare 构造 Context
 engine/llm_engine.py     重写：单卡单进程（去掉 mp/共享内存/分布式）
 layers/ models/           v2 的实现（平铺 + context 版 attention）
 ```
@@ -52,19 +54,21 @@ prefill 逐序列按 cu_seqlens 切分，causal **底右对齐**（chunk 是 k �
 mask 用**全局加性 causal 表的切片**（视图零拷贝——每层每序列重建 mask 会让 prefill 2.02s → 0.16s，
 实测踩过）。decode 组合批：`context_lens` 做长度 mask。
 
-### 池子：nano 的公式（`engine/model_runner.py::allocate_kv_cache`）
+### 池子：显存预算公式（`engine/model_runner.py::allocate_kv_cache`）
 
-`num_blocks = (总显存×利用率 − 已用(含其他进程) − warmup峰值 + 当前) ÷ 每 block 字节`，
+`num_blocks = (总显存×利用率 − 常驻(权重+其他进程) − warmup 实测激活峰值) ÷ 每 block 字节`，
 block_size=256。warmup 用临时池 + 手动指块（我们的 attention 要从 cache 读，
-不像 nano 的 flash prefill 能无 cache 直算）。
+不像 nano 的 flash prefill 能无 cache 直算）。warmup 末尾记录
+`A = peak − current` 并显式释放临时池（view 引用打破）——量预算时 tmp 不在账上
+（历史 bug：tmp 晚释放被当常驻多扣，池子少 17%，见 ENGINEERING_NOTES 2.4）。
 
 ## 与 v2 的差异
 
 | v2 | v3 |
 |---|---|
-| block 16 tok，自管账本 | block 256 tok，nano 的 BlockManager（APC + ref_count） |
-| 无 APC / chunked prefill | 两者都有（原样搬入） |
-| 自写 Context | nano 的 Context 约定（cu_seqlens 体系） |
+| block 16 tok，自管账本 | block 256 tok，BlockManager（APC + ref_count） |
+| 无 APC / chunked prefill | 两者都有 |
+| 自写 Context | cu_seqlens 体系（绝对前缀和约定，支持 chunked 尾段） |
 | 逐请求温度采样（v3 顺手修掉 nano 的 greedy 禁止 assert） | |
 
 ## 正确性与性能

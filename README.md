@@ -39,7 +39,7 @@ python benchmark/serve_bench.py --url http://127.0.0.1:8000 --num-requests 64   
 | v0 | 静态批处理（左 padding / 加性 mask / 装载对账） | [v0/README.md](v0/README.md) |
 | v1 | 迭代级调度 + Orca 混合批次（平铺批 / 逐序列朴素注意力） | [v1/README.md](v1/README.md) |
 | v2 | PagedAttention + 显存统一管理（warmup 预算 / 抢占 / Context） | [v2/README.md](v2/README.md) · [v2/DESIGN.md](v2/DESIGN.md) |
-| v3 | nano-vllm 调度栈原样搬入（APC / chunked prefill / 引用计数） | [v3/README.md](v3/README.md) |
+| v3 | 完整调度栈（APC / chunked prefill / 抢占，参照 nano-vllm 设计重写） | [v3/README.md](v3/README.md) |
 | v4 | 手写 triton kernel 层（融合算子 / FlashAttention / guard 税策略） | [v4/README.md](v4/README.md) |
 | v5 | 在线推理（异步引擎 / OpenAI SSE / 优雅退出） | [v5/README.md](v5/README.md) |
 | v6 | 多卡并行（TP/EP/PP 及组合，单机矩阵+跨节点实测） | [v6/README.md](v6/README.md) · 小版本: [v6/MILESTONES.md](v6/MILESTONES.md) |
@@ -54,7 +54,7 @@ python benchmark/serve_bench.py --url http://127.0.0.1:8000 --num-requests 64   
 | **v0** | 静态批处理：Batch 组好跑到整批完成，左 padding + mask | `v0/engine/`（每版 README 有完整结构） |
 | **v1** | 迭代级调度 + **Orca 混合批次**：prefill 和 decode 摊平在同一个 forward 里跑（flattened batch，逐序列朴素注意力） | `v1/engine/` |
 | **v2** | **PagedAttention**：16-token block + block table + warmup 实测池子预算 + 按 block 准入 + 抢占（recompute）+ attention 上下文收进全局 Context | `v2/engine/{kv_cache,context}.py` |
-| **v3** | nano-vllm 的调度栈**原样搬入**（APC 前缀缓存 + block 引用计数 + chunked prefill + max_num_batched_tokens）+ 我们的模型；重写 model_runner（单卡单进程）/llm_engine | `v3/nanovllm/engine/` |
+| **v3** | 参照 nano-vllm 的调度设计重写完整调度栈（APC 前缀缓存 + block 引用计数 + chunked prefill + max_num_batched_tokens + 抢占）+ 我们的模型与执行层；model_runner/llm_engine 自研单卡单进程 | `v3/engine/` |
 | **v4** | **全手写 triton kernel 层**：融合算子（残差+RMSNorm、q/k norm+rope+cache 写入、SiLU×up）+ 手写 paged FlashAttention（decode 在线 softmax / prefill causal）+ torch.compile 只用于采样器 | `v4/layers/{kernels,flash_attn}.py` |
 | **v5** | **在线推理**：异步引擎（后台循环线程 + 每请求流式队列）+ stdlib HTTP 服务（OpenAI 兼容 SSE 流式），请求随到随入（并发 4 路流式中 TTFT 16-23ms，中途新请求 24ms 立即准入） | `v5/server.py`、`v5/engine/async_engine.py` |
 

@@ -2,7 +2,7 @@
 """v3 ModelRunner（重写版，单卡单进程，无 mp/分布式）。
 
 职责与 nano 的 model_runner 相同：载模型 → warmup 量激活峰值 →
-按 nano 的公式算 num_kvcache_blocks → 分配池子并注入每层 attention →
+warmup 实测激活峰值 → 按显存预算公式算 num_kvcache_blocks → 分配池子并注入每层 attention →
 每步 prepare（构造 Context）→ 前向 → 采样。
 区别：模型是 v2 的实现（平铺 + 纯 PyTorch attention），采样支持逐请求温度（含 greedy）。
 """
@@ -32,7 +32,7 @@ class ModelRunner:
         self.model.eval()
         self.sampler = Sampler()
 
-        # ---- warmup 量激活峰值 → 按 nano 的公式定池子 ----
+        # ---- warmup 量激活峰值 → 按显存预算公式定池子 ----
         self._warmup_model()
         self.allocate_kv_cache()
 
@@ -73,11 +73,21 @@ class ModelRunner:
             seq.num_scheduled_tokens = 1
             seq.is_prefill = False
         self.run(seqs, False)
+        # 记录激活峰值：此时 peak/current 都含 tmp，差值恰好隔离出 A（数学上 T 抵消）
+        stats = torch.cuda.memory_stats()
+        self._activation_peak = stats["allocated_bytes.all.peak"] - stats["allocated_bytes.all.current"]
+        # 释放临时池：_assign_layer_caches 把 tmp 的 view 挂在模块上，函数返回
+        # 后 tmp 靠这些 view 存活——必须显式打破引用才真正归还显存。
+        # （不释放的话 allocate 里量的 used 会把 T 当成常驻显存多扣一遍，
+        #   池子恰好小 T/block_bytes 个块——Qwen3-30B 实测少 64 blocks / 17%）
+        for module in self.model.modules():
+            if hasattr(module, "k_cache") and hasattr(module, "v_cache"):
+                module.k_cache = torch.tensor([], device=self.device)
+                module.v_cache = torch.tensor([], device=self.device)
         torch.cuda.empty_cache()
-        # 池子分配后层缓存会被重新指，临时池靠引用消失回收
 
     def allocate_kv_cache(self):
-        """nano 的公式：池子 = (总显存×利用率 − 已用 − 激活峰值) ÷ 每 block 字节。"""
+        """显存预算：池子 = (总显存×利用率 − 常驻 − warmup 实测激活峰值) ÷ 每 block 字节。"""
         config = self.config
         hf = config.hf_config
         free, total = torch.cuda.mem_get_info()
@@ -94,9 +104,11 @@ class ModelRunner:
                                     dtype=self.dtype, device=self.device)
         self._assign_layer_caches(self.kv_cache)
         print(f"[v3 显存预算] 总显存 {total/1e9:.1f} GB × 利用率 {config.gpu_memory_utilization}")
+        act = getattr(self, "_activation_peak", None)
         print(f"  → KV 池 {config.num_kvcache_blocks} blocks × {self.block_size} tok "
-              f"({self.kv_cache.numel() * self.dtype.item_size if False else self.kv_cache.numel() * self.dtype.itemsize / 1e9:.2f} GB, "
-              f"每 block {block_bytes/1e6:.2f} MB)")
+              f"({self.kv_cache.numel() * self.dtype.itemsize / 1e9:.2f} GB, "
+              f"每 block {block_bytes/1e6:.2f} MB, "
+              f"激活预算 {'实测 ' + f'{act/1e9:.2f}' + ' GB' if act is not None else '启发式 6 GB'})")
 
     # ================= 每步的 prepare（构造 Context）=================
 

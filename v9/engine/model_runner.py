@@ -2,7 +2,7 @@
 """v3 ModelRunner（重写版，单卡单进程，无 mp/分布式）。
 
 职责与 nano 的 model_runner 相同：载模型 → warmup 量激活峰值 →
-按 nano 的公式算 num_kvcache_blocks → 分配池子并注入每层 attention →
+warmup 实测激活峰值 → 按显存预算公式算 num_kvcache_blocks → 分配池子并注入每层 attention →
 每步 prepare（构造 Context）→ 前向 → 采样。
 区别：模型是 v2 的实现（平铺 + 纯 PyTorch attention），采样支持逐请求温度（含 greedy）。
 """
@@ -36,7 +36,7 @@ class ModelRunner:
         self.model.eval()
         self.sampler = Sampler()
 
-        # ---- warmup 量激活峰值 → 按 nano 的公式定池子 ----
+        # ---- warmup 量激活峰值 → 按显存预算公式定池子 ----
         # TP 模式下 warmup 在切分前跑会按全量权重分配爆显存 → 跳过 warmup，
         # 池子由 run_tp.py 在切分后手动分配
         self.kv_cache = None
