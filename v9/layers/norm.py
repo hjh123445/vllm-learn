@@ -13,7 +13,7 @@ class RmsNorm(nn.Module):
         self.eps = eps
         self.weight.weight_loader = self.weight_loader
 
-    def weight_loader(self,param,loader_weight):
+    def weight_loader(self, param, loaded, shard_id=None):
         return param.data.copy_(loader_weight)
 
     def forward(self, x: torch.Tensor):

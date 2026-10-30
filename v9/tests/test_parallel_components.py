@@ -18,8 +18,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
 
 from layers import parallel as P
-from layers.parallel import (ColumnParallelLinear, RowParallelLinear,
-                             shard_bounds, configure_parallel)
+from layers.linear import ColumnParallelLinear, RowParallelLinear
+from layers.parallel import shard_bounds, configure_parallel
 
 
 def set_tp(tp_size, tp_rank):
@@ -182,10 +182,94 @@ def test_attention_shapes():
     print("Qwen3MoeAttention: PASS（TP1/2/4/8 头数与形状，含 kv 复制）")
 
 
+
+
+def test_gate_up_fc1():
+    """fc1 的 gate|up 融合布局 × TP：直接均分 2I 会把 gate|up 劈开，
+    gate_up=True 应各取 I/tp 再拼（chunk(2) 语义 rank 内成立）。"""
+    from layers.activation import SiluAndMul
+    torch.manual_seed(0)
+    H, I = 16, 32
+    W = torch.randn(2 * I, H)                     # [gate(32) | up(32)]
+    x = torch.randn(3, H)
+    outs = []
+    for r in range(2):
+        set_tp(2, r)
+        fc1 = ColumnParallelLinear(H, 2 * I, gate_up=True)
+        assert fc1.weight.shape == (I, H)         # [gate(I/2) | up(I/2)]
+        fc1.weight_loader(fc1.weight, W)
+        outs.append(SiluAndMul()(fc1(x)))         # [3, I/tp]
+    # 聚合 = inter 维拼接（每 rank 已完成自己的 gate×up）
+    full = torch.cat(outs, dim=-1)
+    h = x @ W.t()
+    g, u = h.chunk(2, -1)
+    ref = torch.nn.functional.silu(g) * u
+    assert torch.allclose(full, ref, atol=1e-5), \
+        f"gate_up 切分数学错: {(full - ref).abs().max()}"
+    print("ColumnParallel gate_up (fc1): PASS")
+
+
+def test_vocab_parallel():
+    """Embedding 行切（段外贡献 0 + 手工 allreduce）/ LmHead 行切（手工 gather 拼）。"""
+    from layers.embedding import Embedding, LmHead
+    torch.manual_seed(0)
+    V, H = 64, 16
+    W = torch.randn(V, H)
+    ids = torch.tensor([0, 7, 33, 63, 40])
+    outs = []
+    for r in range(4):
+        set_tp(4, r)
+        emb = Embedding(V, H)
+        assert emb.weight.shape == (16, H)
+        emb.weight_loader(emb.weight, W)
+        outs.append(emb(ids))                     # group=None → 直通（段外为 0）
+    total = torch.stack(outs).sum(0)              # 手工 allreduce
+    ref = W[ids]
+    assert torch.allclose(total, ref, atol=1e-6), f"vocab embed 错: {(total-ref).abs().max()}"
+    # LmHead: gather 拼接（x 固定——各 rank 输入相同）
+    x = torch.randn(2, H)
+    heads = []
+    for r in range(4):
+        set_tp(4, r)
+        lm = LmHead(H, V)
+        lm.weight_loader(lm.weight, W)
+        heads.append(lm(x))
+    full = torch.cat(heads, dim=-1)               # 手工 all_gather
+    ref = x @ W.t()
+    assert torch.allclose(full, ref, atol=1e-5), "vocab lm_head 拼接错"
+    # 单卡退化
+    set_tp(1, 0)
+    emb = Embedding(V, H); emb.weight_loader(emb.weight, W)
+    assert torch.allclose(emb(ids), W[ids])
+    print("VocabParallel Embedding/LmHead: PASS（切分聚合/单卡退化）")
+
+
+def test_dense_qwen3_shapes():
+    """dense 模型（qwen3.py）的 TP 构造。"""
+    from types import SimpleNamespace
+    from models.qwen3 import QwenAttention, QwenMLP
+    cfg = SimpleNamespace(head_dim=8, num_attention_heads=16, num_key_value_heads=4,
+                          hidden_size=32, intermediate_size=64,
+                          rms_norm_eps=1e-6, hidden_act="silu")
+    set_tp(2, 1)
+    attn = QwenAttention(cfg, 0)
+    assert attn.num_head == 8 and attn.num_kv_head == 2
+    mlp = QwenMLP(cfg)
+    assert mlp.fc1.weight.shape == (64, 32), mlp.fc1.weight.shape   # gate32|up32 → 各取16
+    assert mlp.fc2.weight.shape == (32, 32)
+    set_tp(1, 0)
+    mlp1 = QwenMLP(cfg)
+    assert mlp1.fc1.weight.shape == (128, 32)
+    print("dense Qwen3 (qwen3.py): PASS（TP2/单卡 MLP+attention 形状）")
+
+
 if __name__ == "__main__":
     test_shard_bounds()
     test_column_parallel()
     test_row_parallel()
     test_grouped_experts()
     test_attention_shapes()
-    print("\n===== v9.3 并行组件架构单测: ALL PASS =====")
+    test_gate_up_fc1()
+    test_vocab_parallel()
+    test_dense_qwen3_shapes()
+    print("\n===== v9.3b 并行组件架构单测: ALL PASS =====")

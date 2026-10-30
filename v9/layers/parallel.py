@@ -94,65 +94,13 @@ def shard_bounds(out_dim: int, tp_size: int, tp_rank: int, min_out: int = 1):
     shard = tp_rank * n_shards // tp_size
     return shard * per, per
 
-
-# ================= 组件 =================
-
-class ColumnParallelLinear(nn.Module):
-    """输出维切分（Megatron 语义）：本 rank 持 [N/tp, K]，forward 无通信。
-    用于 q_proj（按头切）/ k/v_proj（按头切，头不足时复制）/ w13（inter 切）。
-    weight_loader 吃【全量】checkpoint 张量，切片装载——loader 无需感知并行。"""
-
-    def __init__(self, in_dim: int, out_dim: int, min_out: int = 1, bias: bool = False):
-        super().__init__()
-        self.in_dim, self.out_dim = in_dim, out_dim
-        start, length = shard_bounds(out_dim, STATE.tp_size, STATE.tp_rank, min_out)
-        self.shard_start, self.shard_len = start, length
-        self.weight = nn.Parameter(torch.empty(length, in_dim))
-        self.weight.weight_loader = self.weight_loader
-        if bias:
-            self.bias = nn.Parameter(torch.empty(length))
-            self.bias.weight_loader = self.weight_loader
-        else:
-            self.register_parameter("bias", None)
-
-    def weight_loader(self, param, loaded, shard_id=None):
-        """loaded: 全量 [N, K] → 本 rank 的 [start:start+len]。"""
-        w = loaded[self.shard_start:self.shard_start + self.shard_len]
-        param.data.copy_(w.to(param.dtype))
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return F.linear(x, self.weight, self.bias)
+# 注意：ColumnParallelLinear / RowParallelLinear 组件在 layers/linear.py
+# （与 BaseLinear 同文件——它们是 Linear）。用模块级 __getattr__ 惰性
+# re-export 保持旧 import 兼容（直接 import 会循环：linear → parallel → linear）
+def __getattr__(name):
+    if name in ("ColumnParallelLinear", "RowParallelLinear"):
+        import layers.linear as _lin
+        return getattr(_lin, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-class RowParallelLinear(nn.Module):
-    """输入维切分（Megatron 语义）：本 rank 持 [N, K/tp]。
-    输入是本 rank 的列切片（来自上游 ColumnParallel），matmul 得部分和，
-    forward 内做 tp allreduce——通信归属组件，模型层不再显式调用。
-    用于 o_proj（q 头拼接维切）/ w2（inter 切）。"""
-
-    def __init__(self, in_dim: int, out_dim: int, bias: bool = False):
-        super().__init__()
-        self.in_dim, self.out_dim = in_dim, out_dim
-        assert in_dim % STATE.tp_size == 0, \
-            f"in_dim={in_dim} 切不动 TP{STATE.tp_size}"
-        self.shard_len = in_dim // STATE.tp_size
-        self.shard_start = STATE.tp_rank * self.shard_len
-        self.weight = nn.Parameter(torch.empty(out_dim, self.shard_len))
-        self.weight.weight_loader = self.weight_loader
-        if bias:
-            self.bias = nn.Parameter(torch.empty(out_dim))
-            self.bias.weight_loader = self.weight_loader
-        else:
-            self.register_parameter("bias", None)
-
-    def weight_loader(self, param, loaded, shard_id=None):
-        """loaded: 全量 [N, K] → 列切片 [N, start:start+len]。
-        ⚠ 必须 clone：narrow 视图共享旧 storage（v6 实测 61GB 纹丝不动的根因，
-        ENGINEERING_NOTES 2.0）——这里 CPU→GPU 拷贝本身产生新存储，但
-        copy_ 到 param 才是真正的归属转移。"""
-        w = loaded[:, self.shard_start:self.shard_start + self.shard_len]
-        param.data.copy_(w.to(param.dtype))
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out = F.linear(x, self.weight, self.bias)
-        return tp_allreduce(out)

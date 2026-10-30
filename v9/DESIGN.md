@@ -290,7 +290,24 @@ weight_loader 协议（先装载全量再切）。正确架构应该是**组件�
 | 通信 | 层 forward 里显式 tp_allreduce | RowParallel/MoE 组件内置 |
 | 单卡路径 | 与多卡不同代码路径 | 同一路径（tp=1 退化），零分支 |
 
-### 组件清单（`layers/parallel.py`）
+### v9.3b 结构复审（用户二次审查驱动）
+
+- **组件归位 `layers/linear.py`**（与 BaseLinear 同文件——它们是 Linear；
+  `layers/parallel.py` 只留 ParallelState/切分数学/通信原语等非组件基础设施，
+  组件用模块级 `__getattr__` 惰性 re-export 兼容旧 import，避免循环依赖）；
+- **dense 模型（qwen3.py）同步并行化**：attention 同 MoE 版，MLP 的 fc1 用
+  `gate_up=True`（[gate|up] 两半各切 I/tp 再拼——直接均分 2I 会把 gate|up
+  劈开，chunk(2) 语义在 rank 内失效，单测捕获）；
+- **vocab 维补齐**：`layers/embedding.py` 的 Embedding（行切 + 段外贡献 0 +
+  allreduce）/ LmHead（行切 + all_gather 拼全量 logits）——qwen3.py 本来就
+  用组件版，qwen3_moe.py 的 nn.Embedding/nn.Linear 换成组件；
+- **weight_loader 签名统一** `(self, param, loaded, shard_id=None)`——
+  BaseLinear/RmsNorm 的 2 参旧签名与 `_load_into` 的 3 参调用不兼容（协议
+  一致性审计发现）；
+- loader 逐名审计：embed/attn/experts/router/norm/lm_head 全部走组件
+  weight_loader（吃全量、内部切），shape 直拷 fallback 仅剩无协议组件。
+
+### 组件清单（`layers/linear.py` + `layers/embedding.py`）
 
 - `ParallelState` + `configure_parallel`：launcher 在构造模型前注入
   （tp/ep 坐标 + 通信组——组件不建组，v8.2 的 NCCL 教训留在引擎侧）；

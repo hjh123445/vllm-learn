@@ -85,7 +85,7 @@ class GroupedExperts(nn.Module):
         del self.w13, self.w2                      # 释放 bf16 权重
         self.quantized = True
 
-    def weight_loader(self, param, loaded, shard_id):
+    def weight_loader(self, param, loaded, shard_id=None):
         """weight_loader 协议（与 BaseLinear/RmsNorm 同约定）：
         loader 做名字映射后调 param 所属模块的 weight_loader，shard_id 携带
         融合信息——(expert_idx, half) 装进 w13 的对应半区，(expert_idx, None) 装 w2。

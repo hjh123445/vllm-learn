@@ -9,8 +9,8 @@ import os
 import torch
 import torch.nn as nn
 
-from layers.linear import BaseLinear
-from layers.parallel import ColumnParallelLinear, RowParallelLinear
+from layers.linear import BaseLinear, ColumnParallelLinear, RowParallelLinear
+from layers.embedding import Embedding, LmHead
 from layers.rotary_embedding import RotaryEmbeddding
 from layers.norm import RmsNorm
 from layers.attention import Attention
@@ -91,7 +91,7 @@ class Qwen3MoeDecoderLayer(nn.Module):
 class Qwen3MoeModel(nn.Module):
     def __init__(self, config, max_position: int):
         super().__init__()
-        self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size)
+        self.embed_tokens = Embedding(config.vocab_size, config.hidden_size)
         self.layers = nn.ModuleList(
             [Qwen3MoeDecoderLayer(config, i) for i in range(config.num_hidden_layers)])
         self.norm = RmsNorm(config.hidden_size, eps=config.rms_norm_eps)
@@ -115,7 +115,7 @@ class Qwen3MoeForCausalLM(nn.Module):
         super().__init__()
         self.config = config
         self.model = Qwen3MoeModel(config, max_position)
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.lm_head = LmHead(config.hidden_size, config.vocab_size)
 
     def forward(self, input_ids, positions):
         return self.model(input_ids, positions)

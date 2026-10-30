@@ -8,7 +8,7 @@ import os
 import torch
 import torch.nn as nn
 
-from layers.linear import BaseLinear
+from layers.linear import BaseLinear, ColumnParallelLinear, RowParallelLinear
 from layers.rotary_embedding import RotaryEmbeddding
 from layers.norm import RmsNorm
 from layers.attention import Attention
@@ -29,16 +29,27 @@ def _rope_theta(config) -> float:
 class QwenAttention(nn.Module):
     def __init__(self, config, layer_idx: int):
         super().__init__()
+        from layers.parallel import shard_bounds, STATE
         self.head_dim = getattr(config, "head_dim", config.hidden_size // config.num_attention_heads)
-        self.num_head = config.num_attention_heads
-        self.num_kv_head = config.num_key_value_heads
+        _, q_len = shard_bounds(config.num_attention_heads * self.head_dim,
+                                STATE.tp_size, STATE.tp_rank)
+        _, kv_len = shard_bounds(config.num_key_value_heads * self.head_dim,
+                                 STATE.tp_size, STATE.tp_rank, min_out=self.head_dim)
+        self.num_head = q_len // self.head_dim              # per-rank 头数
+        self.num_kv_head = kv_len // self.head_dim
         self.q_size = self.num_head * self.head_dim
         self.kv_size = self.num_kv_head * self.head_dim
 
-        self.q_proj = BaseLinear(config.hidden_size, self.q_size)
-        self.k_proj = BaseLinear(config.hidden_size, self.kv_size)
-        self.v_proj = BaseLinear(config.hidden_size, self.kv_size)
-        self.o_proj = BaseLinear(self.q_size, config.hidden_size)
+        self.q_proj = ColumnParallelLinear(config.hidden_size,
+                                           config.num_attention_heads * self.head_dim)
+        self.k_proj = ColumnParallelLinear(config.hidden_size,
+                                           config.num_key_value_heads * self.head_dim,
+                                           min_out=self.head_dim)
+        self.v_proj = ColumnParallelLinear(config.hidden_size,
+                                           config.num_key_value_heads * self.head_dim,
+                                           min_out=self.head_dim)
+        self.o_proj = RowParallelLinear(config.num_attention_heads * self.head_dim,
+                                        config.hidden_size)
 
         self.q_norm = RmsNorm(self.head_dim, eps=config.rms_norm_eps)
         self.k_norm = RmsNorm(self.head_dim, eps=config.rms_norm_eps)
@@ -60,8 +71,11 @@ class QwenMLP(nn.Module):
     def __init__(self, config):
         super().__init__()
         assert config.hidden_act == "silu"
-        self.fc1 = BaseLinear(config.hidden_size, config.intermediate_size * 2)
-        self.fc2 = BaseLinear(config.intermediate_size, config.hidden_size)
+        # fc1 输出维切（gate|up 各半，与 GroupedExperts.w13 同语义）；
+        # fc2 输入维切（allreduce 内置）。fused silu_and_mul 在 inter 本地完成。
+        self.fc1 = ColumnParallelLinear(config.hidden_size, config.intermediate_size * 2,
+                                        gate_up=True)   # gate|up 各取 I/tp（chunk(2) 语义 rank 内成立）
+        self.fc2 = RowParallelLinear(config.intermediate_size, config.hidden_size)
 
     def forward(self, x):
         return self.fc2(silu_and_mul(self.fc1(x)))
