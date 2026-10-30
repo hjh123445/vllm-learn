@@ -51,13 +51,22 @@ class GroupedExperts(nn.Module):
 
     def __init__(self, num_experts: int, hidden_size: int, intermediate: int):
         super().__init__()
-        self.num_experts = num_experts
+        from layers.parallel import STATE
         self.hidden = hidden_size
-        self.inter = intermediate
-        # 权重以 fp 存储由 loader 决定；结构上保持完整专家维度（EP 时 loader 只装本地切片）
+        # ---- EP: 本地专家区间 ----
+        per = num_experts // STATE.ep_size
+        assert per * STATE.ep_size == num_experts, \
+            f"E={num_experts} 切不动 EP{STATE.ep_size}"
+        self.e_start = STATE.ep_rank * per
+        self.num_experts = per                    # 本地专家数（E_local）
+        # ---- TP: inter 切片（w13 的行 / w2 的列）----
+        assert intermediate % STATE.tp_size == 0, \
+            f"I={intermediate} 切不动 TP{STATE.tp_size}"
+        self.inter = intermediate // STATE.tp_size       # I_local
+        self.i_start = STATE.tp_rank * self.inter
         self.quantized = False
-        self.w13 = nn.Parameter(torch.empty(num_experts, 2 * intermediate, hidden_size))
-        self.w2 = nn.Parameter(torch.empty(num_experts, hidden_size, intermediate))
+        self.w13 = nn.Parameter(torch.empty(self.num_experts, 2 * self.inter, hidden_size))
+        self.w2 = nn.Parameter(torch.empty(self.num_experts, hidden_size, self.inter))
 
     def quantize_int4(self, group: int = 128):
         """在线量化：装载完 bf16 权重后调用，就地转 int4 打包 buffer。
@@ -80,13 +89,24 @@ class GroupedExperts(nn.Module):
         """weight_loader 协议（与 BaseLinear/RmsNorm 同约定）：
         loader 做名字映射后调 param 所属模块的 weight_loader，shard_id 携带
         融合信息——(expert_idx, half) 装进 w13 的对应半区，(expert_idx, None) 装 w2。
-        装载逻辑在组件内（loader 不感知 w13 的内部布局）。"""
+
+        并行处理（v9.3）：loaded 是【全量单专家】张量，组件内部切好再装——
+          非本地专家（EP 区间外）→ 跳过
+          w13: gate/up 半区里各取 inter 的本 rank 行段；w2: 列段
+        TP 切缝与 gate|up 边界对齐（I % tp==0 保证不跨缝）；
+        loader 完全不感知并行。"""
         i, half = shard_id
+        if not (self.e_start <= i < self.e_start + self.num_experts):
+            return                                     # EP: 非本地专家
+        li = i - self.e_start                          # 本地专家下标
+        s, e = self.i_start, self.i_start + self.inter
         if param is self.w13:
-            I = loaded.shape[0]
-            param.data[i, half * I:(half + 1) * I, :] = loaded
+            # loaded 是 gate 或 up 的【半张量】[I_full, H]（loader 的 _ckpt_name
+            # 已按 gate/up 拆 shard）——直接取本 rank 的 inter 行段
+            param.data[li, half * self.inter:(half + 1) * self.inter, :] = loaded[s:e, :]
         else:
-            param.data[i] = loaded
+            param.data[li] = loaded[:, s:e]
+
 
     def forward(self, x: torch.Tensor, topk_idx: torch.Tensor, topk_w: torch.Tensor) -> torch.Tensor:
         """x: [T, H]; topk_idx: [T, k]; topk_w: [T, k] → [T, H]。
@@ -151,22 +171,20 @@ class MoEMLP(nn.Module):
                                 getattr(config, "norm_topk_prob", True))
         self.experts = GroupedExperts(config.num_experts, config.hidden_size,
                                       config.moe_intermediate_size)
-        # EP 状态（由 shard_model_for_ep 设置）
-        self.expert_parallel = False
-        self.ep_rank = 0
-        self.ep_size = 1
-        self.local_expert_start = 0        # 本地专家区间 [start, start + local_E)
+        # v9.3: 并行状态在 GroupedExperts 内部（构造时从 ParallelState 读）,
+        # MoEMLP 只负责 router + 本地计算 + 部分和聚合
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        import torch.distributed as dist
+        from layers.parallel import STATE, moe_allreduce
         idx, w = self.router(x)
-        if not self.expert_parallel or not dist.is_initialized() or dist.get_world_size() == 1:
+        if not (STATE.tp_enabled or STATE.ep_size > 1):
             return self.experts(x, idx, w)
-        return self._ep_forward_clean(x, idx, w)
+        out = self._ep_forward_local(x, idx, w)
+        return moe_allreduce(out)          # tp×ep 张成组上的部分和聚合
 
     def _experts_local(self, xs, eids, ws):
         """本地专家子集的分组计算（eids 是本地编号）。"""
-        E = self.local_E
+        E = self.experts.num_experts
         final = torch.zeros_like(xs)
         counts = torch.bincount(eids, minlength=E)
         offsets = counts.cumsum(0)
@@ -185,28 +203,28 @@ class MoEMLP(nn.Module):
             start = end
         return final
 
-    def _ep_forward_clean(self, x, idx, w):
-        """EP 的清晰实现：dispatch 用 all_gather（v6.4 换 all_to_all 省带宽）。
-        每卡算自己专家的部分和 → all_reduce 聚合。"""
-        import torch.distributed as dist
+    def _ep_forward_local(self, x, idx, w):
+        """本地专家部分和（DP-style EP，v6.2 设计）：
+        输入 x 组内冗余（上游 RowParallel 的 allreduce 已保证各 tp rank 一致），
+        每卡只算本地专家区间内的 (token, expert) 条目，非本地条目贡献 0，
+        由调用方 moe_allreduce 聚合（tp 切 inter 的部分和 + ep 切专家的部分和
+        在同一个组上一次 allreduce 完成）。
+        v6.4 起可换 all_to_all 省带宽（dispatch/combine），本版保留冗余计算换零
+        dispatch 通信的简单形态。"""
         T, H = x.shape
         k = idx.shape[1]
         flat_expert = idx.reshape(-1)                      # [T*k] 全局 expert 号
         flat_w = w.reshape(-1)
-        # 每张卡独立算自己本地专家的部分和（非本地条目跳过）——零 dispatch 通信！
-        # 这是 "DP-style EP"：输入 x 全卡冗余（TP allreduce 已保证），
-        # 每卡只算本地专家, 输出 all_reduce。
+        ex = self.experts
         out = torch.zeros(T, H, device=x.device, dtype=x.dtype)
-        local_mask = (flat_expert >= self.local_expert_start) & \
-                     (flat_expert < self.local_expert_start + self.local_E)
+        local_mask = (flat_expert >= ex.e_start) & \
+                     (flat_expert < ex.e_start + ex.num_experts)
         if local_mask.any():
-            eids_local = flat_expert[local_mask] - self.local_expert_start
-            # 每个条目的全局行号 → token 号
+            eids_local = flat_expert[local_mask] - ex.e_start
             rows = torch.nonzero(local_mask).squeeze(1)
             toks = rows // k
             ws = flat_w[local_mask]
             xs = x[toks]
             outs = self._experts_local(xs, eids_local, ws)
             out.index_add_(0, toks, outs)
-        dist.all_reduce(out)
         return out

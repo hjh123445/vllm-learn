@@ -269,3 +269,58 @@ per-head scale 必须；LSE 合并数学不变（v8.0 的 m/l 就是干这个的
 
 见 `v9/tests/quant_probe.py`（本文 §II.1.3 / §II.2 的数据来源，2026-10-30
 H20 实测，Qwen3-Omni-30B 真实权重 layer.10）。
+
+---
+
+## 附 2：v9.3 并行组件架构（对 v6 "事后切分"的重构）
+
+**用户审查意见触发**：v6-v8 的并行实现存在结构性问题——切分逻辑放在引擎侧
+（`shard_model_for_tp` 伸手进模型内部改权重），模型文件对并行无感知，且绕过
+weight_loader 协议（先装载全量再切）。正确架构应该是**组件定义在 layers、
+模型感知并行、loader 对接组件的 weight_loader**。
+
+### 架构对照
+
+| 维度 | v6 事后切分 | v9.3 组件架构 |
+|---|---|---|
+| 并行语义归属 | 引擎（shard_model_for_tp/ep） | 组件（`layers/parallel.py`） |
+| 模型文件 | 对并行无感知（全量构造） | 构造时读 ParallelState，直接建本 rank 形状 |
+| 显存路径 | 每卡先全量加载再切（60GB 瞬时；DSV4 149GB 走不了） | **GPU 上从不出现全量权重** |
+| 装载 | 绕过协议（narrow 视图陷阱的温床） | weight_loader 吃全量张量、内部切片 |
+| 通信 | 层 forward 里显式 tp_allreduce | RowParallel/MoE 组件内置 |
+| 单卡路径 | 与多卡不同代码路径 | 同一路径（tp=1 退化），零分支 |
+
+### 组件清单（`layers/parallel.py`）
+
+- `ParallelState` + `configure_parallel`：launcher 在构造模型前注入
+  （tp/ep 坐标 + 通信组——组件不建组，v8.2 的 NCCL 教训留在引擎侧）；
+- `ColumnParallelLinear`：输出维切（q/k/v/w13），weight_loader 吃全量
+  [N,K] 切本 rank 行段；**min_out 参数支持头复制**（kv_heads < tp 时
+  多 rank 共享同一 kv 头，GQA 对齐）；
+- `RowParallelLinear`：输入维切（o/w2），forward 内置 tp allreduce；
+- `shard_bounds`：切分数学（均分 + 复制语义）。
+
+### 模型侧（`models/qwen3_moe.py`）
+
+Attention 构造时按 ParallelState 算 per-rank 头数（q 16/tp2，kv 复制），
+q/k/v → ColumnParallelLinear、o_proj → RowParallelLinear；**层 forward 的
+两处显式 tp_allreduce 删除**（通信归组件）。GroupedExperts 构造时定
+EP 区间 [e_start, e_start+E_local) + TP inter 切片，weight_loader 对
+非本地专家直接 return（EP 跳过）。
+
+### loader 侧（`utils/loader.py`）
+
+`_load_into` 统一协议优先级：param 上的 weight_loader > owner 模块的 >
+形状断言直拷（仅单卡无协议组件）。并行组件的 shape 不匹配不是错误，
+是并行的常态——loader 零并行感知。
+
+### 验证（`tests/test_parallel_components.py`，纯 CPU 无 NCCL）
+
+- shard_bounds：均分 + kv 复制（rank0/1 共享 head0）边界 ✓
+- Column/RowParallel：N rank 切片拼回 == 全量、单卡退化 == 全量、
+  forward 数学（含手工 allreduce 聚合）✓
+- GroupedExperts：EP 区间拼回、TP×EP 组合（w13 行/w2 列）拼回 ✓
+- Qwen3MoeAttention：TP1/2/4/8 的头数与形状（含 kv=4 < tp8 的复制）✓
+
+真分布式 e2e（launcher + configure_parallel + NCCL 组）待 GPU 空闲后跑
+TP2/EP2 的 token 级对比（复用 v8.2 的三相位裁决框架）。

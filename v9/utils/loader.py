@@ -49,17 +49,21 @@ def _ckpt_name(name: str):
 
 
 def _load_into(param: torch.Tensor, loaded: torch.Tensor, shard):
-    """weight_loader 协议：装载逻辑归组件（param 所属模块的 weight_loader），
-    本函数只负责调用——融合布局（w13 两半/w2）由 GroupedExperts.weight_loader 自己处理。"""
-    owner = _param_owner.get(id(param))
-    if shard is None:
-        assert param.shape == loaded.shape, (param.shape, loaded.shape)
-        param.data.copy_(loaded)
+    """weight_loader 协议：装载逻辑归组件，本函数只负责调用。
+    并行组件（v9.3 ColumnParallel/RowParallel/GroupedExperts）的 weight_loader
+    吃【全量】checkpoint 张量、内部切本 rank 片——所以 shape 不匹配不是错误，
+    是并行的常态。优先级：param 上的 weight_loader > owner 模块的 > 形状直拷
+    （直拷仅限单卡无协议组件）。"""
+    wl = getattr(param, "weight_loader", None)
+    if wl is None:
+        owner = _param_owner.get(id(param))
+        if owner is not None and hasattr(owner, "weight_loader"):
+            wl = owner.weight_loader
+    if wl is not None:
+        wl(param, loaded, shard)
         return
-    if owner is not None and hasattr(owner, "weight_loader"):
-        owner.weight_loader(param, loaded, shard)
-    else:
-        raise RuntimeError(f"参数 {param.shape} 带 shard {shard} 但所属模块无 weight_loader")
+    assert param.shape == loaded.shape, (param.shape, loaded.shape)
+    param.data.copy_(loaded)
 
 
 def load_model(model: nn.Module, model_dir: str, device="cuda", dtype=torch.bfloat16):

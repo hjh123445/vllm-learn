@@ -10,29 +10,49 @@ import torch
 import torch.nn as nn
 
 from layers.linear import BaseLinear
+from layers.parallel import ColumnParallelLinear, RowParallelLinear
 from layers.rotary_embedding import RotaryEmbeddding
 from layers.norm import RmsNorm
 from layers.attention import Attention
 from layers.kernels import fused_add_rmsnorm
 from layers.moe import MoEMLP
-from engine.parallel import tp_allreduce
 
 
 class Qwen3MoeAttention(nn.Module):
-    """与 v4 的 QwenAttention 同构（qk_norm + GQA），平铺输入。"""
+    """与 v4 的 QwenAttention 同构（qk_norm + GQA），平铺输入。
+
+    v9.3 并行组件化：q/k/v 用 ColumnParallelLinear（按头切），o_proj 用
+    RowParallelLinear（allreduce 内置）。构造时从 ParallelState 读 tp——
+    本 rank 的头数/权重形状直接定型，loader 只装本 rank 切片。
+    GQA 对齐保证：q 头 j 映射 kv 头 j//(H/kv)，q 的均分块恰好落在
+    kv 的（可能复制的）切片上——kv_heads < tp 时多 rank 共享同一 kv 头。"""
 
     def __init__(self, config, layer_idx: int):
         super().__init__()
         self.head_dim = config.head_dim
-        self.num_head = config.num_attention_heads
-        self.num_kv_head = config.num_key_value_heads
-        self.q_size = self.num_head * self.head_dim
+        # per-rank 头数（与组件的 shard_bounds 同数学）
+        from layers.parallel import shard_bounds, STATE
+        _, q_len = shard_bounds(config.num_attention_heads * self.head_dim,
+                                STATE.tp_size, STATE.tp_rank)
+        _, kv_len = shard_bounds(config.num_key_value_heads * self.head_dim,
+                                 STATE.tp_size, STATE.tp_rank, min_out=self.head_dim)
+        self.num_head = q_len // self.head_dim
+        self.num_kv_head = kv_len // self.head_dim
+        self.q_size = self.num_head * self.head_dim            # 本 rank 的 q 维
         self.kv_size = self.num_kv_head * self.head_dim
 
-        self.q_proj = BaseLinear(config.hidden_size, self.q_size)
-        self.k_proj = BaseLinear(config.hidden_size, self.kv_size)
-        self.v_proj = BaseLinear(config.hidden_size, self.kv_size)
-        self.o_proj = BaseLinear(self.q_size, config.hidden_size)
+        self.q_proj = ColumnParallelLinear(config.hidden_size,
+                                           config.num_attention_heads * self.head_dim)
+        # k/v: min_out=head_dim —— kv 头不足 tp 时按头复制（shard_bounds 内处理）
+        self.k_proj = ColumnParallelLinear(config.hidden_size,
+                                           config.num_key_value_heads * self.head_dim,
+                                           min_out=self.head_dim)
+        self.v_proj = ColumnParallelLinear(config.hidden_size,
+                                           config.num_key_value_heads * self.head_dim,
+                                           min_out=self.head_dim)
+        # in_dim 用全量 q 维（组件内部切 1/tp，forward 的输入是本 rank 切片）
+        self.o_proj = RowParallelLinear(config.num_attention_heads * self.head_dim,
+                                        config.hidden_size)
 
         self.q_norm = RmsNorm(self.head_dim, eps=config.rms_norm_eps)
         self.k_norm = RmsNorm(self.head_dim, eps=config.rms_norm_eps)
@@ -47,7 +67,7 @@ class Qwen3MoeAttention(nn.Module):
         v = self.v_proj(x).view(T, self.num_kv_head, self.head_dim)
         o = self.attn(q, k, v, positions, self.q_norm.weight, self.k_norm.weight,
                       self.rope.cos_sin_cache, self.q_norm.eps)
-        return self.o_proj(o.reshape(T, self.q_size))
+        return self.o_proj(o.reshape(T, self.q_size))    # allreduce 在组件内
 
 
 class Qwen3MoeDecoderLayer(nn.Module):
@@ -61,14 +81,11 @@ class Qwen3MoeDecoderLayer(nn.Module):
     def forward(self, x, residual, positions):
         x, residual = fused_add_rmsnorm(x, residual, self.input_layernorm.weight,
                                        self.input_layernorm.eps)
-        x = self.self_attn(x, positions)
-        # TP 同步点 1: o_proj 是列切的——每卡只有自己头的结果，allreduce 求和
-        x = tp_allreduce(x)
+        x = self.self_attn(x, positions)     # o_proj(RowParallel) 内置 allreduce
         x, residual = fused_add_rmsnorm(x, residual, self.post_attention_layernorm.weight,
                                        self.post_attention_layernorm.eps)
-        x = self.mlp(x)
-        # TP 同步点 2: MoE w2 列切——同上
-        return tp_allreduce(x), residual
+        x = self.mlp(x)                      # MoE 部分和聚合在 MoEMLP 内
+        return x, residual
 
 
 class Qwen3MoeModel(nn.Module):
@@ -122,14 +139,17 @@ class Qwen3MoeForCausalLM(nn.Module):
                 experts.quantize_int4(group)
                 n_replaced += 1
         # dense: q_proj/k_proj/v_proj/o_proj → QuantizedLinear（B1 路径）
+        # v9.3: 投影已是并行组件——按【本 rank 的形状】量化（粒度沿输入维 K，
+        # 与输出维切分正交；DSV4 DESIGN §II.3.2 的"切分后再量化"约定）
         if not skip_dense:
             for layer in self.model.layers:
                 attn = layer.self_attn
                 for name in ("q_proj", "k_proj", "v_proj", "o_proj"):
                     lin = getattr(attn, name)
-                    ql = QuantizedLinear(lin.weight.shape[1], lin.weight.shape[0], group)
-                    ql.weight_loader(None, lin.weight.data)
-                    ql = ql.to(lin.weight.device)
+                    w = lin.weight.data                        # [本rankN, K] 或 [N, 本rankK]
+                    ql = QuantizedLinear(w.shape[1], w.shape[0], group)
+                    ql.weight_loader(None, w)
+                    ql = ql.to(w.device)
                     setattr(attn, name, ql)
                     del lin
         _t.cuda.empty_cache()

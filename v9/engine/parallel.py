@@ -1,5 +1,11 @@
-# v6/engine/parallel.py
-"""v6 并行基础设施：进程组管理与 TP 通信原语。
+# v6/engine/parallel.py（v9 中已被 layers/parallel.py 的组件架构取代）
+"""⚠ DEPRECATED（v9.3 起）：本文件的 shard_model_for_tp/ep 是 v6 的"全量加载
+后就地切分"模式——每卡瞬时持有全量权重、切分逻辑伸手进模型内部、绕过
+weight_loader 协议。v9 的并行组件架构（layers/parallel.py：ColumnParallel/
+RowParallelLinear + GroupedExperts 内置 EP/TP）从构造起只持本 rank 权重。
+保留此文件仅为 v6-v8 历史快照的引用完整性；新代码勿用。
+
+v6 并行基础设施：进程组管理与 TP 通信原语。
 
 设计原则（PARALLEL_ANALYSIS.md 的结论）：
   - TP 只在节点内（NVLink 域）；跨节点用 EP/PP/DP；
