@@ -53,7 +53,8 @@ def main():
             cur_pos = torch.arange(cur_ids.shape[0], device="cuda")
 
     text = tok.decode(generated, skip_special_tokens=True)
-    print(f"\n生成 ({len(generated)} tok): {text!r}")
+    print(f"\n生成 token ids: {generated}")
+    print(f"生成 ({len(generated)} tok): {text!r}")
     print(f"prompt: {prompt!r}")
     assert len(text.strip()) > 0, "空输出"
     print("\n===== v6.3 端到端: PASS =====")

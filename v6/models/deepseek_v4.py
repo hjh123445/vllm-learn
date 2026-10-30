@@ -27,39 +27,52 @@ import torch.nn.functional as F
 from layers.linear import BaseLinear
 from layers.norm import RmsNorm
 from layers.dsv4_components import (
-    HyperConnection, HCACompressor, mla_attention, apply_partial_rope)
+    HyperConnection, HCACompressor, CSACompressor, mla_attention, apply_partial_rope)
 
 
-# ---------- 平铺版 RoPE（theta 可配，yarn 近似留后） ----------
+# ---------- 平铺版 yarn RoPE（HF modeling_rope_utils._compute_yarn_parameters 对齐版） ----------
 
 class DSV4Rope(nn.Module):
-    """yarn 缩放的 RoPE（V4-Flash: factor=16, original_max=65536, theta=10000）。
-    yarn 的低频/高频斜坡基于 beta_fast/beta_slow，这里用标准实现。"""
+    """yarn RoPE（V4-Flash: factor=16, original_max=65536, theta=10000, β=32/1）。
+
+    v6.3 数值修复——旧实现两个方向性错误（对拍 HF 定位）：
+    1. 位置侧缩放 pos/factor ✗ → HF 是【频率侧插值】：inv_freq =
+       interp·ramp + extrap·(1-ramp)，pos 原样参与。pos/factor 等效于
+       "位置不动频率除 16"——短 prompt 下 cos≈1（完全没旋转），位置信息
+       归零，e2e 乱码的直接根源；
+    2. correction range 方向反 ✗ → HF 用"旋转圈数"反解维度边界：低维
+       （高频、旋转快）用外推（不缩），高维（低频）才插值（缩 factor）。
+       旧实现索引范围 [-10,10]，把高频头部当低频处理。
+
+    attention_scaling = 0.1·ln(factor)+1（mscale：cos/sin 整体放大，
+    补偿插值稀释的注意力 logits——它乘在 cos/sin 上而非 scores 上）。"""
 
     def __init__(self, head_dim, rope_dim, base=10000, max_position=8192,
                  yarn_factor=16.0, yarn_original_max=65536,
                  beta_fast=32.0, beta_slow=1.0):
         super().__init__()
         self.rope_dim = rope_dim
-        # pos / factor 作为有效位置（长序列外推压缩）
-        low, high = yarn_original_max // yarn_factor, yarn_original_max
-        inv = 1.0 / (base ** (torch.arange(0, rope_dim, 2, dtype=torch.float) / rope_dim))
-        # yarn 斜坡：低频维度缩 factor，高频不动
-        if isinstance(yarn_factor, float) and yarn_factor > 1.0 and low < high:
-            import math
-            floor_f, ceil_f = math.floor(rope_dim / 2 * math.log(high / low, base)), \
-                math.ceil(rope_dim / 2 * math.log(high / low, base))
-            bl, bh = beta_fast, beta_slow
-            ramp = torch.zeros(rope_dim // 2)
-            lo_idx, hi_idx = max(0, (rope_dim // 2) - ceil_f) - bl, \
-                min(rope_dim // 2, floor_f) + bh
-            idx = torch.arange(rope_dim // 2, dtype=torch.float)
-            ramp = torch.clamp((idx - lo_idx) / max(hi_idx - lo_idx, 1), 0.0, 1.0)
-            inv = inv / (1 + (yarn_factor - 1) * ramp)   # 高频(ramp=1)缩factor, 低频不动
+        dim = rope_dim
+
+        pos_freqs = base ** (torch.arange(0, dim, 2, dtype=torch.float) / dim)
+        if isinstance(yarn_factor, (int, float)) and yarn_factor > 1.0:
+            inv_extrap = 1.0 / pos_freqs                    # 高频侧：不缩
+            inv_interp = 1.0 / (yarn_factor * pos_freqs)    # 低频侧：缩 factor
+            # 旋转圈数 → 维度反解（HF find_correction_range）
+            def corr_dim(num_rot):
+                return (dim * math.log(yarn_original_max / (num_rot * 2 * math.pi))) / (2 * math.log(base))
+            low = max(math.floor(corr_dim(beta_fast)), 0)
+            high = min(math.ceil(corr_dim(beta_slow)), dim - 1)
+            if low == high:
+                high += 0.001
+            ramp = torch.clamp((torch.arange(dim // 2, dtype=torch.float) - low)
+                               / (high - low), 0.0, 1.0)
+            inv = inv_interp * ramp + inv_extrap * (1 - ramp)
             self._attention_scaling = 0.1 * math.log(yarn_factor) + 1.0
         else:
+            inv = 1.0 / pos_freqs
             self._attention_scaling = 1.0
-        pos = torch.arange(max_position, dtype=torch.float) / (yarn_factor if yarn_factor > 1 else 1.0)
+        pos = torch.arange(max_position, dtype=torch.float)   # pos 不缩（频率侧已插值）
         freq = torch.outer(pos, inv)
         self.register_buffer("cos", freq.cos() * self._attention_scaling, persistent=False)
         self.register_buffer("sin", freq.sin() * self._attention_scaling, persistent=False)
@@ -78,7 +91,13 @@ class DSV4Rope(nn.Module):
 # ---------- MLA 注意力 ----------
 
 class DSV4Attention(nn.Module):
-    """Shared-KV MQA + partial RoPE + sink + 分组输出投影。平铺 [T, H] 输入。"""
+    """Shared-KV MQA + partial RoPE + sink + 分组输出投影。平铺 [T, H] 输入。
+
+    v6.3 数值修复：接入 CSA 压缩器（21/43 层, compress_rate=4）——压缩条目
+    cat 到全量 KV 尾部参与注意力。indexer 的 block_bias 在 e2e 的短序列
+    （n_win ≤ index_topk=512）下退化为因果掩码，compressed 条目位置 w*4
+    天然 ≤ query 因果界，无需额外 mask（indexer 的完整实现记录在
+    MILESTONES known-simplifications）。"""
 
     def __init__(self, cfg, layer_idx):
         super().__init__()
@@ -87,6 +106,7 @@ class DSV4Attention(nn.Module):
         self.rd = cfg["qk_rope_head_dim"]          # rope 维（partial）
         self.scale = self.D ** -0.5
         self.rope = None                            # 由模型注入共享
+        self.compress_rope = None                   # CSA 压缩条目专用（theta=160000）
 
         self.q_a_proj = BaseLinear(cfg["hidden_size"], cfg["q_lora_rank"])
         self.q_a_norm = RmsNorm(cfg["q_lora_rank"], eps=cfg["rms_norm_eps"])
@@ -102,6 +122,17 @@ class DSV4Attention(nn.Module):
         self.o_b = BaseLinear(g * self.o_lora, cfg["hidden_size"])
         self.sinks = nn.Parameter(torch.empty(self.H))
         self.sinks.weight_loader = self._load_sink
+        # 压缩器三态（compress_ratios: 0=sliding, 4=CSA, 128=HCA）
+        ratio = (cfg.get("compress_ratios") or [0] * 44)[layer_idx]
+        self.layer_type = {0: "sliding", 4: "csa", 128: "hca"}[ratio]
+        if self.layer_type == "csa":
+            self.compressor = CSACompressor(
+                hidden=cfg["hidden_size"], head_dim=self.D,
+                compress_rate=4, eps=cfg["rms_norm_eps"])
+        elif self.layer_type == "hca":
+            self.compressor = HCACompressor(
+                hidden=cfg["hidden_size"], head_dim=self.D,
+                compress_rate=128, eps=cfg["rms_norm_eps"])
 
     def _load_sink(self, param, loaded, shard_id=None):
         param.data.copy_(loaded)
@@ -123,7 +154,28 @@ class DSV4Attention(nn.Module):
         kv = self.kv_norm(self.kv_proj(x))                         # [T, D] 单 KV 头
         kv = apply_partial_rope(kv.unsqueeze(1), cos, sin, self.rd).squeeze(1)
 
-        out = mla_attention(q, kv, self.sinks, self.scale, attn_mask, cos, sin)
+        # CSA/HCA 压缩条目：cat 到 KV 尾部（注意 rope 用 compress theta）
+        # causal mask（含压缩条目）: 全量 KV 位置 0..T-1 因果; 压缩条目 w
+        # 的语义位置 = (w+1)*m-1（窗口右端, HF block_bias 的 causal_threshold
+        # = (pos+1)//m → 条目 w 可见于 t ≥ (w+1)*m - 1 即 t*w*threshold 不越界）
+        L_full = kv.shape[0]
+        n_comp = L_full - T if self.layer_type != "sliding" else 0
+        m = 4 if self.layer_type == "csa" else 128
+        dev = kv.device
+        qpos = positions.to(dev)
+        kpos = torch.cat([
+            torch.arange(T, device=dev),
+            torch.arange(n_comp, device=dev) * m + m - 1]) if n_comp else             torch.arange(T, device=dev)
+        causal = kpos[None, :] <= qpos[:, None]                   # [T, L_full]
+        if self.layer_type == "csa" and n_comp:
+            # CSA 的压缩条目只含 usable=T//m*m 个源 token（不含尾巴）→
+            # 条目 w 覆盖 [w*m, (w+1)*m)，右端 = (w+1)*m-1 ✓ 上式已对
+            pass
+        mask = torch.where(causal, 0.0, float("-inf"))
+        if attn_mask is not None:
+            mask = mask + attn_mask
+
+        out = mla_attention(q, kv, self.sinks, self.scale, mask, cos, sin)
 
         # 分组输出投影（块对角）：[T, H*D] → 8 组 [T, 4096] → 各投 1024
         grouped = out.reshape(T, self.o_groups, -1)                 # [T, g, H*D/g]
@@ -257,10 +309,30 @@ class DSV4Model(nn.Module):
             [DSV4DecoderLayer(cfg, i) for i in range(cfg["num_hidden_layers"])])
         self.norm = RmsNorm(cfg["hidden_size"], eps=cfg["rms_norm_eps"])
         self.hc_head = None       # 由 DSV4ForCausalLM 注入
-        rope = DSV4Rope(cfg["head_dim"], cfg["qk_rope_head_dim"],
-                        base=cfg.get("rope_theta", 10000))
+        # 双 rope 体系（HF rope_parameters 的 main/compress 两键）：
+        #   main (sliding 2层):    default, theta=10000, 无 yarn 无 mscale
+        #   compress (CSA/HCA 41层): yarn, theta=160000, factor=16,
+        #     attention_factor=1.0（config 显式给出——覆盖 mscale 公式的 1.277!）
+        main_rope = DSV4Rope(cfg["head_dim"], cfg["qk_rope_head_dim"],
+                             base=cfg.get("rope_theta", 10000),
+                             yarn_factor=1.0)                    # default: 无 yarn
+        comp_rope = DSV4Rope(cfg["head_dim"], cfg["qk_rope_head_dim"],
+                             base=cfg.get("compress_rope_theta", 160000),
+                             yarn_factor=16.0, yarn_original_max=65536,
+                             beta_fast=32.0, beta_slow=1.0)
+        comp_rope._attention_scaling = 1.0                       # config attention_factor=1.0
+        # cos/sin buffer 按新 scale 重建（mscale 1.277 → 1.0）
+        _f = comp_rope.cos / 0.1 / __import__("math").log(16.0)
+        # 直接从 inv_freq 重算太绕——cos 是 (freq.cos * 1.277), 除掉即可:
+        comp_rope.cos = comp_rope.cos / (0.1 * __import__("math").log(16.0) + 1.0)
+        comp_rope.sin = comp_rope.sin / (0.1 * __import__("math").log(16.0) + 1.0)
         for l in self.layers:
-            l.self_attn.rope = rope
+            if l.self_attn.layer_type == "sliding":
+                l.self_attn.rope = main_rope
+                l.self_attn.compress_rope = main_rope           # sliding 无压缩条目
+            else:
+                l.self_attn.rope = comp_rope                     # ★ CSA/HCA 用 compress rope!
+                l.self_attn.compress_rope = comp_rope
 
     def forward(self, input_ids, positions):
         """平铺 [T] 输入。初始流：stream 0 = embed，其余 0。
@@ -296,7 +368,8 @@ class DSV4ForCausalLM(nn.Module):
             "vocab_size", "rms_norm_eps", "rope_theta", "n_routed_experts",
             "n_shared_experts", "moe_intermediate_size", "num_experts_per_tok",
             "num_hash_layers", "routed_scaling_factor", "hc_mult",
-            "hc_sinkhorn_iters", "max_position_embeddings"]}
+            "hc_sinkhorn_iters", "max_position_embeddings",
+            "compress_ratios", "compress_rope_theta"]}
         self.cfg = cfg
         self.model = DSV4Model(cfg)
         from layers.dsv4_components import HyperHead

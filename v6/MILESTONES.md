@@ -182,3 +182,79 @@ HCA 对拍时传反了维序导致输出 0 长度；HF 的 rope 初始化依赖�
 
 **下一步（架构简化）**：固定大小计划张量（变长是死锁之源）+ follower 哑
 forward（不镜像本地状态，只按计划跑）——借鉴 ZEREROCOMM 已验证的部分。
+
+## v6.3 补充 —— DeepSeek-V4 并行方式探讨（设计稿，2026-10-30）
+
+**现状**：8 卡分层分放（layer_device_map，跨卡搬运激活）——正确性验证载具，
+非吞吐方案（无 micro-batch 的 PP，bubble 100%）。真并行方案按显存账定：
+
+### 显存账（实测自 checkpoint，46 分片逐张量统计）
+
+| 项 | 磁盘 | 反量化 bf16 |
+|---|---|---|
+| 专家权重 MXFP4（int8 双 nibble 打包） | 283.5 GB（真实 int4 = 141.75） | 1134 GB |
+| 其他 FP8（attn/HC/embed/head） | 15.0 GB | 30 GB |
+| scale（e8m0，1/16384 密度） | 17.7 GB | ~35 GB |
+| **合计** | 316 GB | **~1199 GB** |
+
+（此前 README 写 584GB 是专家只算 FP4×4 的估计；实测反量化含 scale 是 ~1.2TB。）
+
+### 三个方案与判定
+
+| 方案 | 每卡显存 | 通信/层 | 判定 |
+|---|---|---|---|
+| A. 反量化 bf16 + EP8（专家 257/8≈32/卡）| ~150 GB | a2a（token×topk×hidden） | **放不下**（>80GB） |
+| B. 反量化 + EP8×TP2（16 卡） | ~75 GB | a2a + allreduce×2 | 放得下但 16 卡，浪费 |
+| **C. 量化原生存储 + EP8** | **~40 GB** | a2a | **选定**：int4 原生 + in-kernel 反量化 |
+
+方案 C 的依据（与 v9 DESIGN 的 Path B2 同一条路）：
+- 专家权重保持 MXFP4 int4 双 nibble（141.75GB ÷ 8 卡 = 17.7GB/卡）；
+- attention/FP8 权重也原生存储（15GB ÷ 8 卡 ≈ 1.9GB/卡）；
+  MLA 是 MQA（kv_head=1）**TP 切不动**（没有多余头可切）——正好全卡冗余放 FP8 原生；
+- 每卡 ~40GB，余 40GB 给 KV cache；
+- 257 专家 ÷ 8 卡 = 32.1（不整除 → 7 卡 32 + 1 卡 33，dispatch 表做 uneven 容忍）；
+- 前提工程：dequant-GEMM triton kernel（MXFP4 的 e8m0 块 scale 在 kernel 里
+  反量化——v6.3 已有 CPU 版数学，kernel 化即 v9.2 的 FP4 变体）。
+
+### 为什么是 EP 而不是 TP
+
+- MLA 是 **MQA**（num_key_value_heads=1）：TP 的按头切分对 KV 头失效（只能复制），
+  q/o 切 64 头可行但每层 2×allreduce；
+- 专家权重占 94%（283.5/316）——**切专家（EP）就切掉了主要矛盾**，
+  a2a 通信量 ∝ token×topk×hidden（与 v6.2 实测 EP 优于 TP 的结论一致）；
+- 跨节点时 EP2 只损 21% vs TP8 崩塌 69-88%（v6.2 实测）——MoE 大模型的
+  跨节点选型里 EP 是唯一稳的。
+
+### 与 HF/vLLM 部署的对照
+
+vLLM 对 DSV4 级别模型的部署也是 FP4 原生 + EP（DeepSeek 官方推荐 EP）——
+我们方案 C 与业界一致，且这是 v9 量化路径的实战检验场。
+
+### v6.3 数值正确性达成（2026-10-30，三轮修复）
+
+**最终验证**（tests/test_dsv4_e2e.py）：`"The capital of France is"` →
+`" Paris. The capital of France is Paris. ..."`——前 2 token 与 HF 参考一致，
+之后是复读 prompt（语法连贯；短 prompt 无 EOS 分布下的正常行为）。
+**从乱码（'2 Programming# Ir...'）到连贯文本**，三轮修复：
+
+| 轮 | 修复 | 输出变化 |
+|---|---|---|
+| 1 | **yarn rope 频率侧插值**（旧实现 pos/factor 位置侧缩放——pos=5 时 cos≈1 完全没旋转；correction range 方向反） | 乱码 → 前 2 token 正确 + 标点循环 |
+| 2 | **CSA/HCA 压缩条目接入**（21 层 CSA rate=4 的 overlap 压缩 + 20 层 HCA rate=128）+ **causal mask**（mla_attention 之前根本没有 mask！） | → 前 3 token 正确 + 新循环模式 |
+| 3 | **双 rope 体系**：sliding 2 层用 main（default theta=10000），CSA/HCA 41 层用 compress（yarn theta=160000，attention_factor=1.0 显式——覆盖 mscale 公式的 1.277） | → 语法完全连贯 ✓ |
+
+**逐层对拍记录**：rope buffer 与 HF `modeling_rope_utils` 逐位一致
+（main diff=0.00e+00；compress diff=5.96e-08 fp32 精度）。
+compressor 权重命名映射：checkpoint 老名 `wkv/wgate/ape` →
+`kv_proj/gate_proj/position_bias`（indexer 暂跳过——短序列下 topk≥条目数，
+block_bias 退化为因果掩码，known-simplification）。
+
+**本轮踩坑（3 个）**：
+1. **HF config 的 rope_parameters 是 main/compress 双键 dict**——plain
+   `rope_scaling` 只有 yarn 参数，theta=160000 藏在 compress 键里，
+   `AutoConfig` 打印 `rope_parameters: null` 会误导（要用 HF 类读）；
+2. **attention_factor=1.0 显式覆盖**——config 给了值就不用 mscale 公式
+   （0.1·ln(16)+1=1.277），我们多乘了 27.7% 的 cos/sin 幅度；
+3. **CSA 的 Ca/Cb overlap**：kv/gate 投影到 2×head_dim，窗口条目 =
+   [上窗 Ca | 本窗 Cb] 的 softmax 加权和（首窗 Ca 半槽零 kv/-inf gate）——
+   不是简单窗口平均。

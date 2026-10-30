@@ -93,6 +93,24 @@ def _map_name(name: str):
             return f"{P}.self_attn.sinks", None
         if sub in m and rest[-1] == "weight":
             return f"{P}.{m[sub][0]}", None
+        # ---- 压缩器（CSA/HCA, v6.3 数值修复）----
+        # checkpoint 老命名: compressor.wkv/wgate/ape → 我们 kv_proj/gate_proj/position_bias
+        # indexer.* 先跳过（indexer 的 block_bias 短序列退化为因果掩码——known-simpl）
+        if sub == "compressor" and len(rest) >= 3:
+            cmap = {"wkv": "kv_proj.weight", "wgate": "gate_proj.weight"}
+            if rest[2] == "wkv" and rest[-1] == "weight":
+                return f"{P}.self_attn.compressor.kv_proj.weight", None
+            if rest[2] == "wgate" and rest[-1] == "weight":
+                return f"{P}.self_attn.compressor.gate_proj.weight", None
+            if rest[2] == "ape":
+                return f"{P}.self_attn.compressor.position_bias", None
+            if rest[2] == "norm" and rest[-1] == "weight":
+                return f"{P}.self_attn.compressor.norm.weight", None
+            if rest[-1] == "scale":
+                return ("__scale__", name[:-len(".scale")])
+            return None, None
+        if sub == "indexer":
+            return None, None
         if rest[-1] == "scale":                     # FP8 scale → 与 weight 一起反量化
             return ("__scale__", name[:-len(".scale")])   # 标记: 先缓存 scale
         return None, None

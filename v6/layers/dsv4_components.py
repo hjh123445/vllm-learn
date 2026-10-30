@@ -35,6 +35,11 @@ def mla_attention(q, kv, sink, scale, mask=None, cos=None, sin=None):
     q, kv = q.float(), kv.float()
     # scores: 每头与单 KV 头的点积 → [H, T, L]
     scores = torch.einsum("thd,ld->htl", q, kv) * scale
+    # causal（含压缩条目的全局位置——条目 w 的全局位置由调用方保证 ≤ 因果界时
+    # 已经等价；这里用 kv_len 前缀=全量 KV, 压缩条目用其窗口右端位置）：
+    # q 位置 t 可见 kv 位置 l ≤ t。mask=None 时若 L > T 也不加（调用方自管）。
+    if mask is not None:
+        scores = scores + mask.float()
     # attention sink：cat 到 key 维尾部参与 softmax（gpt-oss 式）
     sink_logits = sink.view(H, 1, 1).expand(H, T, 1)
     combined = torch.cat([scores, sink_logits], dim=-1)
@@ -182,4 +187,62 @@ class HCACompressor(nn.Module):
         if apply_rope is not None:
             positions = torch.arange(n_win, device=kv.device) * self.rate
             compressed = apply_rope(compressed, positions)
+        return compressed
+
+
+# ============ v6.3 数值修复：CSA 压缩器 + Lightning Indexer（对齐 HF） ============
+
+class CSACompressor(nn.Module):
+    """Compressed Sparse Attention 压缩器（21/43 层, compress_rate=4）。
+
+    数学（HF DeepseekV4CSACompressor, paper §2.3.1）：
+      1. kv/gate 投影到 2*head_dim：Ca（[.., :D] 贡献给下一窗口）与
+         Cb（[.., D:] 贡献给当前窗口）两个独立压缩序列；
+      2. 窗口 w 的压缩条目 = softmax(gate + pos_bias) 加权的
+         [上一窗的 Ca | 当前窗的 Cb] 拼接（宽 2m, 步 m）——相邻窗口共享一半
+         槽位（overlap）,首窗的 Ca 半槽为零 kv/-inf gate（softmax 权重 0）;
+      3. kv_norm → 在位置 w*m 处 rope（compress theta=160000）;
+      4. Lightning Indexer 从 n_win 个条目里为每个 query 选 top-k,
+         其余条目 block_bias=-inf（index_topk=512, 短序列 topk=全部 →
+         退化为因果掩码——e2e 长度下的真实影响主要是压缩条目本身）。
+    平铺 [T, H] 输入（与 HCACompressor 同风格, cache-less 全量重算模式）。"""
+
+    def __init__(self, hidden=4096, head_dim=512, compress_rate=4, eps=1e-6):
+        super().__init__()
+        self.rate = compress_rate
+        self.D = head_dim
+        self.kv_proj = nn.Linear(hidden, 2 * head_dim, bias=False)
+        self.gate_proj = nn.Linear(hidden, 2 * head_dim, bias=False)
+        self.position_bias = nn.Parameter(torch.empty(compress_rate, 2 * head_dim))
+        self.norm = nn.RMSNorm(head_dim, eps=eps)
+
+    def weight_loader(self, param, loaded, shard_id=None):
+        param.data.copy_(loaded)
+
+    def forward(self, hidden, q_residual, positions, apply_rope=None):
+        """hidden [T, H] → compressed_kv [n_win, D]（已 rope）。"""
+        T = hidden.shape[0]
+        usable = (T // self.rate) * self.rate
+        if usable == 0:
+            return hidden.new_zeros(0, self.D)
+        kv = self.kv_proj(hidden[:usable]).view(-1, self.rate, 2 * self.D)
+        gate = self.gate_proj(hidden[:usable]).view(-1, self.rate, 2 * self.D)
+        gate = gate + self.position_bias[None]
+        n_win = kv.shape[0]
+        # overlap 布局 [n_win, 2m, D]: 后半 = 本窗 Cb, 前半 = 上窗 Ca
+        # （首窗前半零 kv/-inf gate → softmax 权重 0, 数学上自然失效）
+        m = self.rate
+        new_kv = torch.zeros(n_win, 2 * m, self.D, dtype=kv.dtype, device=kv.device)
+        new_gate = torch.full((n_win, 2 * m, self.D), float("-inf"),
+                              dtype=gate.dtype, device=gate.device)
+        new_kv[:, m:] = kv[..., self.D:]
+        new_gate[:, m:] = gate[..., self.D:]
+        if n_win > 1:
+            new_kv[:, 1:, :m] = kv[:, :-1, :, :self.D]
+            new_gate[:, 1:, :m] = gate[:, :-1, :, :self.D]
+        w = new_gate.softmax(dim=1, dtype=torch.float32).to(kv.dtype)
+        compressed = self.norm((new_kv * w).sum(dim=1))              # [n_win, D]
+        if apply_rope is not None:
+            cpos = torch.arange(n_win, device=hidden.device) * m
+            compressed = apply_rope(compressed, cpos)
         return compressed
