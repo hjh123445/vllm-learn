@@ -60,6 +60,39 @@ bf16 累加顺序差异 → logits 差 ~0.1 → 概率接近的 token argmax 翻
 
 ---
 
+### 1.4 ⭐⭐ DSV4 乱码三连：yarn 方向反 → 压缩器缺失 → 双 rope 体系（v6.3）
+
+**现象**：DeepSeek-V4-Flash e2e 输出乱码 `'2 Programming# Ir...'`（管线跑通但数值全错）。
+
+**排查**（三轮，每轮一个独立 bug，靠"输出前缀对了几 token"递进定位）：
+1. **纸上推演 rope**：pos=5 处我们 cos=[0.999, 1.000, ...]（没旋转），HF cos=[0.284, -0.821, ...]——位置信息归零；
+2. 修完 rope 后前 2 token 对、之后死循环 `10177`——数 token 窗口发现 21 层 CSA（rate=4）在 T≥4 就产压缩条目而我们没实现；顺手发现 `mla_attention` **压根没有 causal mask**；
+3. 修完压缩器后仍循环——读 HF 源码发现 `position_embeddings` 是 **dict{"main", "compress"}**，41/43 层用 theta=160000 而非 10000。
+
+**根因**（三个叠加）：
+1. yarn 的 NTK-aware 插值是**频率侧**（inv_freq 混合 ramp），我们写成了**位置侧**（pos/factor）；correction range 的旋转圈数反解还把高频/低频方向弄反；
+2. CSA 压缩条目（每 4 token 一条，Ca/Cb overlap 布局）未接入，21 层每层少一个 KV 条目；
+3. HF config 的 `rope_parameters` 是 main/compress 双键 dict——sliding 层 default(theta=1e4)，CSA/HCA 层 yarn(theta=1.6e5) 且 `attention_factor=1.0` **显式覆盖** mscale 公式（我们多乘了 27.7% 幅度）。
+
+**解决**：HF 原版 yarn 数学重写（对拍 diff=0）；CSA/HCA 压缩器 + causal mask 接入；双 rope 按层类型注入。最终 `' Paris. The capital of France is Paris...'` 语法连贯。
+
+**教训**：
+- **"config 打印 null 会骗人"**：`json.load(config.json)` 看到 `rope_parameters: null`，要用 HF 类读才知道它被 standardize 成双键 dict——读配置永远走模型类，不读原始 json；
+- **量化模型的数值排查先看"位置编码有没有转起来"**（cos 幅度是最便宜的探针）；
+- "前 N token 对然后崩"是层间误差累积的经典形状：N 越大说明剩余 bug 越靠后/越小。
+
+### 1.5 LSE 合并的约定混用（v8.2 DCP）
+
+**现象**：TP2×DCP2 四卡输出从 tok0 就是乱码，但单进程数学对拍全对。
+
+**排查**：写单进程复刻（合成 KV、两个"假 rank"手工合并、不经 NCCL）→ NaN → 逐中间量检查发现空行的 `exp(-inf - (-inf)) = NaN` → 修掉 NaN 后 diff=2.99（固定值）→ 意识到不是数值噪声是**公式错**。
+
+**根因**：LSE 合并有两套自洽约定——(A) parts 已归一化 + 权重含 l_i；(B) parts 未归一化 + 分母含 l_i。实现时 A 的公式配了 B 的 parts（v8.0 的 `lse_merge_stack` 是 A，`_dcp_attention` 手写时是 B 的产出）。单独看每边都对，合起来系数差一个 l_i。
+
+**解决**：统一约定 B（`out = Σ e·part / Σ e·l`，e=exp(m_i-m*)），单进程对拍 3.6e-07 后再进引擎。
+
+**教训**：**带数学的分布式组件必须有"单进程复刻"测试**（无通信、合成数据、双份实现交叉验证）——它把"通信问题还是数学问题"的二分成本从一次 15 分钟的 4 卡装载降到 30 秒。
+
 ## 二、GPU 显存问题
 
 ### 2.0 ⭐⭐ narrow().contiguous() 的视图陷阱：切分后显存纹丝不动（v6 TP/EP）
@@ -138,6 +171,36 @@ gemm kernel 从根上避免）；先想清楚每个中间张量的实际尺寸�
 预算都必须实测当前空闲。
 
 ---
+
+### 2.4 ⭐ warmup 临时池把 KV 预算吃掉一块：view 持有导致的"显存幽灵"（v3-v9 全系）
+
+**现象**：KV 池总比理论预算小一截（v9.1 实测 372 blocks，理论 ~436，少 17%）。
+
+**排查**（纸面审计，用户提问触发）：warmup 的 `tmp` 池通过 `_assign_layer_caches(tmp)`
+把 view 挂在 attention 模块上——**函数返回后 tmp 并不释放**（view 持有 base storage），
+要到 allocate 末尾换真池时才释放。但 allocate 开头量 `used = total - free` 时 tmp 还活着：
+`budget = util×total − used − (peak−current) = util×total − W − T − S − A`，
+T（临时池）被当成常驻显存扣了，稳态里它根本不存在 → 池子恰好小 `T/block_bytes` 块。
+
+**两个连带发现**：
+1. `peak − current` 这一项反而是**对的**（T 在 peak 和 current 里各一次，差值正好抵消）——
+   所以修法不是"别扣 T"而是"量 used 前把 tmp 释放掉"；
+2. v6-v9 的分支路由 bug：`if self.kv_cache is None` 单卡路径也是 True（warmup 不设置它），
+   所以单卡走的也是 6GB 硬编码分支，docstring 声称的"warmup 实测峰值"是死代码。
+
+**修复**（三步）：warmup 末尾记录 `A = peak − current`（此刻两者都含 T，差值正确隔离 A）→
+显式打破模块 view + empty_cache 真正释放 tmp → allocate 用 `util×total − used − A`
+（此时 used 只含 权重+context+其他进程）。
+
+**陷阱提示**：如果只在 allocate 里给预算"+T 回加"而不释放 tmp，物理上 kv_cache 分配
+瞬间 W+T+池 同驻，util 高时可能真 OOM——先释放再量才是安全的时序。
+
+**教训**：
+- **`narrow/索引 view 会延长父张量生命周期**"——与 2.0 的 narrow().contiguous() 是
+  同族问题（那次是"不释放"，这次是"晚释放"），凡把 view 存进模块属性都要问一句
+  "它几时死"；
+- 显存预算公式的每一项都要标注**量测时刻的张量存活性**——`used`/`peak`/`current`
+  三个数在不同时刻语义不同，纸面审计（W/T/S/A 记号推演）就能抓出这类错。
 
 ## 三、CUDA / Kernel 问题
 
@@ -262,6 +325,32 @@ Qwen3-Omni-30B 66GB，都满足需求）。
 **教训**：下载前先测实际带宽；**"已有的资源"优先于"理想的资源"**。
 
 ---
+
+### 5.3 ⭐⭐ NCCL 多 communicator 的 bootstrap 竞态：25 分钟死锁（v8.2）
+
+**现象**：TP2×DCP2 四卡，layer0 的第一个 cp 组 all_gather 永久挂起；某 rank 报 `ncclRemoteError: socketPollConnect: connect 172.29.226.143:57039 returned Connection refused`（重试 35 次）。
+
+**排查**：
+1. 最小复现（裸 `new_group` × 2 + 双组 all_reduce 预热，无任何引擎代码）**同样死锁** → 排除业务代码；
+2. `faulthandler.dump_traceback_later` 在挂起 150s 后自动转储全线程栈 → **铁证**：两个进程栈在 `tp_allreduce`、两个在 `all_gather`——交叉等待；
+3. 对比实验：`init_process_group` 加 `device_id` 参数 → 立即全通。
+
+**根因**：`new_group` 的 NCCL communicator 是**惰性 wire-up**（首次 collective 才建立），多组并发初始化时 TCP bootstrap 有竞态；不绑 `device_id` 时设备亲和未定，竞态从偶发变成稳定复现。
+
+**解决**：两件套——`init_process_group("nccl", device_id=...)` + `warmup_groups`（每维组启动时做一次小 all_reduce 强制立即完成 wire-up，之后运行期无惰性初始化）。
+
+**教训**：
+- **多 communicator 是雷区但不是禁区**：混合并行（TP 组 + cp 组 + world 组）必须预热，且所有 rank 以相同顺序预热（DIMS 顺序）；
+- `faulthandler.dump_traceback_later(timeout, exit=True)` 是死锁排查的第一工具——比 py-spy 轻（无需权限）、比 gdb 快（自动触发）、比"再加打印重跑 15 分钟装载"便宜两个数量级；
+- "connection refused" 在 NCCL 语境下常常不是网络问题，是**对端进程还卡在上一个 collective**（bootstrap socket 还没监听）。
+
+### 5.4 git 走代理推 GitHub 的 gnutls 失败 → Git Data API 兜底
+
+**现象**：`git push`（含 `-c http.proxy`）一律 `gnutls_handshake() failed: The TLS connection was non-properly terminated`，但 `curl` 走同一代理访问 api.github.com 正常。
+
+**解决**：写推送脚本走 **Git Data API**（blob base64 → tree(base_tree) → commit → PATCH ref）——内容一致但 SHA 与本地不同（API 重建提交）。脚本每次以远端 HEAD 为 base，天然兼容这种分叉。
+
+**教训**：Git 的 HTTP 传输层（git 的 gnutls）和系统 curl 的 TLS 栈是两套实现，一个坏一个好很常见；Data API 是完整的提交图操作接口，推送只是它的 1% 能力。
 
 ## 六、基础设施问题
 
