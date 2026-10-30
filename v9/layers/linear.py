@@ -25,8 +25,8 @@ class BaseLinear(nn.Module):
         return F.linear(x,self.weight,self.bias)
     
     def weight_loader(self, param, loaded, shard_id=None):
-        assert param.shape == loader_weight.shape
-        param.data.copy_(loader_weight)
+        assert param.shape == loaded.shape
+        param.data.copy_(loaded)
     
 
 

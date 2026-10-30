@@ -14,7 +14,7 @@ class RmsNorm(nn.Module):
         self.weight.weight_loader = self.weight_loader
 
     def weight_loader(self, param, loaded, shard_id=None):
-        return param.data.copy_(loader_weight)
+        return param.data.copy_(loaded)
 
     def forward(self, x: torch.Tensor):
         # 全部 out-of-place：x.float() 在输入已是 fp32 时返回同一个张量，

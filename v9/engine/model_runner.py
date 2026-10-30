@@ -67,6 +67,15 @@ class ModelRunner:
                 m.num_kv_head = per_kv
         self._tp_kv_heads = per_kv
 
+    def _per_rank_kv_heads(self):
+        """per-rank kv 头数：从模型第一层 attention 组件读（v9.3 组件构造时
+        已按 ParallelState 切——TP2 下 kv=4 → 每 rank 2；kv 复制时 ≥1）。
+        取代 v6 的 _shard_kv_heads_for_tp 事后补丁（引擎读组件，不是组件等引擎）。"""
+        for m in self.model.modules():
+            if hasattr(m, "num_kv_head"):
+                return m.num_kv_head
+        return self.config.hf_config.num_key_value_heads
+
     def _warmup_model(self):
         """dummy 最大压力前向量激活峰值（prefill + decode 两种形状都量到）。
         用 64 块临时池 + 手动指好的 block 表——我们的 attention 要从 cache 读，
@@ -77,7 +86,7 @@ class ModelRunner:
         bs = self.block_size
         seq_len = min(self.config.max_num_batched_tokens, self.config.max_model_len)
         num_seqs = min(self.config.max_num_batched_tokens // seq_len, self.config.max_num_seqs)
-        kvh = hf.num_key_value_heads
+        kvh = self._per_rank_kv_heads()
         hd = getattr(hf, "head_dim", hf.hidden_size // hf.num_attention_heads)
         blocks_per_seq = (seq_len + bs - 1) // bs
         tmp = torch.empty(2, hf.num_hidden_layers, num_seqs * blocks_per_seq, bs, kvh, hd,
@@ -113,7 +122,7 @@ class ModelRunner:
         free, total = torch.cuda.mem_get_info()
         used = total - free
         current = torch.cuda.memory_stats()["allocated_bytes.all.current"]
-        num_kv_heads = getattr(self, "_tp_kv_heads", None) or hf.num_key_value_heads
+        num_kv_heads = self._per_rank_kv_heads()
         head_dim = getattr(hf, "head_dim", hf.hidden_size // hf.num_attention_heads)
         block_bytes = 2 * hf.num_hidden_layers * self.block_size * num_kv_heads * head_dim * self.dtype.itemsize
         if getattr(self, "_activation_peak", None) is not None:
