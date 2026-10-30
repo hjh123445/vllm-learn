@@ -121,6 +121,7 @@ class EngineCore:
             "pp_size": pp_size,
         }
         self.pp_size = pp_size
+        self.dcp_size = dcp_size
 
         if self.world_size == 1:
             # UniProc 路径：ModelRunner 同进程直调（分配池子 → 填 config）
@@ -180,9 +181,14 @@ class EngineCore:
         else:
             from engine.mq import broadcast
             broadcast(msg, self.broadcast_q)
-            # response 从 rank0 取（TP/EP 的 forward 内部已聚合，rank0 的
-            # 采样结果即最终结果——v6 的广播对齐采样遗留的简化沿用）
-            out = self.response_q[0].recv()
+            # response 从【采样者】取：非 PP = rank0（TP/EP 的 forward 内部
+            # 已聚合）；PP = last stage 的 inner-rank0（其全局 rank =
+            # (pp-1)*inner——v9.4c 死锁根因：曾固定等 response_q[0]，
+            # PP2 时 last stage 的 rank 是 inner，response 发进了 [inner]，
+            # EngineCore 等 [0] 双方互卡）
+            inner = self.tp_size * self.ep_size * self.dcp_size
+            resp_rank = (self.pp_size - 1) * inner if self.pp_size > 1 else 0
+            out = self.response_q[resp_rank].recv()
             token_ids = out["tokens"]
 
         self.scheduler.postprocess(seqs, token_ids, is_prefill)

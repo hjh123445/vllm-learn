@@ -99,11 +99,16 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     # 发 response（EngineCore 从它读），其余 worker 静默
     is_resp_rank = (pp_rank == pp_size - 1 and rank % inner == 0) \
         if pp_size > 1 else True
+    # PP 时 ready 只由 stage0 发（core 的 ready 循环只收 stage0 的 rank0——
+    # last stage 若也发，其 ready 会残留在 response 管道里，step 的第一次
+    # recv 收到的是它而不是 output → KeyError 'tokens'）
+    is_ready_rank = (pp_rank == 0 and rank % inner == 0) \
+        if pp_size > 1 else True
     # ready 带块数（EngineCore 的 BlockManager 用它建——worker 与 master 的
     # 池子视图一致性 = 相同的 warmup+预算公式，构造序差异不再产生 0 块池）
     ready_sig = {"type": "ready", "rank": rank,
                  "num_kvcache_blocks": config.num_kvcache_blocks}
-    if is_resp_rank or (pp_size > 1 and pp_rank == 0 and rank % inner == 0):
+    if is_ready_rank:
         response_conn.send(ready_sig)
 
     while True:

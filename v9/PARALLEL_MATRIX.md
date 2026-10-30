@@ -21,7 +21,8 @@
 | TP2×DCP2 | 16.4 | 4 | 367s | （DCP 数学 v8.2 已验） |
 | TP2×DCP4 | 14.5 | 8 | 804s | （DCP 容量 ÷4 场景） |
 | TP2×DCP2×EP2 | 18.9 | 8 | 430s | 4/6 |
-| PP2 / PP2×TP2 | — | — | — | 实现完成，卡 p2p 时序（见 §4） |
+| PP2 | 17.6 | 2 | 26s | 5/6 |
+| PP2×TP2 | 15.5 | 4 | 184s | 5/6 |
 
 注：一致率 4-5/6 是小 batch（6 请求）下 argmax 边界翻转的预期噪声（v6 时
 TP2 双进程独立跑同样 4/6），非系统性错误；e2e 吞吐才是本矩阵的主读数。
@@ -97,14 +98,21 @@ DSV4-Flash 的特殊性（v6.3 实测显存账）：
 跨节点（v6.2 实测）追加：EP2 跨 IB 只损 21%，TP8 跨 IB 崩 69-88%——
 **EP 也是跨节点的唯一稳选**，DSV4 级模型多机部署时 EP 是默认起点。
 
-## 5. PP 状态与剩余工作（诚实记录）
+## 5. PP 实测与三重路由 bug 复盘
 
-PP 实现完成（get_pp_indices 层区间 + PPMissingLayer 占位 + NCCL p2p
-激活传递 + 中间 stage 跳过采样），**卡在 p2p 时序**：日志显示 send/recv
-已发生但 400s 未完成——疑为 stage0 send 与 stage1 的 recv 顺序在
-prefill/decode 切换处死锁（vLLM 用 virtual engine 的微批流水避开）。
-修复方向：按 vLLM 的 `VirtualEngine` 语义引入微批队列（本版单微批的
-严格 lockstep 在 chunked prefill 边界暴露时序问题）。
+PP 跑通（PP2 17.6 tok/s / PP2×TP2 15.5 tok/s，5/6 一致）——比 TP2 慢：
+单微批无流水（bubble 50%：stage0 算时 stage1 等、反之），这符合理论
+bubble=(p-1)/(m+p-1) 在 m=1 时的 50%。**PP 的正确打开方式是微批流水**
+（vLLM 的 VirtualEngine：m 个 in-flight batch 填满管道）——本版未实现，
+PP 数据的意义在于"层切+跨 stage 通信链路正确"，吞吐数据不代表 PP 上限。
+
+三重路由 bug（全部是"谁发 response"的语义错误，逐个定位）：
+1. core 固定从 response_q[0] 收，但 PP 时采样者是 last stage（其 rank =
+   (pp-1)×inner）→ 双方互卡（response 发进了 [inner]，core 等 [0]）；
+2. last stage 的 ready 消息残留在管道里，step 的第一次 recv 收到它而非
+   output → KeyError 'tokens'——ready 只应由 stage0 发（scheduler 用的
+   是 stage0 的块数视图）；
+3. EngineCore 漏 self.dcp_size 属性。
 
 DP 未实现（设计定稿：每 dp rank 独立 EngineCore + 前端路由，vLLM 的
 data_parallel_rank 同款）——DP 与本矩阵正交（每 rank 仍是完整引擎），
@@ -114,8 +122,9 @@ data_parallel_rank 同款）——DP 与本矩阵正交（每 rank 仍是完整�
 
 | 场景 | 八卡最优（实测） | 依据 |
 |---|---|---|
-| MoE 推理吞吐 | **EP8**（45.9 tok/s） | 稀疏激活 + a2c 通信 ∝ token×topk |
+| MoE 推理吞吐 | **EP8**（45.9 tok/s） | 稀疏激活 + a2a 通信 ∝ token×topk |
 | Dense 大显存 | TP8 | 切权重是唯一目的 |
 | 长序列容量 | EP + DCP | KV 池 ÷cp_size |
 | 超大模型（DSV4） | **量化原生 + EP8** | 显存账 + MLA=MQA 切不动 TP |
 | 跨节点 | EP（跨 IB 损 21% vs TP 崩 69%） | 带宽鸿沟下的唯一稳选 |
+| 层切扩展（放不下但不想切层内） | PP×微批 | 单微批 bubble 50%，需流水兑现 |
