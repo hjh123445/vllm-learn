@@ -88,24 +88,78 @@ class Qwen3MoeDecoderLayer(nn.Module):
         return x, residual
 
 
+class PPMissingLayer(nn.Module):
+    """PP 区间外层的占位（对齐 vLLM models/utils.PPMissingLayer）：
+    Identity 前向保持层索引全局对齐——checkpoint 名字/层序不变，loader 跳过。"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+    def forward(self, x, residual, positions):
+        return x, residual
+
+
 class Qwen3MoeModel(nn.Module):
     def __init__(self, config, max_position: int):
         super().__init__()
         self.embed_tokens = Embedding(config.vocab_size, config.hidden_size)
+        # PP 层区间（对齐 vLLM make_layers + get_pp_indices）：区间外
+        # PPMissingLayer 占位，层索引全局对齐（checkpoint 名不变，loader 跳过）
+        from layers.parallel import STATE, get_pp_indices
+        start, end = get_pp_indices(config.num_hidden_layers,
+                                    STATE.pp_rank, STATE.pp_size)
+        self.pp_start, self.pp_end = start, end
         self.layers = nn.ModuleList(
-            [Qwen3MoeDecoderLayer(config, i) for i in range(config.num_hidden_layers)])
+            [PPMissingLayer() for _ in range(start)] +
+            [Qwen3MoeDecoderLayer(config, i) for i in range(start, end)] +
+            [PPMissingLayer() for _ in range(end, config.num_hidden_layers)])
         self.norm = RmsNorm(config.hidden_size, eps=config.rms_norm_eps)
         rope = RotaryEmbeddding(max_position=max_position,
                                 base=config.rope_theta,
                                 head_dim=config.head_dim)
         for layer in self.layers:
-            layer.self_attn.rope = rope
+            if isinstance(layer, Qwen3MoeDecoderLayer):
+                layer.self_attn.rope = rope
 
     def forward(self, input_ids, positions):
-        x = self.embed_tokens(input_ids)
-        residual = torch.zeros_like(x)
+        """PP（v9.4c，对齐 vLLM）：stage>0 从上游 recv (x, residual) 替代
+        embed；stage<last 把 (x, residual) send 给下游、跳过 norm。
+        p2p = NCCL send/recv（先传 shape 再传数据，T 每步可变）。"""
+        from layers.parallel import STATE
+        if STATE.pp_size > 1:
+            import torch.distributed as dist
+            my = dist.get_rank() if dist.is_initialized() else 0
+            inner = STATE.tp_size * STATE.cp_size * STATE.ep_size
+            if STATE.pp_rank > 0:
+                src = (STATE.pp_rank - 1) * inner + my % inner
+                shp = torch.zeros(2, dtype=torch.int64, device="cuda")
+                dist.recv(shp, src=src)
+                Tn, H = int(shp[0]), int(shp[1])
+                dev = next(self.parameters()).device
+                x = torch.empty(Tn, H, dtype=torch.bfloat16, device=dev)
+                residual = torch.empty_like(x)
+                dist.recv(x, src=src)
+                dist.recv(residual, src=src)
+            else:
+                x = self.embed_tokens(input_ids)
+                residual = torch.zeros_like(x)
+        else:
+            x = self.embed_tokens(input_ids)
+            residual = torch.zeros_like(x)
         for layer in self.layers:
             x, residual = layer(x, residual, positions)
+        if STATE.pp_size > 1 and STATE.pp_rank < STATE.pp_size - 1:
+            # 中间 stage：把 hidden 传给下游，不进 norm（EngineCore 只收
+            # last stage 的采样结果——中间 stage 的 forward 返回值被忽略）
+            import torch.distributed as dist
+            my = dist.get_rank() if dist.is_initialized() else 0
+            inner = STATE.tp_size * STATE.cp_size * STATE.ep_size
+            dst = (STATE.pp_rank + 1) * inner + my % inner
+            shp = torch.tensor([x.shape[0], x.shape[1]], dtype=torch.int64, device=x.device)
+            dist.send(shp, dst=dst)
+            dist.send(x.contiguous(), dst=dst)
+            dist.send(residual.contiguous(), dst=dst)
+            return x          # 占位（中间 stage 的返回不被使用）
         out, _ = fused_add_rmsnorm(x, residual, self.norm.weight, self.norm.eps)
         return out
 

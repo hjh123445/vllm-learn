@@ -30,11 +30,13 @@ from torch import nn
 
 class ParallelState:
     """进程的并行坐标 + 通信组。组件在 __init__ 时读取（构造即定型），
-    launcher 必须在构造模型之前 configure。默认 tp=ep=1（单卡路径）。"""
+    launcher 必须在构造模型之前 configure。默认 tp=ep=cp=pp=1（单卡路径）。"""
 
     def __init__(self):
         self.tp_size, self.tp_rank = 1, 0
         self.ep_size, self.ep_rank = 1, 0
+        self.cp_size, self.cp_rank = 1, 0       # DCP（decode cache 并行）
+        self.pp_size, self.pp_rank = 1, 0       # PP（层切 stage）
         self.tp_group = None       # o_proj/w2 的 allreduce 域（tp 维）
         self.moe_group = None      # MoE 部分和的聚合域（tp×ep 张成的组）
 
@@ -51,13 +53,28 @@ STATE = ParallelState()
 
 
 def configure_parallel(tp_size=1, tp_rank=0, ep_size=1, ep_rank=0,
-                       tp_group=None, moe_group=None):
+                       tp_group=None, moe_group=None,
+                       cp_size=1, cp_rank=0, pp_size=1, pp_rank=0):
     """launcher 注入（构造模型前调用）。通信组由引擎侧建好传入——
     组件不建组（v8.2 教训：new_group 必须全 rank 对称 + device_id + 预热）。"""
     STATE.tp_size, STATE.tp_rank = tp_size, tp_rank
     STATE.ep_size, STATE.ep_rank = ep_size, ep_rank
+    STATE.cp_size, STATE.cp_rank = cp_size, cp_rank
+    STATE.pp_size, STATE.pp_rank = pp_size, pp_rank
     STATE.tp_group, STATE.moe_group = tp_group, moe_group
     return STATE
+
+
+def get_pp_indices(num_layers: int, pp_rank: int, pp_size: int):
+    """PP 层区间（对齐 vLLM vllm/distributed/utils.get_pp_indices：
+    均分 + 余数给前面的 stage）。返回 (start, end)。"""
+    if pp_size == 1:
+        return 0, num_layers
+    base = num_layers // pp_size
+    rem = num_layers % pp_size
+    start = pp_rank * base + min(pp_rank, rem)
+    end = start + base + (1 if pp_rank < rem else 0)
+    return start, end
 
 
 def tp_allreduce(x: torch.Tensor) -> torch.Tensor:

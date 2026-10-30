@@ -41,39 +41,52 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         dist.init_process_group(
             "nccl", device_id=torch.device(f"cuda:{torch.cuda.current_device()}"))
 
-    # ---- 并行坐标（构造模型之前注入——v9.3 组件化的约定）----
-    # 坐标: rank = ep_rank * tp_size + tp_rank（tp 连续段同属一个 ep 组）
-    tp_rank, ep_rank = rank % tp_size, rank // tp_size
+    # ---- 四维坐标（row-major 解码，对齐 ParallelCoords DIMS=(tp,cp,ep,pp)）----
+    # rank = pp*(tp*cp*ep) + ep*(tp*cp) + tp*cp + cp
+    cp_size = engine_kwargs.get("dcp_size", 1)
+    pp_size = engine_kwargs.get("pp_size", 1)
+    inner = tp_size * cp_size * ep_size
+    pp_rank = rank // inner
+    r = rank % inner
+    ep_rank = r // (tp_size * cp_size)
+    r = r % (tp_size * cp_size)
+    tp_rank = r // cp_size
+    cp_rank = r % cp_size
     from layers.parallel import configure_parallel, STATE
-    tp_group = moe_group = None
+    tp_group = moe_group = cp_group = None
     if world_size > 1:
-        # tp 组 =【同 ep_rank】的所有 rank（rank // tp_size == ep_rank）——
-        # v9.4a 第一版写成 r % tp_size == tp_rank → TP2 时是单成员组，
-        # allreduce 变 no-op，部分和流进 norm（e2e 从 tok0 全错的根因）
-        tp_group = dist.new_group(ranks=[r for r in range(world_size)
-                                         if r // tp_size == ep_rank])
+        # tp 组 = 同 (pp, ep, cp) 沿 tp 变化——v9.4a 曾写成 r%tp_size==tp_rank
+        # → 单成员组 → allreduce 变 no-op（e2e 全错的根因，勿回退）
+        if tp_size > 1:
+            tp_group = dist.new_group(ranks=[
+                pp_rank * inner + ep_rank * tp_size * cp_size + t * cp_size + cp_rank
+                for t in range(tp_size)])
+        # moe 组 = 同 (pp, cp) 的 tp×ep 张成（MoE 部分和聚合域）
         if tp_size * ep_size > 1:
-            moe_group = dist.new_group(ranks=list(range(world_size)))
+            moe_group = dist.new_group(ranks=[
+                pp_rank * inner + e * tp_size * cp_size + t * cp_size + cp_rank
+                for e in range(ep_size) for t in range(tp_size)])
+        # cp 组 = 同 (pp, ep, tp) 沿 cp 变化（DCP partial/LSE 合并域）
+        if cp_size > 1:
+            cp_group = dist.new_group(ranks=[
+                pp_rank * inner + ep_rank * tp_size * cp_size + tp_rank * cp_size + c
+                for c in range(cp_size)])
         # 组预热（惰性 wire-up 竞态——v8.2 的 25 分钟死锁）
-        for g in (tp_group, moe_group):
+        for g in (tp_group, moe_group, cp_group):
             if g is not None:
                 t = torch.zeros(1, device="cuda")
                 dist.all_reduce(t, group=g)
         torch.cuda.synchronize()
     configure_parallel(tp_size=tp_size, tp_rank=tp_rank,
                        ep_size=ep_size, ep_rank=ep_rank,
-                       tp_group=tp_group, moe_group=moe_group)
+                       tp_group=tp_group, moe_group=moe_group,
+                       cp_size=cp_size, cp_rank=cp_rank,
+                       pp_size=pp_size, pp_rank=pp_rank)
 
     # ---- DCP 注入（v8.2 的 set_dcp，worker 内生效）----
-    dcp_size = engine_kwargs.get("dcp_size", 1)
-    if dcp_size > 1:
+    if cp_size > 1:
         from layers.dcp import set_dcp
-        # cp 维坐标 = rank // tp_size（与 v8.2 的 tp*cp+cp 编码对齐）
-        cp_rank = rank % dcp_size if dcp_size == tp_size else rank // tp_size
-        cp_group = dist.new_group(ranks=[r for r in range(world_size)
-                                         if (r // tp_size) == (rank // tp_size)])
-        t = torch.zeros(1, device="cuda"); dist.all_reduce(t, group=cp_group)
-        set_dcp(active=True, size=dcp_size, rank=cp_rank, group=cp_group)
+        set_dcp(active=True, size=cp_size, rank=cp_rank, group=cp_group)
 
     # ---- 模型（v9.3 组件: 构造即本 rank 切片）----
     from config import Config
@@ -82,11 +95,16 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     runner = ModelRunner(config, dtype=None)
 
     from engine.mq import SHUTDOWN
+    # PP response 路由：采样在 last stage——只有 last stage 的 inner-rank0
+    # 发 response（EngineCore 从它读），其余 worker 静默
+    is_resp_rank = (pp_rank == pp_size - 1 and rank % inner == 0) \
+        if pp_size > 1 else True
     # ready 带块数（EngineCore 的 BlockManager 用它建——worker 与 master 的
     # 池子视图一致性 = 相同的 warmup+预算公式，构造序差异不再产生 0 块池）
     ready_sig = {"type": "ready", "rank": rank,
                  "num_kvcache_blocks": config.num_kvcache_blocks}
-    response_conn.send(ready_sig)
+    if is_resp_rank or (pp_size > 1 and pp_rank == 0 and rank % inner == 0):
+        response_conn.send(ready_sig)
 
     while True:
         msg = broadcast_conn.recv()
@@ -99,8 +117,9 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         token_ids = []
         if specs:
             token_ids = runner.run(specs, is_prefill)
-        response_conn.send({"type": "output", "tokens": token_ids,
-                            "n": len(specs)})
+        if is_resp_rank:
+            response_conn.send({"type": "output", "tokens": token_ids,
+                                "n": len(specs)})
 
     if world_size > 1:
         dist.destroy_process_group()

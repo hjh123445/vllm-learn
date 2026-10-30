@@ -96,9 +96,9 @@ def rebuild_specs(msg):
 class EngineCore:
     """v9.4 的引擎核心。对外暴露与 LLMEngine.generate 兼容的批推理入口。"""
 
-    def __init__(self, model_path, tp_size=1, ep_size=1, dcp_size=1,
+    def __init__(self, model_path, tp_size=1, ep_size=1, dcp_size=1, pp_size=1,
                  master_port=29600, config_kwargs=None, gpus=None):
-        self.world_size = tp_size * ep_size
+        self.world_size = tp_size * ep_size * dcp_size * pp_size
         self.tp_size, self.ep_size = tp_size, ep_size
 
         # ---- 顺序关键：runner 先于 scheduler ----
@@ -118,7 +118,9 @@ class EngineCore:
         engine_kwargs = {
             "master_addr": "127.0.0.1", "master_port": master_port,
             "config_kwargs": config_kwargs, "dcp_size": dcp_size, "gpus": gpus,
+            "pp_size": pp_size,
         }
+        self.pp_size = pp_size
 
         if self.world_size == 1:
             # UniProc 路径：ModelRunner 同进程直调（分配池子 → 填 config）
@@ -149,18 +151,20 @@ class EngineCore:
                                 daemon=True)
                 p.start()
                 self.procs.append(p)
-            # 等 ready（模型加载 + 池子分配完成，worker 回传块数——
-            # 所有 rank 的块数一致性由相同的 warmup+预算公式保证）
-            n_blocks = None
-            for r in range(self.world_size):
+            # 等 ready（模型加载 + 池子分配完成，worker 回传块数）。
+            # 收谁的：PP 时 stage0 的 inner-rank0（块数视图对 scheduler 有效）；
+            # 非 PP 时全部 rank 都发，且块数必须一致（同预算公式）
+            inner = tp_size * ep_size * dcp_size
+            senders = [0] if pp_size > 1 else list(range(self.world_size))
+            blocks = []
+            for r in senders:
                 m = self.response_q[r].recv()
                 assert m.get("type") == "ready", m
-                if n_blocks is None:
-                    n_blocks = m["num_kvcache_blocks"]
-                else:
-                    assert n_blocks == m["num_kvcache_blocks"], \
-                        f"块数分叉 r{r}: {m['num_kvcache_blocks']} != {n_blocks}"
-            config.num_kvcache_blocks = n_blocks
+                blocks.append(m["num_kvcache_blocks"])
+            # TP 切分对称 → 各 rank 块数应一致；EP 下本地专家不同 → 激活峰值
+            # 微差 → 块数可能差几块（实测 EP2: 1424 vs 1416）。取 min 保证
+            # scheduler 的 BlockManager 不超发任何一张卡的池子。
+            config.num_kvcache_blocks = min(blocks)
             self.scheduler = Scheduler(config)          # 用 worker 的真实块数
             self.inproc_runner = None
 

@@ -72,7 +72,12 @@ class Attention(nn.Module):
 
         # ---- 1. 本 rank 持有的行：[(seq, 全局位置, 本地扁平位置)] ----
         bt = ctx.block_tables.tolist()
-        lens = ctx.cu_seqlens_k.tolist()[1:] if ctx.is_prefill else ctx.context_lens.tolist()
+        if ctx.is_prefill:
+            # cu_seqlens_k 是【绝对前缀和】——本序列长度 = 终点 - 起点
+            ck = ctx.cu_seqlens_k.tolist()
+            lens = [ck[i + 1] - ck[i] for i in range(len(ck) - 1)]
+        else:
+            lens = ctx.context_lens.tolist()
         row_seq, row_pos, row_loc = [], [], []
         for i, btrow in enumerate(bt):
             L = lens[i]

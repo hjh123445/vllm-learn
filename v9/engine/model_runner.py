@@ -47,14 +47,22 @@ class ModelRunner:
     # ================= 显存 =================
 
     def _assign_layer_caches(self, kv_cache):
-        """把池子的每层切片指给对应 attention（k_cache [blocks, bs, kvh, hd]）。"""
+        """把池子的每层切片指给对应 attention（k_cache [blocks, bs, kvh, hd]）。
+        PP：只数本 stage 的真层（PPMissingLayer 无 cache 属性）——池子按本
+        stage 层数分配，显存不按全量 48 层虚算。"""
         layer_id = 0
         for module in self.model.modules():
             if hasattr(module, "k_cache") and hasattr(module, "v_cache"):
                 module.k_cache = kv_cache[0, layer_id]
                 module.v_cache = kv_cache[1, layer_id]
                 layer_id += 1
-        assert layer_id == self.config.hf_config.num_hidden_layers
+        from layers.parallel import STATE
+        n_local = self.config.hf_config.num_hidden_layers
+        if getattr(STATE, "pp_size", 1) > 1:
+            from layers.parallel import get_pp_indices
+            s, e = get_pp_indices(n_local, STATE.pp_rank, STATE.pp_size)
+            n_local = e - s
+        assert layer_id == n_local, f"{layer_id} != 本 stage 层数 {n_local}"
 
     def _shard_kv_heads_for_tp(self, tp_rank: int, tp_size: int):
         """TP 切分后 attention 的 kv 头数变 kv/TP——池子和 Attention 模块同步缩。
@@ -87,9 +95,16 @@ class ModelRunner:
         seq_len = min(self.config.max_num_batched_tokens, self.config.max_model_len)
         num_seqs = min(self.config.max_num_batched_tokens // seq_len, self.config.max_num_seqs)
         kvh = self._per_rank_kv_heads()
+        # PP：本 stage 层数（池子/块字节数按 stage 层算）
+        n_layers = hf.num_hidden_layers
+        from layers.parallel import STATE as _ST
+        if getattr(_ST, "pp_size", 1) > 1:
+            from layers.parallel import get_pp_indices
+            _s, _e = get_pp_indices(n_layers, _ST.pp_rank, _ST.pp_size)
+            n_layers = _e - _s
         hd = getattr(hf, "head_dim", hf.hidden_size // hf.num_attention_heads)
         blocks_per_seq = (seq_len + bs - 1) // bs
-        tmp = torch.empty(2, hf.num_hidden_layers, num_seqs * blocks_per_seq, bs, kvh, hd,
+        tmp = torch.empty(2, n_layers, num_seqs * blocks_per_seq, bs, kvh, hd,
                           dtype=self.dtype, device=self.device)
         self._assign_layer_caches(tmp)
         seqs = [Sequence([0] * seq_len) for _ in range(num_seqs)]
@@ -124,7 +139,13 @@ class ModelRunner:
         current = torch.cuda.memory_stats()["allocated_bytes.all.current"]
         num_kv_heads = self._per_rank_kv_heads()
         head_dim = getattr(hf, "head_dim", hf.hidden_size // hf.num_attention_heads)
-        block_bytes = 2 * hf.num_hidden_layers * self.block_size * num_kv_heads * head_dim * self.dtype.itemsize
+        from layers.parallel import STATE as _ST2
+        _n = hf.num_hidden_layers
+        if getattr(_ST2, "pp_size", 1) > 1:
+            from layers.parallel import get_pp_indices
+            _s2, _e2 = get_pp_indices(_n, _ST2.pp_rank, _ST2.pp_size)
+            _n = _e2 - _s2
+        block_bytes = 2 * _n * self.block_size * num_kv_heads * head_dim * self.dtype.itemsize
         if getattr(self, "_activation_peak", None) is not None:
             # warmup 路径（tmp 已在 warmup 末尾释放）：used 只含 权重+context+其他进程，
             # A 用实测峰值——预算 = util×total − 常驻 − 激活峰值
@@ -140,7 +161,7 @@ class ModelRunner:
             print(f"[池诊断] total={total/1e9:.1f} used={used/1e9:.1f} current={current/1e9:.1f} "
                   f"block={block_bytes/1e6:.1f}MB budget={budget/1e9:.1f}GB", flush=True)
         assert config.num_kvcache_blocks > 0
-        self.kv_cache = torch.empty(2, hf.num_hidden_layers, config.num_kvcache_blocks,
+        self.kv_cache = torch.empty(2, _n, config.num_kvcache_blocks,
                                     self.block_size, num_kv_heads, head_dim,
                                     dtype=self.dtype, device=self.device)
         self._assign_layer_caches(self.kv_cache)
@@ -212,6 +233,11 @@ class ModelRunner:
         else:
             input_ids, positions = self.prepare_decode(seqs)
         hidden = self.model(input_ids, positions)                 # [total_q, hidden]
+        # PP 中间 stage：hidden 已发给下游，跳过 lm_head/采样（worker 只在
+        # last stage 发 response）
+        from layers.parallel import STATE
+        if getattr(STATE, "pp_size", 1) > 1 and STATE.pp_rank < STATE.pp_size - 1:
+            return [0] * len(seqs)
         if is_prefill:
             last = get_context().cu_seqlens_q[1:] - 1              # 每序列最后一个 q 位置
             logits = self.model.compute_logits(hidden[last])

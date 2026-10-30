@@ -81,6 +81,21 @@ def load_model(model: nn.Module, model_dir: str, device="cuda", dtype=torch.bflo
 
     loaded = set()
     skipped = set()
+    # PP: 层区间外的 target 在本 stage 不存在（PPMissingLayer 无参数）→ 跳过
+    from layers.parallel import STATE
+    try:
+        from models.qwen3_moe import PPMissingLayer
+        pp_missing = {id(m) for m in model.modules() if isinstance(m, PPMissingLayer)}
+    except Exception:
+        pp_missing = set()
+
+    def _target_exists(target):
+        try:
+            model.get_parameter(target)
+            return True
+        except AttributeError:
+            return False
+
     for file in files:
         with safe_open(file, "pt", "cpu") as f:
             for name in f.keys():
@@ -88,12 +103,17 @@ def load_model(model: nn.Module, model_dir: str, device="cuda", dtype=torch.bflo
                 if target is None:
                     skipped.add(name.split(".")[1] if name.startswith("thinker.") else name)
                     continue
+                if not _target_exists(target):
+                    skipped.add(target)
+                    continue
                 param = model.get_parameter(target)
                 _load_into(param, f.get_tensor(name), shard)
                 loaded.add(target)
 
     model_keys = set(model.state_dict().keys())
     not_loaded = model_keys - loaded
+    # PP 的 embed/norm/lm_head: stage>0 也构造了（小）但权重要装（loader 直装 ✓）
+    # not_loaded 只可能是 bug——PPMissingLayer 不产生参数所以不会出现在 keys
     assert not not_loaded, f"以下参数从未被加载: {sorted(not_loaded)[:10]}"
 
     model = model.to(device=device, dtype=dtype)
