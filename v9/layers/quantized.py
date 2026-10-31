@@ -100,10 +100,17 @@ class QuantizedLinear(nn.Module):
         return dequantize(self.w_packed, self.w_scales, self.group).to(torch.bfloat16)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """B1 路径：unpack → group dequant → bf16 matmul。
+        """混合路由（v9.2，vLLM w4a16 策略同款）：
+        - 小 M（decode，带宽 bound）：B2 融合 kernel（dequant_gemm）——
+          int4 读 + 寄存器反量化，HBM 流量 ÷3.9；
+        - 大 M（prefill，算力 bound）：B1 反量化 + cuBLAS——dequant 开销
+          被大 M 摊薄（实测 M=4096: B1 0.36ms vs B2 4.4ms）。
         x: [T, K] → [T, N]。"""
         T, K = x.shape
         assert K == self.in_dim
+        if T <= 64:
+            from layers.dequant_gemm import dequant_gemm
+            return dequant_gemm(x, self.w_packed, self.w_scales, self.group)
         q = unpack_int4(self.w_packed, x.dtype)                # [N, K] bf16
         N = q.shape[0]
         pad = (-K) % self.group
@@ -132,11 +139,14 @@ if __name__ == "__main__":
     assert rel_mse < 5e-2
 
     # QuantizedLinear 前向数值一致性（vs 反量化权重的 F.linear）
-    ql = QuantizedLinear(512, 256)
+    if not torch.cuda.is_available():
+        print("无 GPU，跳过 kernel 路径自测")
+        raise SystemExit
+    ql = QuantizedLinear(512, 256).cuda()
     ql.weight_loader(None, w)
-    x = torch.randn(8, 512)
+    x = torch.randn(8, 512, device="cuda")
     out_ql = ql(x)
-    out_ref = F.linear(x, ql.dequant_weight().float())
+    out_ref = F.linear(x.float(), ql.dequant_weight().float())
     diff = (out_ql.float() - out_ref).abs().max().item()
     print(f"QuantizedLinear vs 反量化参考 max diff: {diff:.2e}（期望 <1e-2，纯 bf16 舍入）")
     assert diff < 1e-2

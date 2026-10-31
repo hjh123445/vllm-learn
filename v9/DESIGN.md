@@ -265,6 +265,34 @@ per-head scale 必须；LSE 合并数学不变（v8.0 的 m/l 就是干这个的
 
 ---
 
+## 附 3：v9.2 dequant-GEMM 最终形态（混合路由，实测数据）
+
+**策略**（vLLM w4a16 同款）：按 M 分流——
+- **decode（M≤64，带宽 bound）**：B2 融合 kernel——int4 直读 + 寄存器反量化；
+- **prefill（M>64，算力 bound）**：B1 反量化 + cuBLAS（dequant 开销被大 M 摊薄）。
+
+**kernel 关键技巧**：打包布局 uint8 = (偶列 q0 | 奇列 q1<<4)，用数学恒等式
+`Σ_k x[k]W[n,k] = Σ_j (x[2j]W[n,2j] + x[2j+1]W[n,2j+1])`——x 按偶/奇列拆两半
+加载，W 的 uint8 tile 直接拆两个半块各做一次 dot，**无需 interleave 重建**
+（v1 版 tl.join 的浪费源）。形状扫描最优（A800, M=8）：BM=8 BN=32 BK=128
+warps=8。
+
+**实测**（A800，N=K=2048，g=128）：
+
+| 路径 | M=8 (decode) | M=4096 (prefill) |
+|---|---|---|
+| bf16 原生 | 0.018ms | 0.203ms |
+| B1（每步反量化） | 0.227ms | **0.356ms** ✓ prefill 选它 |
+| B2 kernel（v1 join 版） | 0.084ms | 3.53ms |
+| **B2 kernel（v3+调优）** | **0.043ms** ✓ decode 选它 | 8.5ms |
+| vs bf16 | x2.37 | x1.76（混合路由） |
+
+诚实结论：B2 decode 路径 vs bf16 仍是 2.4x 慢（不是 5x 了）——离理论
+收益（÷3.9 带宽 → 应 ~2x 快）还有距离，剩余 gap = 未做 TMA/cp.async 的
+朴素 load + 与 cuBLAS 高度调优的基线比。**但对照系要选对**：量化引擎的
+真实对照是"B1 vs B2"（同样 int4 存储下的路由选择），B2 在 decode 赢
+B1 达 5.3x——这就是 hybrid 路由的依据。
+
 ## 附：v9.0 先行实验的完整数据
 
 见 `v9/tests/quant_probe.py`（本文 §II.1.3 / §II.2 的数据来源，2026-10-30
