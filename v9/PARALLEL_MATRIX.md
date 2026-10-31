@@ -114,9 +114,19 @@ PP 数据的意义在于"层切+跨 stage 通信链路正确"，吞吐数据不�
    是 stage0 的块数视图）；
 3. EngineCore 漏 self.dcp_size 属性。
 
-DP 未实现（设计定稿：每 dp rank 独立 EngineCore + 前端路由，vLLM 的
-data_parallel_rank 同款）——DP 与本矩阵正交（每 rank 仍是完整引擎），
-是吞吐扩展（多请求池）而非单批加速。
+### DP 实测（v9.4b 补充）：同样 4 卡，DP 划分胜过纯 TP
+
+DP2×TP2（4 卡 = 2 个独立 EngineCore，各管 2 卡 TP2，6 请求 round-robin）：
+**24.3 tok/s，5/6 与单卡一致**——比同样 4 卡的 TP4（19.6）快 24%，
+比纯 TP2（19.3）的 2 倍（38.6 理论值）还有距离（每 rank 只有 3 请求，
+batch 太小吃不满），但方向明确：**多请求场景下 DP×TP 的划分优于纯 TP**。
+
+为什么：TP4 的每层 2×allreduce 税照交，而 DP2×TP2 每 rank 只有 TP2 的
+通信（allreduce 跳数减半）+ 请求池翻倍（独立 scheduler/KV 互不干扰）。
+vLLM 的 data_parallel_rank 路由同款语义（请求一旦入 rank 不迁移）。
+
+**DP 的适用边界**：请求池够大时吞吐近线性；单请求低延迟场景无用
+（一个请求只能在一个 rank 上）。
 
 ## 6. 结论
 

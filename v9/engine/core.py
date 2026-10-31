@@ -169,6 +169,10 @@ class EngineCore:
             self.scheduler = Scheduler(config)          # 用 worker 的真实块数
             self.inproc_runner = None
 
+        # PP 微批流水（VirtualEngine 语义）: in-flight 微批队列。
+        # 深度 = pp_size（1F1B 的最小填管道数）; 非 PP 时无流水
+        self._pending_pp = []
+
     # ---------------- busy loop ----------------
 
     def step(self):
@@ -181,11 +185,10 @@ class EngineCore:
         else:
             from engine.mq import broadcast
             broadcast(msg, self.broadcast_q)
-            # response 从【采样者】取：非 PP = rank0（TP/EP 的 forward 内部
-            # 已聚合）；PP = last stage 的 inner-rank0（其全局 rank =
-            # (pp-1)*inner——v9.4c 死锁根因：曾固定等 response_q[0]，
-            # PP2 时 last stage 的 rank 是 inner，response 发进了 [inner]，
-            # EngineCore 等 [0] 双方互卡）
+            # PP 同步收口（response 从 last stage 的 inner-rank0）——
+            # ⚠ 微批流水（VirtualEngine）的已知限制：完整实现需要
+            # per-slot scheduler 状态（vLLM async_scheduler + virtual_engine
+            # 配套），本版正确性优先保持 lockstep（bubble=(p-1)/(m+p-1) 的 m=1）
             inner = self.tp_size * self.ep_size * self.dcp_size
             resp_rank = (self.pp_size - 1) * inner if self.pp_size > 1 else 0
             out = self.response_q[resp_rank].recv()
