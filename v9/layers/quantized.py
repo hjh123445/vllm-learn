@@ -60,15 +60,21 @@ def rtn_quantize(w: torch.Tensor, group: int = 128):
     return packed, s.to(torch.float16)
 
 
-def dequantize(packed: torch.Tensor, scales: torch.Tensor, group: int = 128) -> torch.Tensor:
-    """反量化（Path A：装载时全量转 bf16 的数学参考）。"""
-    q = unpack_int4(packed, torch.float32)                    # [N, K]
+def dequantize(packed: torch.Tensor, scales: torch.Tensor, group: int = 128,
+               logical_k: int | None = None) -> torch.Tensor:
+    """反量化（Path A：装载时全量转 bf16 的数学参考）。
+
+    logical_k：原始（未 pad）的输入维。packed 里 K' = pad 到 group 倍数的
+    宽度，反量化结果先裁到 logical_k 再返回——不传则按 unpack 后的实际 K
+    裁（未 pad 的调用方行为不变）。"""
+    q = unpack_int4(packed, torch.float32)                    # [N, K']
     N, K = q.shape
+    out_k = logical_k if logical_k is not None else K
     pad = (-K) % group
     if pad:
         q = F.pad(q, (0, pad))
     sv = scales.float().unsqueeze(-1)                         # [N, n_groups, 1]
-    return (q.reshape(N, -1, group) * sv).reshape(N, -1)[:, :K]
+    return (q.reshape(N, -1, group) * sv).reshape(N, -1)[:, :out_k]
 
 
 class QuantizedLinear(nn.Module):
@@ -105,8 +111,9 @@ class QuantizedLinear(nn.Module):
         self.w_scales.copy_(scales.to(self.w_scales.device))
 
     def dequant_weight(self) -> torch.Tensor:
-        """bf16 反量化权重（调试/对拍用）。"""
-        return dequantize(self.w_packed, self.w_scales, self.group).to(torch.bfloat16)
+        """bf16 反量化权重（调试/对拍用）。裁到 logical_k（padded 尾列丢弃）。"""
+        return dequantize(self.w_packed, self.w_scales, self.group,
+                          logical_k=self.logical_k).to(torch.bfloat16)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """混合路由（v9.2，vLLM w4a16 策略同款）：

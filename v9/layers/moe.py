@@ -130,25 +130,34 @@ class GroupedExperts(nn.Module):
         sorted_token = flat_token[order]
         sorted_w = flat_w[order]
 
-        off_list = offsets.tolist()                    # [E]（一次 CPU 同步）
-        if self.quantized:
-            from layers.quantized import dequantize
-            g = self.group
-            # 平铺 [E*2I, H/2] → 按需 dequant（本版全量；v9.2 kernel 化后按 tile）
-            w13 = dequantize(self.w13_packed, self.w13_scales, g)                 .reshape(self.num_experts, -1, self.hidden).to(x.dtype)
-            w2 = dequantize(self.w2_packed, self.w2_scales, g)                 .reshape(self.num_experts, self.hidden, self.inter).to(x.dtype)
-        else:
-            w13, w2 = self.w13, self.w2
+        off_list = offsets.tolist()                    # [E]（一次 CPU 同通）
         start = 0
         for e, end in enumerate(off_list):
             if end == start:                           # 本批没 token 命中该专家
                 continue
             toks = sorted_token[start:end]             # 该专家的 token 索引
             xs = x[toks]                               # [n_e, H]
-            h13 = xs @ w13[e].t()                      # [n_e, 2I]
+            if self.quantized:
+                # 优化（P0-14 的后续）：按需反量化——decode 步只命中
+                # T×k ≈ 192 条 → 远小于 E=128 个专家全部反量化。旧版每步
+                # 全量 dequant（E*2I 行）是 W4 比 bf16 慢 5.8x 的主因之一。
+                from layers.quantized import dequantize
+                g = self.group
+                E_tot = self.num_experts
+                rows13 = self.w13_packed.shape[0] // E_tot
+                rows2 = self.w2_packed.shape[0] // E_tot
+                w13 = dequantize(self.w13_packed[e * rows13:(e + 1) * rows13],
+                                 self.w13_scales[e * rows13:(e + 1) * rows13],
+                                 g).to(xs.dtype)
+                w2 = dequantize(self.w2_packed[e * rows2:(e + 1) * rows2],
+                                self.w2_scales[e * rows2:(e + 1) * rows2],
+                                g).to(xs.dtype)
+            else:
+                w13, w2 = self.w13[e], self.w2[e]
+            h13 = xs @ w13.t()                         # [n_e, 2I]
             gate, up = h13.chunk(2, dim=-1)
             act = F.silu(gate) * up                    # [n_e, I]
-            out = act @ w2[e].t()                      # [n_e, H]
+            out = act @ w2.t()                         # [n_e, H]
             final.index_add_(0, toks, out * sorted_w[start:end, None].to(out.dtype))
             start = end
         return final

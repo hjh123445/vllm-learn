@@ -54,7 +54,7 @@ for i, p in enumerate(prompts):
 outs = {}
 steps = 0
 chunk_rounds = []                          # 长请求的 chunk 轮（num_sched > 1）
-mixed_rounds = 0                           # chunk 与他人 decode 同批的轮数
+mixed_rounds = []                          # chunk 与他人 decode 同批的轮数
 import time; t0 = time.time()
 _orig_schedule = core.scheduler.schedule
 def probe_schedule():
@@ -64,7 +64,7 @@ def probe_schedule():
     if long_sched:
         chunk_rounds.append(sum(s.num_scheduled_tokens for s in long_sched))
         if any(sid2idx.get(s.seq_id, -1) != 0 for s in seqs):
-            mixed_rounds += 1
+            mixed_rounds.append(len(seqs))
     return seqs, is_p
 core.scheduler.schedule = probe_schedule
 while not core.is_finished():
@@ -73,7 +73,7 @@ while not core.is_finished():
     steps += 1
 core.shutdown()
 print("STEPS", steps, "RUN", round(time.time()-t0, 1))
-print("CHUNKS", len(chunk_rounds), "MIXED", mixed_rounds, "LONGPROMPT", len(prompts[0]))
+print("CHUNKS", len(chunk_rounds), "MIXED", len(mixed_rounds), "LONGPROMPT", len(prompts[0]))
 print("JSON" + json.dumps({str(k): v for k, v in outs.items()}))
 ''' % (BASE, PATH)
 

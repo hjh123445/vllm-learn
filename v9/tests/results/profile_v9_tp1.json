@@ -1,0 +1,192 @@
+{
+ "avg_step_ms": 132.08417863481574,
+ "profiled_steps": 20,
+ "total_cuda_ms_per_step": 143.03240914997227,
+ "total_cpu_ms_per_step": 246.71116325000312,
+ "gpu_gap_ms_per_step": -10.948230515156524,
+ "events_per_step": 86008.9,
+ "top_cuda": [
+  {
+   "op": "aten::mm",
+   "count_per_step": 3044.7,
+   "self_cuda_us_per_step": 33214.10404999321,
+   "self_cpu_us_per_step": 46400.48219999591
+  },
+  {
+   "op": "std::enable_if<!(false), void>::type internal::gemvx::kernel",
+   "count_per_step": 1839.0,
+   "self_cuda_us_per_step": 17265.348099994237,
+   "self_cpu_us_per_step": 0.0
+  },
+  {
+   "op": "aten::mul",
+   "count_per_step": 2804.7,
+   "self_cuda_us_per_step": 10449.663049996769,
+   "self_cpu_us_per_step": 22635.333950006607
+  },
+  {
+   "op": "aten::index_add_",
+   "count_per_step": 1401.85,
+   "self_cuda_us_per_step": 9966.267749998868,
+   "self_cpu_us_per_step": 10756.673900000842
+  },
+  {
+   "op": "void at::native::indexFuncSmallIndex<c10::BFloat16, long, un",
+   "count_per_step": 1376.75,
+   "self_cuda_us_per_step": 9802.356349998825,
+   "self_cpu_us_per_step": 0.0
+  },
+  {
+   "op": "void at::native::elementwise_kernel<128, 4, at::native::gpu_",
+   "count_per_step": 1885.2,
+   "self_cuda_us_per_step": 8332.131199998705,
+   "self_cpu_us_per_step": 0.0
+  },
+  {
+   "op": "aten::index",
+   "count_per_step": 1497.9,
+   "self_cuda_us_per_step": 7749.147799998449,
+   "self_cpu_us_per_step": 18961.172800000055
+  },
+  {
+   "op": "void at::native::index_elementwise_kernel<128, 4, at::native",
+   "count_per_step": 967.5,
+   "self_cuda_us_per_step": 6168.134499998542,
+   "self_cpu_us_per_step": 0.0
+  },
+  {
+   "op": "ampere_s16816gemm_bf16_64x64_ldg8_stages_64x6_tn",
+   "count_per_step": 560.7,
+   "self_cuda_us_per_step": 5319.468800000912,
+   "self_cpu_us_per_step": 0.0
+  },
+  {
+   "op": "aten::silu",
+   "count_per_step": 1401.85,
+   "self_cuda_us_per_step": 5163.598149999472,
+   "self_cpu_us_per_step": 12335.110899996493
+  },
+  {
+   "op": "void cutlass::Kernel2<cutlass_80_tensorop_s16816gemm_bf16_64",
+   "count_per_step": 510.45,
+   "self_cuda_us_per_step": 4864.808800000038,
+   "self_cpu_us_per_step": 0.0
+  },
+  {
+   "op": "void cublasLt::splitKreduce_kernel<32, 16, int, float, __nv_",
+   "count_per_step": 1075.95,
+   "self_cuda_us_per_step": 3282.84529999832,
+   "self_cpu_us_per_step": 0.0
+  },
+  {
+   "op": "void at::native::vectorized_elementwise_kernel<4, at::native",
+   "count_per_step": 919.5,
+   "self_cuda_us_per_step": 2863.2045999985057,
+   "self_cpu_us_per_step": 0.0
+  },
+  {
+   "op": "void at::native::elementwise_kernel<128, 4, at::native::gpu_",
+   "count_per_step": 482.35,
+   "self_cuda_us_per_step": 2300.3935500009675,
+   "self_cpu_us_per_step": 0.0
+  },
+  {
+   "op": "void at::native::vectorized_elementwise_kernel<4, at::native",
+   "count_per_step": 919.5,
+   "self_cuda_us_per_step": 2117.531849998066,
+   "self_cpu_us_per_step": 0.0
+  }
+ ],
+ "top_cpu": [
+  {
+   "op": "cudaLaunchKernel",
+   "count_per_step": 10525.65,
+   "self_cuda_us_per_step": 0.0,
+   "self_cpu_us_per_step": 53822.03049999328
+  },
+  {
+   "op": "aten::mm",
+   "count_per_step": 3044.7,
+   "self_cuda_us_per_step": 33214.10404999321,
+   "self_cpu_us_per_step": 46400.48219999591
+  },
+  {
+   "op": "aten::mul",
+   "count_per_step": 2804.7,
+   "self_cuda_us_per_step": 10449.663049996769,
+   "self_cpu_us_per_step": 22635.333950006607
+  },
+  {
+   "op": "aten::index",
+   "count_per_step": 1497.9,
+   "self_cuda_us_per_step": 7749.147799998449,
+   "self_cpu_us_per_step": 18961.172800000055
+  },
+  {
+   "op": "aten::silu",
+   "count_per_step": 1401.85,
+   "self_cuda_us_per_step": 5163.598149999472,
+   "self_cpu_us_per_step": 12335.110899996493
+  },
+  {
+   "op": "aten::index_add_",
+   "count_per_step": 1401.85,
+   "self_cuda_us_per_step": 9966.267749998868,
+   "self_cpu_us_per_step": 10756.673900000842
+  },
+  {
+   "op": "aten::slice",
+   "count_per_step": 5607.45,
+   "self_cuda_us_per_step": 0.0,
+   "self_cpu_us_per_step": 7431.61244999734
+  },
+  {
+   "op": "aten::select",
+   "count_per_step": 2803.7,
+   "self_cuda_us_per_step": 0.0,
+   "self_cpu_us_per_step": 7168.887700003679
+  },
+  {
+   "op": "aten::as_strided",
+   "count_per_step": 14552.75,
+   "self_cuda_us_per_step": 0.0,
+   "self_cpu_us_per_step": 5813.141549990792
+  },
+  {
+   "op": "aten::t",
+   "count_per_step": 3044.7,
+   "self_cuda_us_per_step": 0.0,
+   "self_cpu_us_per_step": 5169.1003999881705
+  },
+  {
+   "op": "cudaLaunchKernelExC",
+   "count_per_step": 1080.75,
+   "self_cuda_us_per_step": 0.0,
+   "self_cpu_us_per_step": 4835.610949999883
+  },
+  {
+   "op": "aten::matmul",
+   "count_per_step": 3044.7,
+   "self_cuda_us_per_step": 0.0,
+   "self_cpu_us_per_step": 3934.677700005758
+  },
+  {
+   "op": "aten::narrow",
+   "count_per_step": 2803.7,
+   "self_cuda_us_per_step": 0.0,
+   "self_cpu_us_per_step": 3828.521700002326
+  },
+  {
+   "op": "aten::transpose",
+   "count_per_step": 3044.7,
+   "self_cuda_us_per_step": 0.0,
+   "self_cpu_us_per_step": 3566.610500013325
+  },
+  {
+   "op": "cudaMemcpyAsync",
+   "count_per_step": 295.05,
+   "self_cuda_us_per_step": 0.0,
+   "self_cpu_us_per_step": 3055.237800000851
+  }
+ ]
+}

@@ -166,16 +166,19 @@ assert ok
 T6 = r'''
 import json, torch
 from layers.quantized import QuantizedLinear, rtn_quantize, dequantize
-# in_dim=130 非 group(128) 倍数：buffer 必须按 padded_k 分配（P0 潜伏 bug）
+# in_dim=130 非 group(128) 倍数：buffer 必须按 padded_k 分配（P0 潜伏 bug），
+# 反量化结果裁回 logical_k=130
 ql = QuantizedLinear(130, 8, group=128)
 w = torch.randn(8, 130) * 0.05
 ql.weight_loader(None, w)
-rec = dequantize(ql.w_packed, ql.w_scales, 128)
-rel = ((rec - w) ** 2).mean() / (w ** 2).mean()
-# x 也要 pad 到 130？forward 走 T<=64 kernel 需要 GPU——CPU 只验证装载一致性
-ok = ql.w_packed.shape == (8, 128) and ql.w_scales.shape == (8, 2)
+rec = dequantize(ql.w_packed, ql.w_scales, 128, logical_k=130)
+rel = float((((rec - w) ** 2).mean() / (w ** 2).mean()))
+ok = (tuple(ql.w_packed.shape) == (8, 128)
+      and tuple(ql.w_scales.shape) == (8, 2)
+      and tuple(rec.shape) == (8, 130))
 print(json.dumps({"pass": ok and rel < 0.2,
-                  "detail": f"packed{tuple(ql.w_packed.shape)} scales{tuple(ql.w_scales.shape)} rel_mse={rel:.2e}"}))
+                  "detail": f"packed{tuple(ql.w_packed.shape)} scales{tuple(ql.w_scales.shape)} "
+                            f"rec{tuple(rec.shape)} rel_mse={rel:.2e}"}))
 assert ok and rel < 0.2
 '''
 

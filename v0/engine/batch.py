@@ -67,6 +67,8 @@ class Batch:
         self.gen_len += 1
         self.is_prefill = False
         for i, t in enumerate(next_tokens.tolist()):
+            if self.finished[i]:
+                continue                 # 已完成行的 done_len 已定格，勿覆盖
             sp = self.params[i]
             if t == self.eos_id and not sp.ignore_eos:
                 self.finished[i] = True
