@@ -195,8 +195,10 @@ class EngineCore:
             self.scheduler = Scheduler(config)          # 用 worker 的真实块数
             self.inproc_runner = None
 
-        # PP 微批流水（VirtualEngine 语义）: in-flight 微批队列。
-        # 深度 = pp_size（1F1B 的最小填管道数）; 非 PP 时无流水
+        # PP 微批流水（VirtualEngine 语义）的占位——⚠ 未实现：完整实现需要
+        # per-slot scheduler 状态（m 个 in-flight batch 各自的块表/预算），
+        # 本版正确性优先保持 lockstep（m=1，bubble=(p-1)/(m+p-1) 的 50%@PP2）。
+        # 见 PARALLEL_MATRIX §5 与 step() 内的同款注释。
         self._pending_pp = []
 
     # ---------------- busy loop ----------------

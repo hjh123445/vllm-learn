@@ -4,8 +4,15 @@
   - stage 0 持 embedding + 前 L/N 层 + 首层前的处理
   - stage k 持第 k 段层
   - 最后 stage 持末层 + final norm + lm_head + 采样
-  - 层边界 p2p: stage i 把 hidden [T, H] 发给 stage i+1（torch P2POp 批量流水）
-  - micro-batch: 请求切成 M 份，stage i 算 mb_j 时 stage i+1 算 mb_{j-1}（重叠）
+  - 层边界 p2p: stage i 把 (hidden, residual) 发给 stage i+1——先发 shape
+    再发数据（T 每步可变），NCCL send/recv 按提交顺序配对
+
+⚠ 调度形态（诚实声明，旧注释曾虚标 micro-batch）：本实现是
+【lockstep 单批流水】——每步整批过流水，无微批切分、无 1F1B：
+  bubble = (p-1)/(m+p-1)，m=1 时 PP2 的 bubble = 50%
+  （PARALLEL_MATRIX §5 实测 17.6 tok/s < TP2 19.3 的原因）。
+  微批流水（vLLM VirtualEngine：m 个 in-flight batch 填管道）需要
+  per-slot scheduler 状态，是 v9+ 的方向——本版正确性优先。
 
 KV cache: 各 stage 只存自己那段的层 ✓（显存按层数均摊）
 调度: 所有 stage 跑同样的 scheduler（输入相同决策相同——与 TP/EP 同假设）
