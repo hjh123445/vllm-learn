@@ -13,15 +13,21 @@ torch.cuda.set_device(rank)
 import torch.distributed as dist
 dist.init_process_group("nccl")
 
-# TP 组: rank // ep 同组（连续 ep 个 rank 是一组 TP）
-tp_group = dist.new_group(ranks=[r for r in range(world) if r // ep == rank // ep])
-# EP 组: rank % ep... 不对——EP 的 expert 切分是跨 TP 组的同一个"层副本"位置
-# 简化拓扑: rank = tp_rank * ep + ep_rank（tp_rank 选 TP 组, ep_rank 选专家片）
+# ---- 拓扑（P0-8 修复：TP 组轴向）----
+# rank = tp_rank * ep + ep_rank（tp_rank 选 TP 组, ep_rank 选专家片）。
+# TP 组 = 同 ep_rank、不同 tp_rank（attention 的部分和要凑齐 tp 个头切片）；
+# EP 组 = 同 tp_rank、不同 ep_rank（专家片的聚合域）。
+# 旧版 tp_group 用 r // ep 分组——那恰好是 EP 组的成员集：attention 部分和
+# 永远凑不齐 tp 个头分片（得到 ep×单个分片），TP×EP 输出必错。
+# PARALLEL_ANALYSIS §10.4 把 TP×EP 不成立归因于"allreduce 重复相加"只对了
+# 一半，组本身就不对。
 tp_rank, ep_rank = rank // ep, rank % ep
+tp_group = dist.new_group(ranks=[r for r in range(world) if r % ep == rank % ep])
+ep_group = dist.new_group(ranks=[r for r in range(world) if r // ep == rank // ep])
 
 from engine.parallel import shard_model_for_tp, set_tp_enabled, shard_model_for_ep, set_tp_group
 # TP 组覆盖全部 rank 时不需要子组（world group 即 TP 组）
-if ep > 1:
+if tp > 1 and ep > 1:
     set_tp_group(tp_group)
 from engine.llm_engine import LLMEngine
 from engine.scheduler import Scheduler
@@ -46,6 +52,10 @@ if tp > 1:
     runner._shard_kv_heads_for_tp(tp_rank, tp)
 if ep > 1:
     shard_model_for_ep(runner.model, ep_rank, ep)
+    # P0-8 配套：EP 聚合限定在 ep_group（同 tp_rank 的 ep 成员）——
+    # world group 会与 TP 的 allreduce 重复累加
+    for layer in runner.model.model.layers:
+        layer.mlp.ep_group = ep_group
 runner.allocate_kv_cache()
 llm.scheduler = Scheduler(llm.config)
 

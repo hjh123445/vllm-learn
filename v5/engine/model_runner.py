@@ -85,6 +85,10 @@ class ModelRunner:
                 module.k_cache = torch.tensor([], device=self.device)
                 module.v_cache = torch.tensor([], device=self.device)
         torch.cuda.empty_cache()
+        # P0-5 修复（从 v4/v9 回填）：释放 tmp 后重置 peak——否则 allocate 里
+        # 重算的 `peak - current` 是陈旧值（peak=W+T+A 历史峰值，current=W，
+        # 差=T+A≠A）。v6-v9 已是正确写法（_activation_peak 分支），本文件回填。
+        torch.cuda.reset_peak_memory_stats()
 
     def allocate_kv_cache(self):
         """显存预算：池子 = (总显存×利用率 − 常驻 − warmup 实测激活峰值) ÷ 每 block 字节。"""
@@ -92,12 +96,17 @@ class ModelRunner:
         hf = config.hf_config
         free, total = torch.cuda.mem_get_info()
         used = total - free
-        peak = torch.cuda.memory_stats()["allocated_bytes.all.peak"]
-        current = torch.cuda.memory_stats()["allocated_bytes.all.current"]
         num_kv_heads = hf.num_key_value_heads
         head_dim = getattr(hf, "head_dim", hf.hidden_size // hf.num_attention_heads)
         block_bytes = 2 * hf.num_hidden_layers * self.block_size * num_kv_heads * head_dim * self.dtype.itemsize
-        config.num_kvcache_blocks = int(total * config.gpu_memory_utilization - used - peak + current) // block_bytes
+        # P0-5：直接用 warmup 记录的激活峰值 A（tmp 尚存活时 peak−current 恰好
+        # 隔离出 A）——不要用 allocate 时刻的 peak（含已释放的 T）
+        activation = getattr(self, "_activation_peak", None)
+        if activation is None:
+            current = torch.cuda.memory_stats()["allocated_bytes.all.current"]
+            peak = torch.cuda.memory_stats()["allocated_bytes.all.peak"]
+            activation = peak - current
+        config.num_kvcache_blocks = int(total * config.gpu_memory_utilization - used - activation) // block_bytes
         assert config.num_kvcache_blocks > 0
         self.kv_cache = torch.empty(2, hf.num_hidden_layers, config.num_kvcache_blocks,
                                     self.block_size, num_kv_heads, head_dim,

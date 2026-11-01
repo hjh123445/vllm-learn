@@ -3,10 +3,7 @@
 
 引擎只做协调：tokenizer → Scheduler（nano 的，原封不动）→ ModelRunner（我们的）。
 scheduler 管准入/驱逐/抢占/chunked prefill/APC，ModelRunner 管前向和采样。"""
-import os
 from dataclasses import fields
-
-import torch
 from transformers import AutoTokenizer
 
 from config import Config
@@ -24,8 +21,7 @@ class LLMEngine:
         Sequence.block_size = self.config.kvcache_block_size
         self.model_runner = ModelRunner(self.config, dtype=dtype)
         self.tokenizer = AutoTokenizer.from_pretrained(self.config.model, use_fast=True)
-        eos = self.tokenizer.eos_token_id
-        self.config.eos = eos[0] if isinstance(eos, list) else eos
+        self.config.eos = self.tokenizer.eos_token_id
         self.scheduler = Scheduler(self.config)
 
     # ---------------- 对外接口（与 nano 的 LLMEngine 一致）----------------
@@ -48,16 +44,6 @@ class LLMEngine:
     def step(self):
         seqs, is_prefill = self.scheduler.schedule()
         token_ids = self.model_runner.run(seqs, is_prefill)
-        # 多卡(EP/TP)时: 各卡的 argmax 可能在概率并列处翻转 → eos 判定分叉 →
-        # scheduler 决策分叉 → 集合通信错位死锁。rank0 广播采样结果消除分叉。
-        import torch.distributed as dist
-        if dist.is_available() and dist.is_initialized() and dist.get_world_size() > 1:
-            t = torch.tensor(token_ids, device="cuda")
-            # PP 模式: 真 token 在最后 stage（它持有 lm_head）；TP/EP 在 rank0。
-            # 从环境变量拿 broadcast 源（pp_worker 设置）
-            src = int(os.environ.get("BROADCAST_SRC", "0"))
-            dist.broadcast(t, src=src)
-            token_ids = t.tolist()
         self.scheduler.postprocess(seqs, token_ids, is_prefill)
         return [(seq.seq_id, seq.completion_token_ids) for seq in seqs if seq.is_finished]
 

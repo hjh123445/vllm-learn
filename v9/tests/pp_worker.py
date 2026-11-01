@@ -97,7 +97,18 @@ _pending_sends = []
 
 
 def stage_forward(input_ids, positions):
-    """本 stage 的前向：recv 上游 hidden（或 embedding）→ 我的层 → send 下游。"""
+    """本 stage 的前向：recv 上游 hidden（或 embedding）→ 我的层 → send 下游。
+
+    P0-9 修复（两处）：
+    1. p2p 收发配对——发送端每步发 2 条（x + residual），接收端旧版只 recv
+       1 条（residual 用 zeros 顶替）。NCCL 点对点按提交顺序配对：第 2 步的
+       x 收到的是第 1 步的 residual（形状恰好都是 [T,H]，静默污染），此后每步
+       错位一条，未配对的 isend 最终把发送端 stream 卡死——这才是"PP lockstep
+       死锁"的真因（文档归因于 scheduler 决策分叉不对）。
+    2. 末 stage 不能丢残差——层 forward 返回 (mlp_out, residual)，残差加法
+       发生在下一个 fused_add_rmsnorm；单卡路径的收尾是
+       fused_add_rmsnorm(x, residual, norm.weight)。旧版 `norm(x)` 把 residual
+       扔了（注释"最后一层输出已含残差"是错的）。"""
     global _pending_sends
     # 不 wait isend——它的完成依赖对端 recv，而 rank1 可能已推进到 broadcast
     # （死锁闭环: wait←recv←broadcast←wait）。contiguous 拷贝保证缓冲独立，
@@ -106,11 +117,13 @@ def stage_forward(input_ids, positions):
     ctx = get_context()
     if rank == 0:
         x = model.model.embed_tokens(input_ids)
+        residual = torch.zeros_like(x)
     else:
         x = torch.empty(input_ids.shape[0], hf.hidden_size, device="cuda",
                         dtype=runner.dtype)
-        dist.recv(x, src=rank - 1)   # p2p: 阻塞直到对端 send
-    residual = torch.zeros_like(x)
+        residual = torch.empty_like(x)
+        dist.recv(x, src=rank - 1)         # p2p: 阻塞直到对端 send
+        dist.recv(residual, src=rank - 1)  # P0-9: 第二条必须配对收
     for layer in model.model.layers:
         x, residual = layer(x, residual, positions)
     if rank < pp - 1:
@@ -120,8 +133,11 @@ def stage_forward(input_ids, positions):
         _pending_sends += [dist.isend(x.contiguous(), dst=rank + 1),
                            dist.isend(residual.contiguous(), dst=rank + 1)]
         return None
-    # 最后 stage: 最后一层输出已含残差，norm 直接作用其上（与单卡收尾一致）
-    return model.model.norm(x)
+    # 最后 stage: 残差加法融进收尾 norm（与单卡 QwenModel.forward 的收尾一致）
+    from layers.kernels import fused_add_rmsnorm
+    out, _ = fused_add_rmsnorm(x, residual, model.model.norm.weight,
+                               model.model.norm.eps)
+    return out
 
 
 # 覆盖 model_runner.run 的模型调用部分：直接换 run_model

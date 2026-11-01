@@ -130,6 +130,11 @@ class MoEMLP(nn.Module):
         self.ep_rank = 0
         self.ep_size = 1
         self.local_expert_start = 0        # 本地专家区间 [start, start + local_E)
+        # EP 聚合组（P0-8 配套）：TP×EP 时 EP 部分和的聚合必须限定在
+        # 【同 tp_rank 的 ep 成员】上——用 world group 会把 TP 的头切片和
+        # EP 的专家片重复累加（PARALLEL_ANALYSIS open issue #3 的根因）。
+        # None = 退化为 world group（纯 EP：ep_size==world 时语义相同）。
+        self.ep_group = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         import torch.distributed as dist
@@ -161,7 +166,8 @@ class MoEMLP(nn.Module):
 
     def _ep_forward_clean(self, x, idx, w):
         """EP 的清晰实现：dispatch 用 all_gather（v6.4 换 all_to_all 省带宽）。
-        每卡算自己专家的部分和 → all_reduce 聚合。"""
+        每卡算自己专家的部分和 → all_reduce 聚合（ep_group——P0-8 配套：
+        TP×EP 时限定在同 tp_rank 的 ep 成员上，避免与 tp_allreduce 重复累加）。"""
         import torch.distributed as dist
         T, H = x.shape
         k = idx.shape[1]
@@ -182,5 +188,8 @@ class MoEMLP(nn.Module):
             xs = x[toks]
             outs = self._experts_local(xs, eids_local, ws)
             out.index_add_(0, toks, outs)
-        dist.all_reduce(out)
+        if self.ep_group is not None:
+            dist.all_reduce(out, group=self.ep_group)
+        else:
+            dist.all_reduce(out)
         return out

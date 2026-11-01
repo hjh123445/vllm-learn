@@ -50,25 +50,47 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/health":
-            self._json(200, {"status": "ok", "running": not self.engine.engine.is_finished()})
+            # P0 配套：running 语义改为"引擎循环线程活着"（旧版报"队列非空"，
+            # 引擎死亡且请求卡住时——最需要报警的时刻——它报健康）
+            alive = self.engine._thread is not None and self.engine._thread.is_alive()
+            self._json(200, {"status": "ok" if alive else "dead",
+                             "engine_alive": alive,
+                             "requests_in_flight": len(self.engine.states)})
         else:
             self._json(404, {"error": "not found"})
 
     # ---------------- POST /v1/chat/completions ----------------
 
     def do_POST(self):
+        # 参数解析防护（P1）：坏输入（非数值 temperature/max_tokens、messages
+        # 非 list、chat template 抛错）此前从 do_POST 逸出 → socketserver 打
+        # traceback、不回响应、连接被 RST。统一回 400。
+        try:
+            self._do_post()
+        except (BrokenPipeError, ConnectionResetError):
+            raise                                # 客户端断连：保持原有行为
+        except Exception as e:
+            try:
+                self._json(400, {"error": {"message": f"bad request: {e}",
+                                            "type": "invalid_request_error"}})
+            except Exception:
+                pass
+
+    def _do_post(self):
         if self.path != "/v1/chat/completions":
-            self._json(404, {"error": "not found"})
+            self._json(404, {"error": {"message": "not found", "type": "not_found"}})
             return
         n = int(self.headers.get("Content-Length", 0))
         try:
             req = json.loads(self.rfile.read(n))
         except Exception as e:
-            self._json(400, {"error": f"bad json: {e}"})
+            self._json(400, {"error": {"message": f"bad json: {e}",
+                                        "type": "invalid_request_error"}})
             return
         messages = req.get("messages")
-        if not messages:
-            self._json(400, {"error": "messages required"})
+        if not messages or not isinstance(messages, list):
+            self._json(400, {"error": {"message": "messages (list) required",
+                                        "type": "invalid_request_error"}})
             return
         stream = bool(req.get("stream", False))
         sp = SamplingParams(
@@ -111,9 +133,21 @@ class Handler(BaseHTTPRequestHandler):
                 if delta:
                     send({"id": rid, "object": "chat.completion.chunk",
                           "choices": [{"index": 0, "delta": {"content": delta}, "finish_reason": None}]})
-            send({"id": rid, "object": "chat.completion.chunk",
-                  "choices": [{"index": 0, "delta": {},
-                               "finish_reason": st.finish_reason or "stop"}]})
+            if st.error is not None:
+                # P0-6 配套：引擎异常经 _StreamState.error 传播到流（对齐
+                # OpenAI 的流内 error 事件形态；此前引擎线程死亡 = 客户端挂死）
+                send({"id": rid, "object": "chat.completion.chunk",
+                      "choices": [{"index": 0, "delta": {},
+                                   "finish_reason": "error"}],
+                      "error": {"message": str(st.error), "type": "engine_error"}})
+            else:
+                send({"id": rid, "object": "chat.completion.chunk",
+                      "choices": [{"index": 0, "delta": {},
+                                   "finish_reason": st.finish_reason or "stop"}]})
+            # P0-7 修复：SSE 流终止符 [DONE]（docstring/README 一直声称发但
+            # 从未发过——OpenAI 客户端以它为流结束标志，serve_bench 里
+            # `if p == b"[DONE]"` 是从未生效的死代码）
+            self.wfile.write(b"data: [DONE]\n\n")
             self.wfile.write(b"0\r\n\r\n")
             self.wfile.flush()
             print(f"[server] {rid} stream done: {len(ids)} tok, "
@@ -125,6 +159,10 @@ class Handler(BaseHTTPRequestHandler):
                 if t is None:
                     break
                 toks.append(t)
+            if st.error is not None:                     # P0-6 配套：错误传播
+                self._json(500, {"error": {"message": str(st.error),
+                                            "type": "engine_error"}})
+                return
             text = self.tokenizer.decode(toks, skip_special_tokens=True)
             self._json(200, {"id": rid, "object": "chat.completion",
                              "choices": [{"index": 0, "message": {"role": "assistant", "content": text},
