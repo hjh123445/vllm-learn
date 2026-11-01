@@ -30,10 +30,15 @@ class LLMEngine:
 
     # ---------------- 对外接口（与 nano 的 LLMEngine 一致）----------------
 
-    def add_request(self, prompt: str | list[int], sampling_params) -> Sequence:
+    def next_seq_id(self) -> int:
+        """预读下一个 seq_id（P0-6b：AsyncEngine 先注册 state 再入队用）。"""
+        return Sequence.peek_next_id()
+
+    def add_request(self, prompt: str | list[int], sampling_params,
+                    seq_id: int | None = None) -> Sequence:
         if isinstance(prompt, str):
             prompt = self.tokenizer.encode(prompt)
-        seq = Sequence(prompt, sampling_params)
+        seq = Sequence(prompt, sampling_params, seq_id=seq_id)
         self.scheduler.add(seq)
         return seq
 

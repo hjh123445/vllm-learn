@@ -180,30 +180,43 @@ class Qwen3MoeForCausalLM(nn.Module):
     def quantize_int4(self, group: int = 128, skip_dense: bool = False):
         """就地量化（装载后调用）：
         - 专家权重（GroupedExperts.quantize_int4）——显存收益主体（~80% 权重）
-        - dense 线性（q/k/v/o_proj，skip_dense=True 时跳过）——BaseLinear 的
-          q/o 权重小（<2%），量化收益小且和 attention 的 triton kernel 耦合，
-          本版只量化 k/v 之外的独立 Linear 由 QuantizedLinear 替换
-        lm_head/embedding/router 不量化（vocab 维敏感 + 占比小）。"""
+        - dense 线性（q/k/v/o_proj，skip_dense=True 时跳过）——量化收益小
+          （<2% 权重），由 QuantizedLinear/QuantizedRowParallelLinear 替换
+        lm_head/embedding/router 不量化（vocab 维敏感 + 占比小）。
+
+        P0-10 修复：o_proj 的替换物从 QuantizedLinear 换成
+        QuantizedRowParallelLinear——保持 RowParallel 的 TP 语义（输入维切分
+        + allreduce）。旧版用无通信的 QuantizedLinear，TP>1 时每卡只有
+        partial sum 永不归约，输出静默错误（单卡测试从未暴露）。"""
         import torch as _t
-        from layers.quantized import QuantizedLinear
+        from layers.quantized import QuantizedLinear, QuantizedRowParallelLinear
+        from layers.linear import RowParallelLinear
         n_replaced = 0
         for layer in self.model.layers:
             experts = layer.mlp.experts
             if hasattr(experts, "quantize_int4"):
                 experts.quantize_int4(group)
                 n_replaced += 1
-        # dense: q_proj/k_proj/v_proj/o_proj → QuantizedLinear（B1 路径）
+        # dense: q_proj/k_proj/v_proj/o_proj → 量化组件（B1 路径）
         # v9.3: 投影已是并行组件——按【本 rank 的形状】量化（粒度沿输入维 K，
         # 与输出维切分正交；DSV4 DESIGN §II.3.2 的"切分后再量化"约定）
         if not skip_dense:
+            device = next(self.parameters()).device
             for layer in self.model.layers:
                 attn = layer.self_attn
                 for name in ("q_proj", "k_proj", "v_proj", "o_proj"):
                     lin = getattr(attn, name)
-                    w = lin.weight.data                        # [本rankN, K] 或 [N, 本rankK]
-                    ql = QuantizedLinear(w.shape[1], w.shape[0], group)
-                    ql.weight_loader(None, w)
-                    ql = ql.to(w.device)
+                    if isinstance(lin, RowParallelLinear):
+                        # o_proj：保持 RowParallel 语义（K 列切 + allreduce）
+                        ql = QuantizedRowParallelLinear(lin.in_dim, lin.out_dim, group)
+                        ql.weight_loader(None, lin.weight.data)
+                    else:
+                        # ColumnParallel（q/k/v）：weight 已是本 rank 的行切片，
+                        # 沿输入维量化与输出维切分正交——按本 rank 形状直接量化
+                        w = lin.weight.data
+                        ql = QuantizedLinear(w.shape[1], w.shape[0], group)
+                        ql.weight_loader(None, w)
+                    ql = ql.to(device)
                     setattr(attn, name, ql)
                     del lin
         _t.cuda.empty_cache()

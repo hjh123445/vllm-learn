@@ -41,7 +41,12 @@ def _spec_msg(seqs, is_prefill):
 
     对齐 vLLM 的 SchedulerOutput：scheduled（要 forward 的序列描述）+
     finished（本步完成）。SeqSpec 是【用完即弃的快照】——worker 不维护
-    跨步状态（v6.4 _SeqSpec 的职责平移，但生命周期只到这次 forward）。"""
+    跨步状态（v6.4 _SeqSpec 的职责平移，但生命周期只到这次 forward）。
+
+    切片责任唯一化（P0-2 修复）：本函数是【唯一】的切片点——消息里的
+    tokens 就是本轮要 forward 的 chunk（全局区间 [start, end)）。worker 侧
+    _Spec 用 chunk_start 记住这段在全局序列里的偏移，把 prepare_prefill 的
+    全局切片翻译成本地下标——不允许在消费端再按 num_cached_tokens 切一次。"""
     scheduled = []
     for s in seqs:
         start = s.num_cached_tokens
@@ -53,6 +58,8 @@ def _spec_msg(seqs, is_prefill):
             "num_scheduled_tokens": s.num_scheduled_tokens,
             "block_table": list(s.block_table),
             "tokens": s[start:end],
+            "chunk_start": start,
+            "block_size": getattr(s, "block_size", 256),
             "last_token": s.last_token,
             "seq_len": len(s),
             "temperature": s.temperature,
@@ -64,7 +71,12 @@ class _Spec:
     """worker 侧从消息重建的 forward 输入（model_runner.run 的参数形态）。
 
     model_runner 期望 Sequence 的鸭子类型子集——直接补齐它读的字段，
-    不继承 Sequence（不携带任何跨步状态）。"""
+    不继承 Sequence（不携带任何跨步状态）。
+
+    __getitem__ 做全局→本地 下标翻译：_tokens 只携带本轮 chunk（长度
+    num_scheduled_tokens），而 prepare_prefill 用全局 [start:end] 切片。
+    修复前直接返回 self._tokens[k]，第二轮 chunk / 混合批的 decode 行
+    切出来是空——这是 P0-2 的双重切片 bug。"""
 
     def __init__(self, m):
         self.seq_id = m["seq_id"]
@@ -73,9 +85,11 @@ class _Spec:
         self.num_scheduled_tokens = m["num_scheduled_tokens"]
         self.block_table = m["block_table"]
         self._tokens = m["tokens"]
+        self.chunk_start = m.get("chunk_start", m["num_cached_tokens"])
         self.last_token = m["last_token"]
         self.temperature = m["temperature"]
-        bs = 256
+        bs = m.get("block_size", 256)
+        self.block_size = bs
         n = m["seq_len"]
         self.num_tokens = n
         self.num_prompt_tokens = n          # 哑视角够用（run 只读下列字段）
@@ -86,7 +100,19 @@ class _Spec:
         return self.num_tokens
 
     def __getitem__(self, k):
-        return self._tokens[k]
+        start = self.chunk_start
+        if isinstance(k, slice):
+            lo = (k.start if k.start is not None else 0) - start
+            hi = (k.stop if k.stop is not None else self.num_tokens) - start
+            if lo < 0 or hi > len(self._tokens) or lo > hi:
+                raise IndexError(
+                    f"_Spec 全局切片 [{k.start}:{k.stop}] 越出本 chunk "
+                    f"[{start}:{start + len(self._tokens)})——切片协议被破坏"
+                    f"（chunk_start={start}, 携带 {len(self._tokens)} token）")
+            return self._tokens[lo:hi]
+        if not isinstance(k, int) or k < start or k - start >= len(self._tokens):
+            raise IndexError(f"_Spec 下标 {k} 越出本 chunk [{start}:{start + len(self._tokens)})")
+        return self._tokens[k - start]
 
 
 def rebuild_specs(msg):
@@ -153,8 +179,11 @@ class EngineCore:
                 p.start()
                 self.procs.append(p)
             # 等 ready（模型加载 + 池子分配完成，worker 回传块数）。
-            # 收谁的：PP 时 stage0 的 inner-rank0（块数视图对 scheduler 有效）；
-            # 非 PP 时全部 rank 都发，且块数必须一致（同预算公式）
+            # 保持原语义：PP 时只收 stage0 的 inner-rank0（块数视图对
+            # scheduler 有效）；非 PP 时全部 rank 都发，core 收全量取 min。
+            # TP 切分对称 → 各 rank 块数应一致；EP 下本地专家不同 → 激活峰值
+            # 微差 → 块数可能差几块（实测 EP2: 1424 vs 1416）。取 min 保证
+            # scheduler 的 BlockManager 不超发任何一张卡的池子。
             inner = tp_size * ep_size * dcp_size
             senders = [0] if pp_size > 1 else list(range(self.world_size))
             blocks = []
@@ -162,9 +191,6 @@ class EngineCore:
                 m = self.response_q[r].recv()
                 assert m.get("type") == "ready", m
                 blocks.append(m["num_kvcache_blocks"])
-            # TP 切分对称 → 各 rank 块数应一致；EP 下本地专家不同 → 激活峰值
-            # 微差 → 块数可能差几块（实测 EP2: 1424 vs 1416）。取 min 保证
-            # scheduler 的 BlockManager 不超发任何一张卡的池子。
             config.num_kvcache_blocks = min(blocks)
             self.scheduler = Scheduler(config)          # 用 worker 的真实块数
             self.inproc_runner = None
@@ -184,14 +210,17 @@ class EngineCore:
             token_ids = self.inproc_runner.run(specs, is_prefill)
         else:
             from engine.mq import broadcast
+            # 本步谁回 response 由消息携带（P0-3：非 PP=0、PP=last stage 的
+            # inner-rank0——worker 按 rank == resp_rank 决定是否 send，其余
+            # rank 的 response 管道不再堆积 → 无背压死锁）
+            inner = self.tp_size * self.ep_size * self.dcp_size
+            msg["resp_rank"] = (self.pp_size - 1) * inner if self.pp_size > 1 else 0
             broadcast(msg, self.broadcast_q)
             # PP 同步收口（response 从 last stage 的 inner-rank0）——
             # ⚠ 微批流水（VirtualEngine）的已知限制：完整实现需要
             # per-slot scheduler 状态（vLLM async_scheduler + virtual_engine
             # 配套），本版正确性优先保持 lockstep（bubble=(p-1)/(m+p-1) 的 m=1）
-            inner = self.tp_size * self.ep_size * self.dcp_size
-            resp_rank = (self.pp_size - 1) * inner if self.pp_size > 1 else 0
-            out = self.response_q[resp_rank].recv()
+            out = self.response_q[msg["resp_rank"]].recv()
             token_ids = out["tokens"]
 
         self.scheduler.postprocess(seqs, token_ids, is_prefill)
@@ -207,7 +236,12 @@ class EngineCore:
         return self.scheduler.is_finished()
 
     def generate(self, prompts_ids, sampling_params=None):
-        """批推理便捷入口（与 LLMEngine.generate 对齐）。"""
+        """批推理便捷入口（与 LLMEngine.generate 对齐）。
+
+        P0-18 修复：旧版 `outs = []; return outs` 把全部输出扔掉——
+        任何按 docstring 调用本方法的代码都静默拿到空列表。现在收集
+        每条请求的 completion（step() 返回的完成清单兜底 + 直接读
+        Sequence，两者取非空）。"""
         if not isinstance(prompts_ids, list):
             prompts_ids = [prompts_ids]
         if sampling_params is None:
@@ -215,11 +249,16 @@ class EngineCore:
             sampling_params = SamplingParams(temperature=0.0)
         sps = sampling_params if isinstance(sampling_params, list) \
             else [sampling_params] * len(prompts_ids)
-        for p, sp in zip(prompts_ids, sps):
-            self.add_request(p, sp)
+        seqs = [self.add_request(p, sp) for p, sp in zip(prompts_ids, sps)]
+        finished_outputs: dict[int, list[int]] = {}
         while not self.is_finished():
-            self.step()
+            for sid, toks in self.step():
+                finished_outputs[sid] = toks
         outs = []
+        for s in seqs:
+            toks = finished_outputs.get(s.seq_id) or s.completion_token_ids
+            outs.append({"token_ids": toks, "finish_reason":
+                         "stop" if s.status.name == "FINISHED" else None})
         return outs
 
     def shutdown(self):

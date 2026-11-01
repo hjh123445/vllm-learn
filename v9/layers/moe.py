@@ -183,8 +183,20 @@ class MoEMLP(nn.Module):
         return moe_allreduce(out)          # tp×ep 张成组上的部分和聚合
 
     def _experts_local(self, xs, eids, ws):
-        """本地专家子集的分组计算（eids 是本地编号）。"""
+        """本地专家子集的分组计算（eids 是本地编号）。
+
+        P0-14 修复：量化路径的 EP/TP 分支——旧版直接访问 self.experts.w13[e]
+        / w2[e]，而 quantize_int4 已 `del w13/w2`，EP+INT4 组合直接
+        AttributeError（v9 的旗舰实验配置不可运行）。现在 quantized 时按
+        【命中的专家】逐个反量化（B1 数学，正确性优先；比 forward 全量反量化
+        的峰值更低——只物化被命中的专家）。v9.2 kernel 化后这里换
+        per-expert dequant_gemm。
+
+        平铺布局（quantize_int4）：w13_packed [E*2I, H/2]（每专家 2I 行）、
+        w2_packed [E*H, I/2]（每专家 H 行）。"""
         E = self.experts.num_experts
+        ex = self.experts
+        quantized = getattr(ex, "quantized", False)
         final = torch.zeros_like(xs)
         counts = torch.bincount(eids, minlength=E)
         offsets = counts.cumsum(0)
@@ -195,10 +207,23 @@ class MoEMLP(nn.Module):
             if end == start:
                 continue
             toks = order[start:end]
-            h13 = xs_s[start:end] @ self.experts.w13[e].t()
+            if quantized:
+                from layers.quantized import dequantize
+                g = ex.group
+                rows13 = ex.w13_packed.shape[0] // E        # 2I（w13 每专家行数）
+                rows2 = ex.w2_packed.shape[0] // E          # H（w2 每专家行数）
+                w13 = dequantize(ex.w13_packed[e * rows13:(e + 1) * rows13],
+                                 ex.w13_scales[e * rows13:(e + 1) * rows13],
+                                 g).to(xs.dtype)             # [2I, H]
+                w2 = dequantize(ex.w2_packed[e * rows2:(e + 1) * rows2],
+                                ex.w2_scales[e * rows2:(e + 1) * rows2],
+                                g).to(xs.dtype)              # [H, I]
+            else:
+                w13, w2 = ex.w13[e], ex.w2[e]
+            h13 = xs_s[start:end] @ w13.t()
             gate, up = h13.chunk(2, dim=-1)
             act = torch.nn.functional.silu(gate) * up
-            out = act @ self.experts.w2[e].t()
+            out = act @ w2.t()
             final[toks] = out * ws_s[start:end, None].to(out.dtype)
             start = end
         return final

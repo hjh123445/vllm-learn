@@ -43,14 +43,18 @@ def unpack_int4(packed: torch.Tensor, dtype=torch.bfloat16) -> torch.Tensor:
 def rtn_quantize(w: torch.Tensor, group: int = 128):
     """对称 RTN 量化（沿输入维 K 分组）。
 
-    返回 (packed [N, K/2] uint8, scales [N, K/g] fp16)。
-    pad 处理：K 不整除 g 时最后一组补零（scale 正常算，数值不受影响）。"""
+    返回 (packed [N, K'/2] uint8, scales [N, K'/g] fp16)，K' = pad 到 group 倍数。
+    pad 处理：K 不整除 g 时最后一组补零（数值不受影响）。
+
+    P1 修复（fp16 scale 下溢）：组内 amax ~1e-8 时 scale ≈1.4e-9，低于 fp16
+    最小次正规数（~6e-8）会存成 0 → 该组重建全 0。clamp 的下界从 1e-10 提到
+    fp16 可表示的最小正规量级（scale 存 fp16 时这是硬边界）。"""
     N, K = w.shape
     assert K % 2 == 0, f"K={K} 必须偶数（双 nibble 打包）"
     pad = (-K) % group
     wp = F.pad(w.float(), (0, pad)) if pad else w.float()
     wv = wp.reshape(N, -1, group)
-    s = wv.abs().amax(-1).clamp(min=1e-10) / QMAX_INT4        # [N, n_groups]
+    s = wv.abs().amax(-1).clamp(min=6e-5) / QMAX_INT4        # [N, n_groups]
     q = (wv / s.unsqueeze(-1)).round().clamp_(-8, QMAX_INT4)
     packed = pack_int4(q.reshape(N, -1))                      # [N, K'/2]
     return packed, s.to(torch.float16)
@@ -81,16 +85,21 @@ class QuantizedLinear(nn.Module):
         super().__init__()
         assert in_dim % 2 == 0
         self.in_dim, self.out_dim, self.group = in_dim, out_dim, group
-        # 打包存储 [N, K/2] uint8 + scales [N, K/g] fp16
-        self.register_buffer("w_packed", torch.zeros(out_dim, (in_dim + 1) // 2, dtype=torch.uint8))
-        self.register_buffer("w_scales", torch.zeros(out_dim, (in_dim + group - 1) // group,
+        # 打包存储 [N, K/2] uint8 + scales [N, K/g] fp16。
+        # P0 配套修复（pad 宽度一致性）：rtn_quantize 对非 group 对齐的 K 会
+        # pad 到 group 倍数再打包（packed 宽度 = padded_K/2），buffer 必须按
+        # 【padded】宽度分配——旧版按原始 in_dim 分配，非对齐维度 copy_ 直接
+        # shape mismatch（Qwen3 全部维度 128 倍数所以未触发，潜伏 bug）。
+        padded_k = (in_dim + group - 1) // group * group
+        self.padded_k = padded_k
+        self.logical_k = in_dim
+        self.register_buffer("w_packed", torch.zeros(out_dim, padded_k // 2, dtype=torch.uint8))
+        self.register_buffer("w_scales", torch.zeros(out_dim, padded_k // group,
                                                      dtype=torch.float16))
 
     def weight_loader(self, param, loaded, shard_id=None):
         """在线量化装载：bf16 权重 → RTN → 打包进 buffer。"""
         w = loaded.to(torch.float32)
-        if w.shape[-1] % self.group != 0:
-            pass                                       # rtn_quantize 内部 pad
         packed, scales = rtn_quantize(w, self.group)
         self.w_packed.copy_(packed.to(self.w_packed.device))
         self.w_scales.copy_(scales.to(self.w_scales.device))
@@ -126,6 +135,39 @@ class QuantizedLinear(nn.Module):
         ql = QuantizedLinear(linear.weight.shape[1], linear.weight.shape[0], group)
         ql.weight_loader(None, linear.weight.data)
         return ql
+
+
+class QuantizedRowParallelLinear(QuantizedLinear):
+    """量化版 RowParallelLinear（P0-10 修复）。
+
+    背景：qwen3_moe.quantize_int4 旧版把 o_proj（RowParallelLinear，forward
+    内置 tp allreduce）替换成普通 QuantizedLinear——TP>1 时每卡只算出局部
+    partial sum 且【永不归约】，输出静默错误。本组件保持 RowParallel 的完整
+    语义：输入维切分（shard）、weight_loader 吃全量张量切本 rank 列段、
+    forward 在 GEMM 后做 tp_allreduce。
+
+    量化粒度与切分方向的正交性（DESIGN §II.3.2）：group 沿输入维 K，TP 切的
+    也是 K——切缝会切断 group。约定：**按本 rank 的 shard 独立 RTN**（scale
+    是 shard 局部的，天然对齐；与"切分后再量化"同款解法）。"""
+
+    def __init__(self, in_dim: int, out_dim: int, group: int = 128):
+        from layers.parallel import STATE
+        assert in_dim % STATE.tp_size == 0, \
+            f"in_dim={in_dim} 切不动 TP{STATE.tp_size}"
+        self.shard_len = in_dim // STATE.tp_size
+        self.shard_start = STATE.tp_rank * self.shard_len
+        super().__init__(self.shard_len, out_dim, group)
+
+    def weight_loader(self, param, loaded, shard_id=None):
+        """loaded: 全量 [N, K] → 取本 rank 的 K 列段 → RTN。"""
+        w = loaded[:, self.shard_start:self.shard_start + self.shard_len]
+        super().weight_loader(param, w.to(torch.float32), shard_id)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        from layers.parallel import tp_allreduce
+        # x 是本 rank 的列切片（上游 ColumnParallel 的输出）——直接量化 GEMM
+        out = super().forward(x)
+        return tp_allreduce(out)
 
 
 if __name__ == "__main__":

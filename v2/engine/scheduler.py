@@ -71,9 +71,16 @@ class Scheduler:
         return new
 
     def _ensure_decode_blocks(self):
-        """decode 步前确保每个在途请求的写位置有 block；不够 → 抢占占块最多的（recompute）。"""
+        """decode 步前确保每个在途请求的写位置有 block；不够 → 抢占占块最多的（recompute）。
+
+        P0-4 修复（off-by-one）：传【写位置】cur_len - 1（decode 喂的是上一个
+        采样出的 token，它写在 cur_len-1），不是 cur_len。旧版传 cur_len 时判据
+        `pos % block_size == 0` 实际检查的是"写位置≡块内最后一格"——比正确
+        时机晚一步：len(prompt) % 16 == 0 的请求在跨块时不领新块，block_table
+        补零把缺的块指到 block 0 → 静默覆盖本请求 prompt 首 token 的 KV。
+        （v3 的 may_append `len(seq) % bs == 1` 一直是正确写法，本修复对齐它。）"""
         for req in list(self.running):
-            while not self.kv.ensure_append(req.id, req.cur_len):
+            while not self.kv.ensure_append(req.id, req.cur_len - 1):
                 victim = self._pick_victim()
                 self._preempt(victim)
                 if victim is req:

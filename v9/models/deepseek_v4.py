@@ -93,6 +93,19 @@ class DSV4Rope(nn.Module):
 class DSV4Attention(nn.Module):
     """Shared-KV MQA + partial RoPE + sink + 分组输出投影。平铺 [T, H] 输入。
 
+    ⚠ P0-15 诚实声明（未完成项，勿当已实现讲）：
+    CSA/HCA 压缩器（self.compressor）构造了但 forward **没有调用**——
+    forward 里 `n_comp = L_full - T` 恒为 0（L_full 就是 T），压缩条目分支
+    永不进入。当前本类是【无 cache 的单发模式】（每步全序列重算、无
+    compressed KV）——语义上把 CSA/HCA 层当普通 MQA 处理：短序列偏差小，
+    长上下文的容量收益完全没有兑现。完整实现需要：
+      1. prefill 时把 compressor 输出写入 compressed KV cache（条目 w 的
+         语义位置 = (w+1)*m-1）；
+      2. decode 只算增量 token 的 KV，attention 读 [全量窗口 | compressed]；
+      3. indexer 的 topk 选择（MILESTONES known-simplifications 已记录）。
+    1.7 tok/s 的 DSV4 实测来自 **v6.3 引擎**（bench 脚本的 sys.path 指向
+    v6），与本文件的完成度无关。
+
     v6.3 数值修复：接入 CSA 压缩器（21/43 层, compress_rate=4）——压缩条目
     cat 到全量 KV 尾部参与注意力。indexer 的 block_bias 在 e2e 的短序列
     （n_win ≤ index_topk=512）下退化为因果掩码，compressed 条目位置 w*4
@@ -155,6 +168,8 @@ class DSV4Attention(nn.Module):
         kv = apply_partial_rope(kv.unsqueeze(1), cos, sin, self.rd).squeeze(1)
 
         # CSA/HCA 压缩条目：cat 到 KV 尾部（注意 rope 用 compress theta）
+        # ⚠ P0-15：self.compressor 从未被调用（见类 docstring 的诚实声明）——
+        # 下一行的 n_comp 在当前实现里恒为 0（L_full == T），压缩分支是死代码。
         # causal mask（含压缩条目）: 全量 KV 位置 0..T-1 因果; 压缩条目 w
         # 的语义位置 = (w+1)*m-1（窗口右端, HF block_bias 的 causal_threshold
         # = (pos+1)//m → 条目 w 可见于 t ≥ (w+1)*m - 1 即 t*w*threshold 不越界）

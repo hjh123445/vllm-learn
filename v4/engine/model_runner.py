@@ -85,6 +85,12 @@ class ModelRunner:
                 module.k_cache = torch.tensor([], device=self.device)
                 module.v_cache = torch.tensor([], device=self.device)
         torch.cuda.empty_cache()
+        # P0-5 修复：释放 tmp 后重置 peak 统计。否则 allocate 里重算的
+        # `peak - current` 是陈旧值（peak=W+T+A 的历史峰值，current=W，
+        # 差=T+A≠A）——ENGINEERING_NOTES §2.4 的"先释放再量"修复在 v4 上
+        # 不生效（used 与 peak-current 恰好互相挪项，预算同样小 T）。
+        # v9 的 model_runner 已是正确写法，此处回移植。
+        torch.cuda.reset_peak_memory_stats()
 
     def allocate_kv_cache(self):
         """显存预算：池子 = (总显存×利用率 − 常驻 − warmup 实测激活峰值) ÷ 每 block 字节。"""
@@ -92,19 +98,24 @@ class ModelRunner:
         hf = config.hf_config
         free, total = torch.cuda.mem_get_info()
         used = total - free
-        peak = torch.cuda.memory_stats()["allocated_bytes.all.peak"]
-        current = torch.cuda.memory_stats()["allocated_bytes.all.current"]
         num_kv_heads = hf.num_key_value_heads
         head_dim = getattr(hf, "head_dim", hf.hidden_size // hf.num_attention_heads)
         block_bytes = 2 * hf.num_hidden_layers * self.block_size * num_kv_heads * head_dim * self.dtype.itemsize
-        config.num_kvcache_blocks = int(total * config.gpu_memory_utilization - used - peak + current) // block_bytes
+        # P0-5：直接用 warmup 记录的激活峰值 A（tmp 尚存活时 peak−current
+        # 恰好隔离出 A）——不要用 allocate 时刻的 peak（含已释放的 T）
+        activation = getattr(self, "_activation_peak", None)
+        if activation is None:
+            current = torch.cuda.memory_stats()["allocated_bytes.all.current"]
+            peak = torch.cuda.memory_stats()["allocated_bytes.all.peak"]
+            activation = peak - current
+        config.num_kvcache_blocks = int(total * config.gpu_memory_utilization - used - activation) // block_bytes
         assert config.num_kvcache_blocks > 0
         self.kv_cache = torch.empty(2, hf.num_hidden_layers, config.num_kvcache_blocks,
                                     self.block_size, num_kv_heads, head_dim,
                                     dtype=self.dtype, device=self.device)
         self._assign_layer_caches(self.kv_cache)
         print(f"[v3 显存预算] 总显存 {total/1e9:.1f} GB × 利用率 {config.gpu_memory_utilization}")
-        act = getattr(self, "_activation_peak", None)
+        act = activation
         print(f"  → KV 池 {config.num_kvcache_blocks} blocks × {self.block_size} tok "
               f"({self.kv_cache.numel() * self.dtype.itemsize / 1e9:.2f} GB, "
               f"每 block {block_bytes/1e6:.2f} MB, "

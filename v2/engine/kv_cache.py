@@ -78,11 +78,16 @@ class KVCacheManager:
 
     def block_table(self, req_id: int, n_blocks: int) -> torch.Tensor:
         """单个请求的 block 表切片 [n_blocks]（CPU；读路径内部再搬 GPU，
-        CPU 版供 ModelRunner 在 CPU 上算槽位映射，避免逐步设备同步）。"""
+        CPU 版供 ModelRunner 在 CPU 上算槽位映射，避免逐步设备同步）。
+
+        P0-4 配套：缺块时 assert 而不是补零——补零会把"block 管理的内存
+        bug"掩盖成静默数据损坏（缺的块全部指向 block 0，读写都打到错误的
+        物理槽位）。缺块只能是调度侧差一的 bug，必须在第一现场炸出来。"""
         tab = self.tables.get(req_id, [])
-        t = torch.zeros(n_blocks, dtype=torch.long)
-        t[:min(len(tab), n_blocks)] = torch.tensor(tab[:n_blocks], dtype=torch.long)
-        return t
+        assert len(tab) >= n_blocks, \
+            f"req {req_id} 的 block 表只有 {len(tab)} 块，请求了 {n_blocks} 块——" \
+            f"block 分配差一（检查 scheduler._ensure_decode_blocks 的传参与 ensure_append 判据）"
+        return torch.tensor(tab[:n_blocks], dtype=torch.long)
 
     # ============ 物理读写（attention 每层调，全向量化零循环零同步）============
 

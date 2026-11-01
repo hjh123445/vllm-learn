@@ -95,13 +95,17 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     runner = ModelRunner(config, dtype=None)
 
     from engine.mq import SHUTDOWN
-    # PP response 路由：采样在 last stage——只有 last stage 的 inner-rank0
-    # 发 response（EngineCore 从它读），其余 worker 静默
-    is_resp_rank = (pp_rank == pp_size - 1 and rank % inner == 0) \
-        if pp_size > 1 else True
-    # PP 时 ready 只由 stage0 发（core 的 ready 循环只收 stage0 的 rank0——
-    # last stage 若也发，其 ready 会残留在 response 管道里，step 的第一次
-    # recv 收到的是它而不是 output → KeyError 'tokens'）
+    # ⚠ P0-3 修复（response 背压死锁）：非 PP 时旧版【每个】worker 每步都
+    # send output，而 EngineCore 只 recv rank0 的——rank1+ 的消息在 Pipe 的
+    # ~64KB 内核缓冲区无限堆积，几百步后 worker 阻塞在 send → 不再 recv
+    # 广播 → 整机死锁（实验只跑 48 步所以从未暴露）。对齐 vLLM
+    # multiproc_executor 的 output_rank 模式：本步谁回包由【广播消息】携带
+    # （resp_rank），EngineCore 是唯一决策者，worker 按 rank == resp_rank 决定
+    # 是否 send——output 路径每步恰好一条消息，无堆积。
+    # ready 与 output 分离（保持原语义）：非 PP 时全部 rank 都发 ready（core
+    # 取 min 保证 EP 下块数微差不超发）；PP 时 ready 只由 stage0 的
+    # inner-rank0 发（其 ready 若从 last stage 发会残留在管道里顶掉 step 的
+    # 第一次 recv——core 只收 stage0 端）。
     is_ready_rank = (pp_rank == 0 and rank % inner == 0) \
         if pp_size > 1 else True
     # ready 带块数（EngineCore 的 BlockManager 用它建——worker 与 master 的
@@ -115,6 +119,10 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         msg = broadcast_conn.recv()
         if msg is SHUTDOWN or msg.get("type") == "shutdown":
             break
+        # 本步的 response rank（P0-3）：非 PP=0、PP=last stage 的 inner-rank0
+        # ——与 core.step 的 recv 端同一公式；其余 rank 不 send（防堆积）
+        resp_rank = msg.get("resp_rank", 0 if pp_size == 1
+                            else (pp_size - 1) * inner)
         # scheduler_output → forward 输入（用完即弃的快照）
         from engine.core import rebuild_specs
         specs = rebuild_specs(msg)
@@ -122,7 +130,7 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         token_ids = []
         if specs:
             token_ids = runner.run(specs, is_prefill)
-        if is_resp_rank:
+        if rank == resp_rank:
             response_conn.send({"type": "output", "tokens": token_ids,
                                 "n": len(specs)})
 

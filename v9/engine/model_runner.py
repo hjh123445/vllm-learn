@@ -6,6 +6,8 @@ warmup 实测激活峰值 → 按显存预算公式算 num_kvcache_blocks → �
 每步 prepare（构造 Context）→ 前向 → 采样。
 区别：模型是 v2 的实现（平铺 + 纯 PyTorch attention），采样支持逐请求温度（含 greedy）。
 """
+import os
+
 import torch
 
 from config import Config
@@ -16,15 +18,40 @@ from utils.loader import load_model, load_thinker_config
 from engine.sampler import Sampler
 
 
+def _is_dsv4(model_path: str, hf) -> bool:
+    """DSV4 判定（P0-1 修复：本条件引用 os —— 文件此前没有 import os，
+    Qwen 路径求值 os.path.basename 直接 NameError）。"""
+    return getattr(hf, "model_type", "") == "deepseek_v4" or \
+        "DeepSeek-V4" in os.path.basename(model_path)
+
+
+def _load_hf_config(config: Config):
+    """hf_config 归一化（P0-1 修复）：旧代码无条件 load_thinker_config()，
+    但普通 Qwen3 / DSV4 的 config.json 没有 thinker_config——在进入模型
+    分派之前就 KeyError。现在：Omni（有 thinker_config.text_config）平铺
+    text_config；其余模型用 AutoConfig 属性 + config.json 平铺。"""
+    from types import SimpleNamespace
+    import json
+    with open(os.path.join(config.model, "config.json"), encoding="utf-8") as f:
+        raw = json.load(f)
+    if isinstance(raw.get("thinker_config"), dict) and \
+            isinstance(raw["thinker_config"].get("text_config"), dict):
+        hf = SimpleNamespace(**load_thinker_config(config.model))
+    else:
+        attrs = {k: v for k, v in config.hf_config.__dict__.items()}
+        attrs.update({k: v for k, v in raw.items()})
+        hf = SimpleNamespace(**attrs)
+    hf.dtype = getattr(hf, "dtype", None) or torch.bfloat16
+    return hf
+
+
 class ModelRunner:
 
     def __init__(self, config: Config, dtype=None):
         self.config = config
-        # thinker 的 text_config 是嵌套 dict → 平铺成 SimpleNamespace（模型文件按属性读）
+        # hf_config 归一化：Omni 平铺 thinker text_config；普通模型平铺 config.json
         from types import SimpleNamespace
-        t = load_thinker_config(config.model)
-        hf = SimpleNamespace(**t)
-        hf.dtype = getattr(hf, "dtype", None) or torch.bfloat16
+        hf = _load_hf_config(config)
         config.hf_config = hf
         self.block_size = config.kvcache_block_size
         self.device = "cuda"
@@ -33,8 +60,7 @@ class ModelRunner:
         # ---- 载模型（MoE：CPU 构造 + 对账装载（专家融合 w13/w2）+ 迁移）----
         # 模型选择（多模型共存不互斥）: DSV4-Flash 走专属 loader（MXFP4/FP8
         # 双格式反量化 + 分层分放 layer_device_map），其余走 Qwen thinker 路径
-        if getattr(hf, "model_type", "") == "deepseek_v4" or \
-                "DeepSeek-V4" in os.path.basename(config.model):
+        if _is_dsv4(config.model, hf):
             from models.deepseek_v4 import DSV4ForCausalLM
             from utils.dsv4_loader import load_dsv4
             self.model = DSV4ForCausalLM(config.model)

@@ -14,9 +14,22 @@ class SequenceStatus(Enum):
 class Sequence:
     block_size = 256
     counter = count()
+    _peeked: int | None = None       # peek_next_id 的暂存（见下）
 
-    def __init__(self, token_ids: list[int], sampling_params = SamplingParams()):
-        self.seq_id = next(Sequence.counter)
+    @classmethod
+    def peek_next_id(cls) -> int:
+        """预读下一个 seq_id（下次构造若无显式 id 则复用它）——AsyncEngine
+        的 state 先注册需要它（P0-6b：state 注册与 add_request 的发布顺序
+        修复）。"""
+        if cls._peeked is None:
+            cls._peeked = next(cls.counter)
+        return cls._peeked
+
+    def __init__(self, token_ids: list[int], sampling_params = SamplingParams(),
+                 seq_id: int | None = None):
+        if seq_id is None and Sequence._peeked is not None:
+            seq_id, Sequence._peeked = Sequence._peeked, None    # 消费预读
+        self.seq_id = seq_id if seq_id is not None else next(Sequence.counter)
         self.status = SequenceStatus.WAITING
         self.token_ids = copy(token_ids)
         self.last_token = token_ids[-1]
