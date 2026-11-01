@@ -42,8 +42,7 @@ llm = LLMEngine(path, max_num_seqs=8, max_model_len=2048,
 runner = llm.model_runner
 if tp > 1:
     set_tp_enabled(True)
-set_tp_enabled(True)
-shard_model_for_tp(runner.model, tp_rank, tp)
+    shard_model_for_tp(runner.model, tp_rank, tp)
     runner._shard_kv_heads_for_tp(tp_rank, tp)
 if ep > 1:
     shard_model_for_ep(runner.model, ep_rank, ep)
