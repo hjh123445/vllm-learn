@@ -31,8 +31,18 @@ class ModelRunner:
         self.dtype = dtype or hf.dtype
 
         # ---- 载模型（MoE：CPU 构造 + 对账装载（专家融合 w13/w2）+ 迁移）----
-        self.model = Qwen3MoeForCausalLM(hf, config.max_model_len)
-        load_model(self.model, config.model, device=self.device, dtype=self.dtype)
+        # 模型选择（多模型共存不互斥）: DSV4-Flash 走专属 loader（MXFP4/FP8
+        # 双格式反量化 + 分层分放 layer_device_map），其余走 Qwen thinker 路径
+        if getattr(hf, "model_type", "") == "deepseek_v4" or \
+                "DeepSeek-V4" in os.path.basename(config.model):
+            from models.deepseek_v4 import DSV4ForCausalLM
+            from utils.dsv4_loader import load_dsv4
+            self.model = DSV4ForCausalLM(config.model)
+            load_dsv4(self.model, config.model, device=self.device,
+                      dtype=self.dtype)
+        else:
+            self.model = Qwen3MoeForCausalLM(hf, config.max_model_len)
+            load_model(self.model, config.model, device=self.device, dtype=self.dtype)
         self.model.eval()
         self.sampler = Sampler()
 
