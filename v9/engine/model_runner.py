@@ -72,6 +72,16 @@ class ModelRunner:
         self.model.eval()
         self.sampler = Sampler()
 
+        # ---- 可选：装载后、分池前在线量化（W4）----
+        # 顺序关键（WORKLOG §3.3 缺口的根修）：量化省出的显存必须在 allocate
+        # 之前生效——否则池子按 bf16 预算分配，省余量不回流（quantize 在
+        # EngineCore 构造后调用的旧路径就是这个问题）。
+        if getattr(config, "quantize_int4_w4", False):
+            n = self.model.quantize_int4(group=128)
+            torch.cuda.empty_cache()
+            print(f"[runner] W4 在线量化 {n} 层（分池前，省余量回流 KV 预算）",
+                  flush=True)
+
         # ---- warmup 量激活峰值 → 按显存预算公式定池子 ----
         # v9.3 组件化并行：模型构造时就只有本 rank 的 1/N 权重（不再有
         # "全量加载再切分"的阶段）——warmup 可以在任何配置下直接跑。

@@ -181,3 +181,28 @@ Q: （交叉拷打）你说 EP 优先，为什么 vLLM 默认 TP8 部署 30B？
 两条主线其实是同一句话：**"最优"是物理量（roofline 可推）、"差距"是归因问题（profile
 可分）、"修复"是优先级问题（ROI 排序）、"可信"是方法论问题（口径对齐 + 负结果存档）**。
 面试官拷打的任何一层，都能沿着这条链路下钻到有数据的底。
+
+## 五、图编译优化的裁决实验（2026-11-02 04:00-05:15 补，GPU 实验 07:00 前全部停止）
+
+**问题**：图编译（CUDA graph / torch.compile）考虑了吗？——考虑了、排了最高优先级
+（profile: launch 税 53.8ms/步 × 10,526 次），但**还没实现**。本节把"为什么还没"
+从判断变成实证：三个假设，先预测后裁决（`tests/graph_probe.py`，结果 JSON 同目录）。
+
+| # | 假设（先写预测） | 裁决（后跑实验） | 面试含义 |
+|---|---|---|---|
+| H1 | 朴素 CUDA graph 捕获 decode forward 会失败——MoE 的 `offsets.tolist()`（D2H 同步）在捕获期非法 | ✅ **证实**：`RuntimeError: Cannot copy between CPU and CUDA tensors during CUDA graph capture unless...pin_memory()`——整个 run 和仅 model forward 两种范围都在 MoE 处炸 | **graph-safe MoE 是 CUDA graph 的硬前置**（vLLM 的 `moe_align_block_size` 存在的理由），不是"加个开关"的事 |
+| H2 | 30B 的 GPU 空转率低于 0.6B 的 87%（kernel 更大） | ✅ **实测 63.4%**（同窗口法：profiler 内 wall 4.367s vs device busy 1.598s）——同时修正了我旧 profile 的方法学错误（旧法用无 profiler 步长减有 profiler CUDA 时间，得出 -11ms 负间隙的荒谬值） | **CUDA graph 的收益上界 = 消掉 63% 空转** ≈ 步长 165→~100ms（若 GPU 满载）；"两个数必须同窗口测"是 benchmark 教训的又一例 |
+| H3 | torch.compile 会遇 guard 风暴（每步 Context/张量重建） | ⚠️ **三连发现，比预测更糟**：(a) bf16 下显存就不够（权重 61G+ctx 6.4G，util 0.8 剩 0.6G<激活峰值）；(b) 换 W4 路径后两种模式（reduce-overhead/default）都在 MoE 处**编译期物化 19.66GB 巨型张量**（10.5G 元素）OOM——compile 把逐专家循环向量化时内存放大；(c) 只 compile attention 绕开 MoE，则炸在我们手写 triton kernel 的 **fp32/fp64 循环变量类型漂移**（`m_i` 被 Inductor 拒绝） | compile 路线在本栈的三个前置：graph-safe MoE、kernel 类型纪律（v4 的 `input_precision="ieee"` 教训的延伸）、编译期显存预算 |
+
+**顺手根修**：H3 的 W4 路径暴露了"量化省显存不回流"缺口（WORKLOG §3.3）——
+`ModelRunner` 增加 `quantize_int4_w4` 构造参数，**装载后、分池前**在线量化：
+KV 池 327 → **1643 blocks**（省余量 41GB 全部回流）。这是"量化改写并行选型"
+论点的最后一块实现（单卡 27G 权重 + 41G 池）。
+
+**结论（图编译的正确路线）**：
+1. 短期：先修 MoE 的 tolist（offsets 预估/pinned 或 moe_align_block_size 式重写）
+   → 才能朴素捕获；attention kernel 的类型纪律顺手修（`m_i` 显式 fp32）；
+2. 中期：手写 CUDA graph（vLLM 路线：静态形状 buffer + 捕获/回放 + 多 batch 档位）
+   比 torch.compile 可控——compile 在 MoE 上的内存放大是结构性的；
+3. 收益锚点：H2 的 63.4% 空转 × 我们的 165ms/步 → 理论 ~100ms（1.65×）；
+   叠加 grouped GEMM（消 3045 小 mm）才是与 vLLM 的 3.3× 差距的完整兑现。

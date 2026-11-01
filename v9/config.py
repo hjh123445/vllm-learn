@@ -17,6 +17,7 @@ class Config:
     eos: int = -1
     kvcache_block_size: int = 256
     num_kvcache_blocks: int = -1
+    quantize_int4_w4: bool = False      # 装载后分池前在线量化（省余量回流 KV 预算）
 
     def __post_init__(self):
         assert os.path.isdir(self.model)
