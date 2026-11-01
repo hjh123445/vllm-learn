@@ -1,0 +1,12 @@
+{
+ "phase": "h2",
+ "pred": "30B 空转率显著低于 0.6B 的 87%（kernel 更大）——具体值待测",
+ "unprofiled_wall_s": 3.09,
+ "profiled_wall_s": 4.367,
+ "device_busy_s": 1.598,
+ "gpu_idle_pct": 63.4,
+ "per_step_ms_profiled": 218.3,
+ "profiler_overhead_pct": 41.3,
+ "old_flawed_gap_ms": 74.6,
+ "verdict": "H2: profiled 窗口内 GPU 空转 63.4% （0.6B 为 87%）——CUDA graph 收益上界 ≈ 消掉这部分间隙"
+}

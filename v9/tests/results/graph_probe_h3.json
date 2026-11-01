@@ -1,0 +1,6 @@
+{
+ "phase": "h3",
+ "pred": "guard 风暴：每步 Context/张量重建 → guard 失败 → 重编译或退化 eager",
+ "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 19.66 GiB. GPU 0 has a total capacity of 79.25 GiB of which 17.97 GiB is free. Process 566235 has 3.94 GiB memory in use. Including non-PyTorch memory, this process has 57.33 GiB memory in use. Of the allocated memory 55.75 GiB is allocated by PyTorch, and 1.08 ",
+ "traceback_tail": "212, in call\n    buf1 = empty_strided_cuda((10552213504, ), (1, ), torch.bfloat16)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntorch.OutOfMemoryError: CUDA out of memory. Tried to allocate 19.66 GiB. GPU 0 has a total capacity of 79.25 GiB of which 17.97 GiB is free. Process 566235 has 3.94 GiB memory in use. Including non-PyTorch memory, this process has 57.33 GiB memory in use. Of the allocated memory 55.75 GiB is allocated by PyTorch, and 1.08 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)\n"
+}

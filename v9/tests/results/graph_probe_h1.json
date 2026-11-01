@@ -1,0 +1,7 @@
+{
+ "phase": "h1",
+ "pred": "朴素捕获失败于 MoE tolist（同步在捕获期非法）",
+ "capture_full_run": "RuntimeError: Cannot copy between CPU and CUDA tensors during CUDA graph capture unless the CPU tensor is pinned. Please use tensor.pin_memory() or allocate the tensor with pin_memory=True.",
+ "capture_model_only": "RuntimeError: Cannot copy between CPU and CUDA tensors during CUDA graph capture unless the CPU tensor is pinned. Please use tensor.pin_memory() or allocate the tensor with pin_memory=True.",
+ "verdict": "H1 证实：graph 捕获被阻断（见上）——graph-safe MoE （去 tolist/去数据依赖循环）是 CUDA graph 的前置"
+}
