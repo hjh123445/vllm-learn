@@ -32,19 +32,11 @@ class ModelRunner:
         self.device = "cuda"
         self.dtype = dtype or hf.dtype
 
-        # ---- 载模型（MoE：CPU 构造 + 对账装载（专家融合 w13/w2）+ 迁移）----
-        # 模型选择（多模型共存不互斥）: DSV4-Flash 走专属 loader（MXFP4/FP8
-        # 双格式反量化 + 分层分放 layer_device_map），其余走 Qwen thinker 路径
-        if getattr(hf, "model_type", "") == "deepseek_v4" or \
-                "DeepSeek-V4" in os.path.basename(config.model):
-            from models.deepseek_v4 import DSV4ForCausalLM
-            from utils.dsv4_loader import load_dsv4
-            self.model = DSV4ForCausalLM(config.model)
-            load_dsv4(self.model, config.model, device=self.device,
-                      dtype=self.dtype)
-        else:
-            self.model = Qwen3MoeForCausalLM(hf, config.max_model_len)
-            load_model(self.model, config.model, device=self.device, dtype=self.dtype)
+        # Qwen3-Omni-30B thinker：CPU 构造 + 按当前 TP/EP/PP rank 直接装载
+        # 本 rank 权重。模型、loader 和运行时保持单一协议，避免按模型名劫持
+        # forward 或在 GPU 上短暂出现全量权重。
+        self.model = Qwen3MoeForCausalLM(hf, config.max_model_len)
+        load_model(self.model, config.model, device=self.device, dtype=self.dtype)
         self.model.eval()
         self.sampler = Sampler()
 
@@ -246,15 +238,19 @@ class ModelRunner:
             transport.flush()
 
     @torch.inference_mode()
-    def run(self, seqs: list[Sequence], is_prefill: bool) -> list[int]:
+    def run(self, seqs: list[Sequence], is_prefill: bool,
+            pipeline_lane: int = 0, microbatch_id: int = 0) -> list[int]:
         if is_prefill:
             input_ids, positions = self.prepare_prefill(seqs)
         else:
             input_ids, positions = self.prepare_decode(seqs)
+        # lane/微批元数据只用于 PP transport 的调度和 trace，不改变模型数学。
+        from layers.parallel import STATE
+        STATE.pipeline_lane = pipeline_lane
+        STATE.microbatch_id = microbatch_id
         hidden = self.model(input_ids, positions)                 # [total_q, hidden]
         # PP 中间 stage：hidden 已发给下游，跳过 lm_head/采样（worker 只在
         # last stage 发 response）
-        from layers.parallel import STATE
         if getattr(STATE, "pp_size", 1) > 1 and STATE.pp_rank < STATE.pp_size - 1:
             return [0] * len(seqs)
         if is_prefill:

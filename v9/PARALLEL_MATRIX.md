@@ -1,140 +1,28 @@
-# 八卡并行策略实测与权衡分析（v9.4）
+# Qwen3-Omni-30B 并行实验矩阵
 
-> 数据：172.28.30.56（8×A800-80GB，NVLink），Qwen3-Omni-30B-A3B（MoE，激活 3B），
-> 6 请求 × 48 tok greedy，vLLM v1 形态进程架构（EngineCore + WorkerProc + mp.Pipe）。
-> 2026-10-31 实测，全部配置同一 EngineCore 代码路径（组件化并行，无 per-config 分支）。
+本文只讨论 Qwen3-Omni-30B-A3B thinker。所有速度数字都必须带上模型 commit、GPU、请求数、输入长度、输出长度和精度，不能混用不同环境的数字。
 
-## 1. 实测矩阵
+## 并行语义
 
-| 配置 | tok/s | GPU | 初始化 | 一致率(6 请求) |
-|---|---|---|---|---|
-| TP1（基线） | 22.6 | 1 | 33s | — |
-| TP2 | 19.3 | 2 | 28s | 4/6 |
-| TP4 | 19.6 | 4 | 340s | 4/6 |
-| TP8 | 18.4 | 8 | 785s | 5/6 |
-| EP2 | 30.0 | 2 | 31s | （单跑验证） |
-| EP4 | 37.5 | 4 | 109s | 4/6 |
-| **EP8** | **45.9** | **8** | 140s | 5/6 |
-| TP2×EP2 | 28.4 | 4 | 189s | 4/6 |
-| TP4×EP2 | 27.1 | 8 | 420s | 5/6 |
-| TP2×EP4 | 35.2 | 8 | 233s | 5/6 |
-| TP2×DCP2 | 16.4 | 4 | 367s | （DCP 数学 v8.2 已验） |
-| TP2×DCP4 | 14.5 | 8 | 804s | （DCP 容量 ÷4 场景） |
-| TP2×DCP2×EP2 | 18.9 | 8 | 430s | 4/6 |
-| PP2 | 17.6 | 2 | 26s | 5/6 |
-| PP2×TP2 | 15.5 | 4 | 184s | 5/6 |
+| 维度 | 切分对象 | 进程关系 | 主要通信 |
+|---|---|---|---|
+| TP | 每层线性层的输入/输出维 | 一个 EngineCore 内的 worker | RowParallel all-reduce |
+| EP | MoE 专家和 token 路由 | 一个 EngineCore 内的 worker | dispatch/combine all-to-allv |
+| PP | 连续 decoder layer | 一个 EngineCore 内的 stage worker | 相邻 stage P2P activation |
+| DP | 完整模型副本和请求/KV 池 | 多个独立 EngineCore 进程 | 前端路由，无 NCCL |
 
-注：一致率 4-5/6 是小 batch（6 请求）下 argmax 边界翻转的预期噪声（v6 时
-TP2 双进程独立跑同样 4/6），非系统性错误；e2e 吞吐才是本矩阵的主读数。
+DP2×TP4 的拓扑是两个独立进程：DP0 管 GPU 0--3，DP1 管 GPU 4--7。每个进程各自拥有 scheduler、KV cache、TP/EP/PP 通信组和 worker；请求进入某个副本后保持粘性。`v9/engine/frontend.py` 用控制 Pipe 启动这些 EngineCore，物理 GPU 列表只在子进程中转成局部编号，避免两个副本共享状态。
 
-## 2. 三个核心发现
+## PP 与 DualPipe
 
-### 发现 1：TP 在这个 workload 上是负收益（8 卡 18.4 vs 单卡 22.6）
+旧路径是一次 scheduler 输出对应一次完整 forward：stage 0 算完后发送，stage 1 阻塞接收，最后一个 stage 返回结果。现在 EngineCore 在一个调度步内按 token 预算切成微批，先下发所有微批再收集结果；`PipelineTransport` 为每个 lane 预投递 shape `irecv`，payload 用 `irecv` 接收，发送端使用 `isend` 和 credit 窗口保留 buffer。每条消息带 `microbatch_id`、`pipeline_lane` 和 shape，结果按 `seq_id` 重排。
 
-**为什么**：TP 的收益 = 权重读取带宽 ÷N，代价 = 每层 2 次 allreduce。
-我们的小 batch（6×48 tok）decode 步是**launch-bound**（v7.2 实测 5-token
-verify ≈ 1-token decode），带宽本来就省不出时间，allreduce 的固定延迟
-（~50μs×2×48 层）却是净新增。vLLM 用 CUDA graph + 大 batch 才让 TP 转正。
+这仍是 forward-only DualPipe，没有 backward、梯度、参数更新或训练版 1F1B 反向优先级调度。单个长请求仍在一个消息中保持完整，chunked prefill 只让它跨多个调度步推进；微批不足时 fill/drain bubble 仍存在。理想 `m` 个微批、`p` 个 stage 的 bubble 约为 `(p-1)/(m+p-1)`，必须用 CUDA trace 验证真实重叠后才能谈 zero-bubble。
 
-**TP 的真正用途**（什么时候选）：
-- **显存**：单卡放不下的 dense 模型（TP 切权重立竿见影）；
-- **大 batch decode / prefill**：带宽 bound 时 TP 是线性收益；
-- **单请求低延迟**：layer latency = 权重读时间，TP 直接除 N。
+## EP
 
-### 发现 2：EP 是 MoE 的八卡最优（45.9 tok/s = 单卡 2 倍）
+Qwen3-Omni 的专家 token 数动态变化，每一步先交换 `send_counts/recv_counts`，再使用 all-to-allv dispatch/combine；不会用固定 `[world, max_tokens]` padding。后续 kernel 路线是 fused router+top-k、persistent grouped GEMM、dispatch/combine 融合和通信计算 overlap。
 
-**为什么**：EP 切的是 80% 的权重（专家），且 MoE 的稀疏激活让"每 token 只
-碰 topk 个专家"——EP 的冗余计算模式（每卡过全部 token、只算本地专家）
-通信量 ∝ token×topk×hidden，远小于 TP 的 batch×hidden×每层 2 次。
-EP8 吞吐翻倍的同时初始化只要 140s（权重加载 ÷8 并行）。
+## 实验门槛
 
-**EP 的代价**：负载不均（热点专家拥塞——v6 MILESTONES P1 研究点的实测
-依据）；DP-style 冗余模式每卡都要过全部 token 的 router/gather。
-
-### 发现 3：DCP 是容量手段不是速度手段（16.4/14.5 vs TP2 的 19.3）
-
-DCP 越深越慢：TP2×DCP2 = 16.4、TP2×DCP4 = 14.5——每层多 1 次
-partial/LSE 的 all_gather，cp 越深合并开销越大。**它的价值在 KV 池
-容量**（DCP4 = 同卡数下 4 倍 KV），服务于长序列场景。这与 v8 DESIGN
-的预判一致：DCP 解决 O(L) 显存放不下，不解决 O(带宽)。
-
-## 3. 决策框架：怎么选八卡并行
-
-```
-模型放得下单卡吗？
-├─ 放得下 → 纯带宽问题：
-│    ├─ MoE → EP 优先（实测 2x）；batch 大可 EP×TP 混合
-│    └─ Dense → TP（带宽 bound 时线性收益；launch-bound 时先上 CUDA graph）
-└─ 放不下 → 显存问题：
-     ├─ Dense 大模型 → TP（切权重）
-     └─ MoE 大模型 → EP 切专家 + 量化（v9：W4 后 60GB→16GB，可能回到"放得下"）
-          └─ 还不够 → DCP 切 KV（长序列）或 PP 切层（超大）
-```
-
-**组合的乘法效应**（实测）：TP2×EP4 = 35.2 vs 纯 EP4 37.5——TP 的加入
-**没有**叠加收益反而略降（allreduce 税）。混合并行不是"越多越好"，
-每加一维都要用矩阵数据说话。
-
-## 4. DeepSeek-V4 的八卡方案（DESIGN 依据实测数据落地）
-
-DSV4-Flash 的特殊性（v6.3 实测显存账）：
-- 磁盘 316GB（专家 MXFP4 打包 283.5 + FP8 15 + scale 17.7），
-  **反量化 bf16 后 ~1199GB**——8×80GB 放不下是数学必然；
-- MLA 是 **MQA**（kv_heads=1）：TP 的按头切分对 KV 头失效，q/o 切 64 头
-  可行但每层 2×allreduce 全额交税；
-- 专家权重占 94%：**切专家即切主要矛盾**。
-
-**八卡方案：量化原生存储 + EP8**（v6.3 MILESTONES 定稿）：
-```
-权重: MXFP4 原生（不反量化）→ 141.75GB 专家 + 15GB FP8 + scales ≈ 178GB
-每卡: ~22GB 权重 + 40GB+ KV 池（80GB 卡余量大）
-通信: a2a（token×topk×hidden）——MoE 的固有通信，无 TP 的 allreduce 税
-前提: in-kernel MXFP4 反量化（= v9.2 的 dequant-GEMM triton kernel，
-      DSV4 与 v9 量化路径共用同一工程）
-```
-对照本矩阵的 Qwen3 数据外推：EP8 的 2x 吞吐收益 + 量化原生让"放不下"
-变"放得下"——**量化改写并行选型**（v9 DESIGN 的核心论点的实测支撑）。
-
-跨节点（v6.2 实测）追加：EP2 跨 IB 只损 21%，TP8 跨 IB 崩 69-88%——
-**EP 也是跨节点的唯一稳选**，DSV4 级模型多机部署时 EP 是默认起点。
-
-## 5. PP 实测与三重路由 bug 复盘
-
-PP 跑通（PP2 17.6 tok/s / PP2×TP2 15.5 tok/s，5/6 一致）——早期单微批
-版本比 TP2 慢，bubble 50% 符合理论 bubble=(p-1)/(m+p-1)。当前版本已加入
-`pipeline_microbatches`/`virtual_engine_size`、微批消息标识和 stage 间异步激活
-传输，可以填充多个 in-flight microbatch；但调度仍是 lockstep 收口，还没有 vLLM
-完整的每 virtual engine 1F1B request queue。因此这些数据仍不能代表生产级 PP 上限。
-
-三重路由 bug（全部是"谁发 response"的语义错误，逐个定位）：
-1. core 固定从 response_q[0] 收，但 PP 时采样者是 last stage（其 rank =
-   (pp-1)×inner）→ 双方互卡（response 发进了 [inner]，core 等 [0]）；
-2. last stage 的 ready 消息残留在管道里，step 的第一次 recv 收到它而非
-   output → KeyError 'tokens'——ready 只应由 stage0 发（scheduler 用的
-   是 stage0 的块数视图）；
-3. EngineCore 漏 self.dcp_size 属性。
-
-### DP 实测（v9.4b 补充）：同样 4 卡，DP 划分胜过纯 TP
-
-DP2×TP2（4 卡 = 2 个独立 EngineCore，各管 2 卡 TP2，6 请求 round-robin）：
-**24.3 tok/s，5/6 与单卡一致**——比同样 4 卡的 TP4（19.6）快 24%，
-比纯 TP2（19.3）的 2 倍（38.6 理论值）还有距离（每 rank 只有 3 请求，
-batch 太小吃不满），但方向明确：**多请求场景下 DP×TP 的划分优于纯 TP**。
-
-为什么：TP4 的每层 2×allreduce 税照交，而 DP2×TP2 每 rank 只有 TP2 的
-通信（allreduce 跳数减半）+ 请求池翻倍（独立 scheduler/KV 互不干扰）。
-vLLM 的 data_parallel_rank 路由同款语义（请求一旦入 rank 不迁移）。
-
-**DP 的适用边界**：请求池够大时吞吐近线性；单请求低延迟场景无用
-（一个请求只能在一个 rank 上）。
-
-## 6. 结论
-
-| 场景 | 八卡最优（实测） | 依据 |
-|---|---|---|
-| MoE 推理吞吐 | **EP8**（45.9 tok/s） | 稀疏激活 + a2a 通信 ∝ token×topk |
-| Dense 大显存 | TP8 | 切权重是唯一目的 |
-| 长序列容量 | EP + DCP | KV 池 ÷cp_size |
-| 超大模型（DSV4） | **量化原生 + EP8** | 显存账 + MLA=MQA 切不动 TP |
-| 跨节点 | EP（跨 IB 损 21% vs TP 崩 69%） | 带宽鸿沟下的唯一稳选 |
-| 层切扩展（放不下但不想切层内） | PP×微批 | 单微批 bubble 50%，需流水兑现 |
+每个配置都要通过单卡数值基线、TP/EP/PP 端到端检查、变长计数检查、异常退出回收和 `torch.profiler` trace。trace 至少包含 CUDA kernel、NCCL/P2P、层号、Attention/MoE 标签、PP stage、microbatch/lane 和请求时间线。

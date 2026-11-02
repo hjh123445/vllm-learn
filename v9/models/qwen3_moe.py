@@ -81,10 +81,12 @@ class Qwen3MoeDecoderLayer(nn.Module):
     def forward(self, x, residual, positions):
         x, residual = fused_add_rmsnorm(x, residual, self.input_layernorm.weight,
                                        self.input_layernorm.eps)
-        x = self.self_attn(x, positions)     # o_proj(RowParallel) 内置 allreduce
+        with torch.autograd.profiler.record_function("attention"):
+            x = self.self_attn(x, positions)     # o_proj(RowParallel) 内置 allreduce
         x, residual = fused_add_rmsnorm(x, residual, self.post_attention_layernorm.weight,
                                        self.post_attention_layernorm.eps)
-        x = self.mlp(x)                      # MoE 部分和聚合在 MoEMLP 内
+        with torch.autograd.profiler.record_function("moe"):
+            x = self.mlp(x)                      # MoE 部分和聚合在 MoEMLP 内
         return x, residual
 
 
@@ -106,13 +108,9 @@ class Qwen3MoeModel(nn.Module):
         # PP 层区间（对齐 vLLM make_layers + get_pp_indices）：区间外
         # PPMissingLayer 占位，层索引全局对齐（checkpoint 名不变，loader 跳过）
         from layers.parallel import STATE, get_pp_indices
-        from engine.pipeline import PipelineTransport
         start, end = get_pp_indices(config.num_hidden_layers,
                                     STATE.pp_rank, STATE.pp_size)
         self.pp_start, self.pp_end = start, end
-        self.pipeline_transport = PipelineTransport(
-            STATE.pp_size, STATE.pp_rank,
-            STATE.tp_size * STATE.cp_size * STATE.ep_size)
         self.layers = nn.ModuleList(
             [PPMissingLayer() for _ in range(start)] +
             [Qwen3MoeDecoderLayer(config, i) for i in range(start, end)] +
@@ -126,24 +124,34 @@ class Qwen3MoeModel(nn.Module):
                 layer.self_attn.rope = rope
 
     def forward(self, input_ids, positions):
-        """Run this stage and exchange activations through PipelineTransport."""
-        from layers.parallel import STATE
-        transport = self.pipeline_transport
+        """Qwen3-Omni thinker forward with adjacent-stage PP transport.
 
-        if STATE.pp_size > 1 and STATE.pp_rank > 0:
-            dev = next(self.parameters()).device
-            x, residual = transport.recv_forward(
-                device=dev, dtype=next(self.parameters()).dtype)
+        Stage 0 embeds locally; later stages consume a lane-specific
+        activation mailbox.  The transport pre-posts the next receive and
+        sends asynchronously, so two microbatch lanes can overlap at stage
+        boundaries.  The model itself remains unaware of scheduler queues.
+        """
+        from layers.parallel import STATE
+        if STATE.pp_size > 1:
+            if STATE.pp_rank > 0:
+                if STATE.pipeline_transport is None:
+                    raise RuntimeError("PP transport was not initialized")
+                x, residual, _mb, _lane = STATE.pipeline_transport.recv_forward(
+                    STATE.pipeline_lane)
+            else:
+                x = self.embed_tokens(input_ids)
+                residual = torch.zeros_like(x)
         else:
             x = self.embed_tokens(input_ids)
             residual = torch.zeros_like(x)
-
-        for layer in self.layers:
-            x, residual = layer(x, residual, positions)
-
+        for layer_id, layer in enumerate(self.layers):
+            with torch.autograd.profiler.record_function(f"layer.{layer_id}"):
+                x, residual = layer(x, residual, positions)
         if STATE.pp_size > 1 and STATE.pp_rank < STATE.pp_size - 1:
-            transport.send_forward(x, residual)
-            return x
+            # 中间 stage：异步把 hidden/residual 传给下游，不进 norm。
+            STATE.pipeline_transport.send_forward(
+                x, residual, STATE.pipeline_lane, STATE.microbatch_id)
+            return x          # 占位（中间 stage 的返回不被使用）
         out, _ = fused_add_rmsnorm(x, residual, self.norm.weight, self.norm.eps)
         return out
 
@@ -178,7 +186,6 @@ class Qwen3MoeForCausalLM(nn.Module):
                 n_replaced += 1
         # dense: q_proj/k_proj/v_proj/o_proj → QuantizedLinear（B1 路径）
         # v9.3: 投影已是并行组件——按【本 rank 的形状】量化（粒度沿输入维 K，
-        # 与输出维切分正交；DSV4 DESIGN §II.3.2 的"切分后再量化"约定）
         if not skip_dense:
             for layer in self.model.layers:
                 attn = layer.self_attn

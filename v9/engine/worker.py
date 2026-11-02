@@ -9,6 +9,9 @@ v1/worker/worker_base.py 的 WorkerWrapperBase。
       └─ spawn N 个本进程（每 GPU 一个）
            主循环: MQ.recv(scheduler_output) → model_runner.run → response MQ.send
 
+PP stage 内的 activation 由 PipelineTransport 独立管理：两个 lane 预投递
+irecv，worker 仍按 scheduler 消息顺序执行模型 forward。
+
 与 v6.4 的"N 个全等进程 + NCCL broadcast"的区别：worker 进程里【没有
 scheduler】，每步的 forward 输入完全来自广播的消息（用完即弃，不镜像
 跨步状态——v6.2 字段漏镜像的坑在结构上消失）。
@@ -41,23 +44,67 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         dist.init_process_group(
             "nccl", device_id=torch.device(f"cuda:{torch.cuda.current_device()}"))
 
-    # ---- Canonical model-parallel topology (vLLM parallel_state style) ----
+    # ---- 四维坐标（row-major 解码，对齐 ParallelCoords DIMS=(tp,cp,ep,pp)）----
+    # rank = pp*(tp*cp*ep) + ep*(tp*cp) + tp*cp + cp
     cp_size = engine_kwargs.get("dcp_size", 1)
     pp_size = engine_kwargs.get("pp_size", 1)
-    dp_size = engine_kwargs.get("dp_size", 1)
-    from layers.parallel import initialize_model_parallel
-    coords, groups = initialize_model_parallel(
-        rank=rank, world_size=world_size, tp_size=tp_size,
-        ep_size=ep_size, cp_size=cp_size, pp_size=pp_size,
-        dp_size=dp_size, device=torch.device("cuda"))
-    tp_rank, ep_rank = coords.tp_rank, coords.ep_rank
-    cp_rank, pp_rank = coords.cp_rank, coords.pp_rank
     inner = tp_size * cp_size * ep_size
+    pp_rank = rank // inner
+    r = rank % inner
+    ep_rank = r // (tp_size * cp_size)
+    r = r % (tp_size * cp_size)
+    tp_rank = r // cp_size
+    cp_rank = r % cp_size
+    from layers.parallel import configure_parallel, STATE
+    tp_group = ep_group = moe_group = cp_group = None
+    if world_size > 1:
+        # tp 组 = 同 (pp, ep, cp) 沿 tp 变化——v9.4a 曾写成 r%tp_size==tp_rank
+        # → 单成员组 → allreduce 变 no-op（e2e 全错的根因，勿回退）
+        if tp_size > 1:
+            tp_group = dist.new_group(ranks=[
+                pp_rank * inner + ep_rank * tp_size * cp_size + t * cp_size + cp_rank
+                for t in range(tp_size)])
+        if ep_size > 1:
+            ep_group = dist.new_group(ranks=[
+                pp_rank * inner + e * tp_size * cp_size + tp_rank * cp_size + cp_rank
+                for e in range(ep_size)])
+        # moe 组 = 同 (pp, cp) 的 tp×ep 张成（MoE 部分和聚合域）
+        if tp_size * ep_size > 1:
+            moe_group = dist.new_group(ranks=[
+                pp_rank * inner + e * tp_size * cp_size + t * cp_size + cp_rank
+                for e in range(ep_size) for t in range(tp_size)])
+        # cp 组 = 同 (pp, ep, tp) 沿 cp 变化（DCP partial/LSE 合并域）
+        if cp_size > 1:
+            cp_group = dist.new_group(ranks=[
+                pp_rank * inner + ep_rank * tp_size * cp_size + tp_rank * cp_size + c
+                for c in range(cp_size)])
+        # 组预热（惰性 wire-up 竞态——v8.2 的 25 分钟死锁）
+        for g in (tp_group, ep_group, moe_group, cp_group):
+            if g is not None:
+                t = torch.zeros(1, device="cuda")
+                dist.all_reduce(t, group=g)
+        torch.cuda.synchronize()
+    configure_parallel(tp_size=tp_size, tp_rank=tp_rank,
+                       ep_size=ep_size, ep_rank=ep_rank,
+                       tp_group=tp_group, ep_group=ep_group, moe_group=moe_group,
+                       cp_size=cp_size, cp_rank=cp_rank,
+                       pp_size=pp_size, pp_rank=pp_rank)
+
+    # Adjacent PP stages use two pre-posted activation lanes.  This object is
+    # created before the first scheduler message, so stage>0 is already
+    # listening when stage0 issues its first asynchronous send.
+    if pp_size > 1:
+        from engine.pipeline_transport import PipelineTransport
+        STATE.pipeline_transport = PipelineTransport(
+            pp_size=pp_size, pp_rank=pp_rank, inner_size=inner,
+            lanes=int(engine_kwargs.get("pipeline_lanes", 2)),
+            credit=int(engine_kwargs.get("pipeline_credit", 4)),
+            device="cuda")
+
     # ---- DCP 注入（v8.2 的 set_dcp，worker 内生效）----
     if cp_size > 1:
         from layers.dcp import set_dcp
-        set_dcp(active=True, size=cp_size, rank=cp_rank,
-                group=groups["cp"])
+        set_dcp(active=True, size=cp_size, rank=cp_rank, group=cp_group)
 
     # ---- 模型（v9.3 组件: 构造即本 rank 切片）----
     from config import Config
@@ -69,7 +116,7 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     # PP response 路由：采样在 last stage——只有 last stage 的 inner-rank0
     # 发 response（EngineCore 从它读），其余 worker 静默
     is_resp_rank = (pp_rank == pp_size - 1 and rank % inner == 0) \
-        if pp_size > 1 else rank == 0
+        if pp_size > 1 else True
     # PP 时 ready 只由 stage0 发（core 的 ready 循环只收 stage0 的 rank0——
     # last stage 若也发，其 ready 会残留在 response 管道里，step 的第一次
     # recv 收到的是它而不是 output → KeyError 'tokens'）
@@ -92,16 +139,16 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         is_prefill = msg["is_prefill"]
         token_ids = []
         if specs:
-            token_ids = runner.run(specs, is_prefill)
+            token_ids = runner.run(specs, is_prefill,
+                                   pipeline_lane=msg.get("pipeline_lane", 0),
+                                   microbatch_id=msg.get("microbatch_id", 0))
         if is_resp_rank:
             response_conn.send({"type": "output", "tokens": token_ids,
-                                "n": len(specs),
+                                "seq_ids": [s.seq_id for s in specs],
                                 "microbatch_id": msg.get("microbatch_id", 0),
-                                "virtual_engine": msg.get("virtual_engine", 0)})
+                                "n": len(specs)})
 
-    # Complete nonblocking stage sends before tearing down NCCL.  The final
-    # stage may already have produced its response, but intermediate stages
-    # still own Work handles and their CUDA buffers.
-    runner.flush_pipeline()
+    if pp_size > 1 and STATE.pipeline_transport is not None:
+        STATE.pipeline_transport.drain()
     if world_size > 1:
         dist.destroy_process_group()

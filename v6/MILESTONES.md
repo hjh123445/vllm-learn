@@ -85,7 +85,6 @@ v6.4 调度集中化**（与 PP lockstep 同根）。
 
 ---
 
-## v6.3 —— DeepSeek-V4 模型文件（进行中）
 
 **架构调研完成**（权重结构 + HF 源码全读）——远超 MLA+FP8 的复杂度：
 
@@ -99,9 +98,6 @@ v6.4 调度集中化**（与 PP lockstep 同根）。
 | yarn rope | factor=16, original 65536 | 待做 |
 | MTP | num_nextn_predict_layers=1（v7 投机解码直接用）| 待做 |
 
-**第三阶段实测**（tests/test_dsv4_e2e.py）——管线全通：
-- `models/deepseek_v4.py`：完整模型（43 层 MLA+MoE+mHC）；
-- `utils/dsv4_loader.py`：MXFP4 + FP8 双格式反量化装载（1038 张量）；
 - **8 卡分放跑通**（反量化后 ~584GB bf16：FP4 专家×4 + FP8 其他×2，
   单卡放不下是数学必然）——layer_device_map 分层 + 前向跨卡自动搬运激活；
 - 生成 16 token 完成，输出目前是乱码（管线正确性 ✅，数值正确性待查——
@@ -124,7 +120,6 @@ v6.4 调度集中化**（与 PP lockstep 同根）。
 4. **跨卡设备的四个散点**：input_ids/embed 设备、rope buffer 共享单卡、
    路由 fp32 产物、einsum dtype 混合——分层分放模型的必然代价。
 
-**第二阶段实测**（tests/test_dsv4_stage2.py ALL PASS，layers/dsv4_components.py）：
 - HyperConnection（mHC 4 残差流 + Sinkhorn 20 轮）：**与 HF 逐位对拍 diff=0.0**
   （post/comb/collapsed 三个输出全对）；
 - HCA 压缩器（128:1 窗口压缩）：**与 HF 逐位对拍 diff=0.0**（64 tok → 2 条压缩 KV）；
@@ -135,7 +130,6 @@ v6.4 调度集中化**（与 PP lockstep 同根）。
 HCA 对拍时传反了维序导致输出 0 长度；HF 的 rope 初始化依赖完整 config
 （yarn 等），对拍用 nn.Module 的 NoRope monkeypatch 跳过。
 
-**第一阶段实测**（tests/test_dsv4_stage1.py ALL PASS）：
 - FP8 反量化：w1 [2048,2048] → 均值 -0.0001 / std 0.77（合理分布），块级
   手算自检 diff=0.0；
 - sqrtsoftplus 路由：top6 归一化 × scaling 后权重和精确 = 1.5；
@@ -183,7 +177,6 @@ HCA 对拍时传反了维序导致输出 0 长度；HF 的 rope 初始化依赖�
 **下一步（架构简化）**：固定大小计划张量（变长是死锁之源）+ follower 哑
 forward（不镜像本地状态，只按计划跑）——借鉴 ZEREROCOMM 已验证的部分。
 
-## v6.3 补充 —— DeepSeek-V4 并行方式探讨（设计稿，2026-10-30）
 
 **现状**：8 卡分层分放（layer_device_map，跨卡搬运激活）——正确性验证载具，
 非吞吐方案（无 micro-batch 的 PP，bubble 100%）。真并行方案按显存账定：
@@ -227,12 +220,10 @@ forward（不镜像本地状态，只按计划跑）——借鉴 ZEREROCOMM 已�
 
 ### 与 HF/vLLM 部署的对照
 
-vLLM 对 DSV4 级别模型的部署也是 FP4 原生 + EP（DeepSeek 官方推荐 EP）——
 我们方案 C 与业界一致，且这是 v9 量化路径的实战检验场。
 
 ### v6.3 数值正确性达成（2026-10-30，三轮修复）
 
-**最终验证**（tests/test_dsv4_e2e.py）：`"The capital of France is"` →
 `" Paris. The capital of France is Paris. ..."`——前 2 token 与 HF 参考一致，
 之后是复读 prompt（语法连贯；短 prompt 无 EOS 分布下的正常行为）。
 **从乱码（'2 Programming# Ir...'）到连贯文本**，三轮修复：

@@ -114,8 +114,6 @@ PP 的 p2p send 与下一 stage 的计算**天然重叠**（只要 micro-batch �
 | 场景 | 最优策略 | 理由 |
 |---|---|---|
 | Qwen3-30B-A3B（61GB bf16） | DP×2（双节点各一份） | 单卡放得下（61GB < 80GB），零通信直接 ×2 吞吐 |
-| DeepSeek V4.1-Flash（510GB） | EP×4~8 + DP×2~3 | 384 专家分散到 4~8 卡（每卡 48~96 专家，约 64~128GB/卡）；DP 再跨节点 ×2 |
-| 验证 TP vs PP | TP×2 / PP×2 | DeepSeek-V4.1 单层很大（hidden 5120, MoE 中间 2304），TP 通信重；PP 层间通信轻但有气泡 |
 
 ## 5. 本机两个 MoE 模型的并行方案（已确认可用，无需下载）
 
@@ -136,11 +134,9 @@ bf16 权重 66GB → 单卡放得下（80GB），但要留 KV cache 池 → 双�
 每层 dispatch+combine 通信 = 2 × tokens × 2048 × 2B，decode b=8 时仅 64KB/层，
 43 层 ≈ 2.8MB/步 → 40Gb IB 上 **0.6ms/步**（可忽略）——EP 在小 hidden MoE 上通信极便宜。
 
-### 5.2 DeepSeek-V4-Flash（149GB FP8，@/data/xmhuang6/deepseek/，只读）
 
 新架构全家桶——v6 的终极目标：
 ```
-model_type = deepseek_v4, 43 层, hidden = 4096
 MLA: q_lora_rank = 1024, qk_rope_head_dim = 64, head_dim = 512, kv_lora_rank 压缩注意力
 MoE: 256 routed experts top-6 + 1 shared, moe_intermediate = 2048
 路由打分: sqrtsoftplus（新函数，非 softmax）
@@ -153,7 +149,6 @@ FP8 block 量化 (128×128) → 149GB
 FP8 权重反量化为 bf16 计算（loader 里做 dequant，或保持 FP8 存储 + kernel 反量化——
 v6.3 先做前者，kernel 级 FP8 是 v6.4）。
 
-**v7 投机解码**：DeepSeek V4 自带 MTP 权重（config 的 MTP 层），draft head 零训练。
 接受率 70% + k=3 → 净加速 ≈ 2.4×（EP 下计入通信增加 ≈ 1.8×）。
 
 ### 5.3 实现顺序（由易到难，每步有验证门槛）
@@ -163,9 +158,6 @@ v6.3 先做前者，kernel 级 FP8 是 v6.4）。
 | 6.0 | MoE 层（router + grouped expert + top-k）单卡 | Qwen3-Omni thinker | fp32 HF 对齐 |
 | 6.1 | TP2（单机双卡，attention + expert 列切） | Qwen3-Omni | 单卡逐 token 等价 |
 | 6.2 | EP2 跨节点（专家对半 + all-to-all） | Qwen3-Omni | TP2 逐 token 等价 + 通信微基准 |
-| 6.3 | DeepSeek-V4 模型文件（MLA + sqrtsoftplus + FP8 反量化） | DeepSeek-V4-Flash | fp32 HF 对齐（dequant 后） |
-| 6.4 | EP4 + TP2 混合并行 + 通信重叠 | DeepSeek-V4-Flash | 12 卡吞吐 + 通信/计算占比 profile |
-| 6.5 | PP 对比基线（证明 EP 优于 PP/TP 的定量数据） | DeepSeek-V4-Flash | 三策略同负载对比表 |
 
 ## 6. 通信量汇总表
 

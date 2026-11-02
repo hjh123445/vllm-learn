@@ -15,7 +15,42 @@ scheduler + KV cache + 完整模型副本），DP rank 之间零通信。
 - 前端只做聚合输出，不做调度决策（调度权在各 core 的 scheduler）。
 """
 
+import multiprocessing as mp
+import os
 import threading
+
+
+def _enginecore_process(conn, model_path, core_kwargs, physical_gpus):
+    """One DP replica: its own EngineCore/scheduler/KV cache/process tree.
+
+    ``CUDA_VISIBLE_DEVICES`` is set before constructing EngineCore.  The core
+    consequently receives local GPU ids ``0..N-1`` while the parent keeps the
+    physical placement private to this replica.
+    """
+    os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, physical_gpus))
+    from engine.core import EngineCore
+    kw = dict(core_kwargs)
+    kw["gpus"] = list(range(len(physical_gpus)))
+    core = EngineCore(model_path, **kw)
+    while True:
+        cmd, payload = conn.recv()
+        if cmd == "add":
+            seq = core.add_request(payload[0], payload[1])
+            conn.send(("seq", seq.seq_id))
+        elif cmd == "step":
+            conn.send(("step", core.step()))
+        elif cmd == "finished":
+            conn.send(("finished", core.is_finished()))
+        elif cmd == "shutdown":
+            core.shutdown()
+            conn.send(("shutdown", True))
+            break
+
+
+class _DPSeq:
+    __slots__ = ("seq_id",)
+    def __init__(self, seq_id):
+        self.seq_id = seq_id
 
 
 class DPFrontend:
@@ -29,10 +64,9 @@ class DPFrontend:
     """
 
     def __init__(self, model_path, dp_size=1, **engine_kwargs):
-        from engine.core import EngineCore
-        dp_size = engine_kwargs.pop("data_parallel_size", dp_size)
         assert dp_size >= 1
         self.dp_size = dp_size
+        requested_gpus = engine_kwargs.pop("gpus", None)
         # GPU 分组: dp rank i 拿 self.gpus[i*per:(i+1)*per]
         per = None
         if "tp_size" in engine_kwargs or "ep_size" in engine_kwargs:
@@ -43,20 +77,25 @@ class DPFrontend:
             per = tp * ep * dcp * pp
         if per is None:
             per = 1
-        self.gpus = engine_kwargs.pop("gpus", None) or list(
-            range(dp_size * per))
+        self.gpus = requested_gpus or list(range(dp_size * per))
         assert len(self.gpus) >= dp_size * per, \
             f"GPUs {self.gpus} < dp{dp_size}×inner{per}"
-        self.cores = []
+        self.cores = []                 # process handles, kept for compatibility
+        self._conns = []
+        self._ctx = mp.get_context("spawn")
         self._rr = 0            # round-robin 游标
         self._seq_core = {}     # seq_id → dp_rank（输出对齐用）
         for i in range(dp_size):
             g = self.gpus[i * per:(i + 1) * per]
             kw = dict(engine_kwargs)
-            kw["gpus"] = g
             # 每 core 独立 rendezvous 端口（不同进程组的 TCPStore 不能撞）
             kw.setdefault("master_port", 29750 + i)
-            self.cores.append(EngineCore(model_path, **kw))
+            parent, child = self._ctx.Pipe()
+            p = self._ctx.Process(target=_enginecore_process,
+                                   args=(child, model_path, kw, g), daemon=True)
+            p.start()
+            self._conns.append(parent)
+            self.cores.append(p)
 
     # ---------------- 请求路由 ----------------
 
@@ -66,7 +105,10 @@ class DPFrontend:
         if dp_rank is None:
             dp_rank = self._rr
             self._rr = (self._rr + 1) % self.dp_size
-        seq = self.cores[dp_rank].add_request(prompt_ids, sampling_params)
+        conn = self._conns[dp_rank]
+        conn.send(("add", (prompt_ids, sampling_params)))
+        _, seq_id = conn.recv()
+        seq = _DPSeq(seq_id)
         self._seq_core[seq.seq_id] = dp_rank
         return seq, dp_rank
 
@@ -78,9 +120,13 @@ class DPFrontend:
         results = {}
 
         def _drive(i):
-            core = self.cores[i]
-            if not core.is_finished():
-                for seq_id, toks in core.step():
+            conn = self._conns[i]
+            conn.send(("finished", None))
+            _, finished = conn.recv()
+            if not finished:
+                conn.send(("step", None))
+                _, step_out = conn.recv()
+                for seq_id, toks in step_out:
                     results[seq_id] = toks
 
         threads = [threading.Thread(target=_drive, args=(i,))
@@ -94,10 +140,23 @@ class DPFrontend:
     def run(self):
         """跑完所有在途请求，返回 {seq_id: completion_tokens}。"""
         outs = {}
-        while any(not c.is_finished() for c in self.cores):
+        while True:
+            states = []
+            for conn in self._conns:
+                conn.send(("finished", None))
+            for conn in self._conns:
+                states.append(conn.recv()[1])
+            if all(states):
+                break
             outs.update(self.step_all())
         return outs
 
     def shutdown(self):
-        for c in self.cores:
-            c.shutdown()
+        for conn in self._conns:
+            conn.send(("shutdown", None))
+        for conn in self._conns:
+            conn.recv()
+        for p in self.cores:
+            p.join(timeout=10)
+            if p.is_alive():
+                p.terminate()

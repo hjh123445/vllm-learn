@@ -21,6 +21,8 @@ forward 执行器"，通信从固定形状 NCCL 张量变成结构化 MQ 消息�
 import multiprocessing as mp
 import os
 
+import torch
+
 
 def _spawn_with_env(env, fn, args):
     """spawn 的 env 传递：mp.Process 不支持 per-child env，包一层。
@@ -31,12 +33,10 @@ def _spawn_with_env(env, fn, args):
 
 from engine.mq import SHUTDOWN, make_channels
 from engine.sequence import Sequence
-from engine.pipeline import PipelinePlan, VirtualEngineState
 from samplingParams import SamplingParams
 
 
-def _spec_msg(seqs, is_prefill, microbatch_id=0, virtual_engine=0,
-              data_parallel_rank=0, block_size=256):
+def _spec_msg(seqs, is_prefill, pipeline_lane=0, microbatch_id=0):
     """scheduler 的输出 → 可 pickle 的结构化消息。
 
     对齐 vLLM 的 SchedulerOutput：scheduled（要 forward 的序列描述）+
@@ -57,43 +57,8 @@ def _spec_msg(seqs, is_prefill, microbatch_id=0, virtual_engine=0,
             "seq_len": len(s),
             "temperature": s.temperature,
         })
-    return {"type": "schedule", "scheduled": scheduled,
-            "is_prefill": is_prefill, "microbatch_id": microbatch_id,
-            "virtual_engine": virtual_engine,
-            "data_parallel_rank": data_parallel_rank,
-            "block_size": block_size}
-
-
-def _partition_microbatches(seqs, count):
-    """Split one allocated scheduler batch into ordered microbatches.
-
-    Allocation happens before splitting, so every sequence belongs to exactly
-    one plan and scheduler/KV state is retired exactly once per response.
-    """
-    if not seqs:
-        return []
-    count = max(1, min(int(count), len(seqs)))
-    if count == 1:
-        return [list(seqs)]
-    total = sum(max(1, s.num_scheduled_tokens) for s in seqs)
-    target = max(1, (total + count - 1) // count)
-    chunks, current, current_tokens = [], [], 0
-    remaining = count
-    consumed = 0
-    for index, seq in enumerate(seqs):
-        tokens = max(1, seq.num_scheduled_tokens)
-        current.append(seq)
-        current_tokens += tokens
-        consumed += tokens
-        left = len(seqs) - index - 1
-        if remaining > 1 and (current_tokens >= target or left < remaining - 1):
-            chunks.append(current)
-            current, current_tokens = [], 0
-            remaining -= 1
-            target = max(1, (total - consumed + remaining - 1) // remaining)
-    if current:
-        chunks.append(current)
-    return chunks
+    return {"type": "schedule", "scheduled": scheduled, "is_prefill": is_prefill,
+            "pipeline_lane": pipeline_lane, "microbatch_id": microbatch_id}
 
 
 class _Spec:
@@ -111,7 +76,7 @@ class _Spec:
         self._tokens = m["tokens"]
         self.last_token = m["last_token"]
         self.temperature = m["temperature"]
-        bs = int(m.get("block_size", 256))
+        bs = 256
         n = m["seq_len"]
         self.num_tokens = n
         self.num_prompt_tokens = n          # 哑视角够用（run 只读下列字段）
@@ -122,7 +87,14 @@ class _Spec:
         return self.num_tokens
 
     def __getitem__(self, k):
-        return self._tokens[k]
+        # _spec_msg carries only this step's token window.  Preserve the
+        # Sequence global indexing contract used by prepare_prefill.
+        base = self.num_cached_tokens
+        if isinstance(k, slice):
+            start = 0 if k.start is None else max(0, k.start - base)
+            stop = None if k.stop is None else max(0, k.stop - base)
+            return self._tokens[start:stop:k.step]
+        return self._tokens[k - base]
 
 
 def rebuild_specs(msg):
@@ -133,13 +105,9 @@ class EngineCore:
     """v9.4 的引擎核心。对外暴露与 LLMEngine.generate 兼容的批推理入口。"""
 
     def __init__(self, model_path, tp_size=1, ep_size=1, dcp_size=1, pp_size=1,
-                 master_port=29600, config_kwargs=None, gpus=None):
-        self._shutdown = False
-        self.last_step_had_work = False
-        for name, value in (("tp_size", tp_size), ("ep_size", ep_size),
-                            ("dcp_size", dcp_size), ("pp_size", pp_size)):
-            if int(value) < 1:
-                raise ValueError(f"{name} must be >= 1, got {value}")
+                 master_port=29600, config_kwargs=None, gpus=None,
+                 pipeline_lanes=2, pipeline_credit=4,
+                 pipeline_microbatch_tokens=2048):
         self.world_size = tp_size * ep_size * dcp_size * pp_size
         self.tp_size, self.ep_size = tp_size, ep_size
 
@@ -150,19 +118,11 @@ class EngineCore:
         # scheduler 在前 → BlockManager(−1→0 块) → schedule 直接 assert）
         from config import Config
         config_kwargs = dict(config_kwargs or {})
+        self.config_kwargs = config_kwargs
+        self.pipeline_lanes = max(1, int(pipeline_lanes))
+        self.pipeline_credit = max(1, int(pipeline_credit))
+        self.pipeline_microbatch_tokens = max(1, int(pipeline_microbatch_tokens))
         config = Config(model_path, **config_kwargs)
-        Sequence.block_size = config.kvcache_block_size
-        config.tensor_parallel_size = tp_size
-        config.expert_parallel_size = ep_size
-        model_type = getattr(config.hf_config, "model_type", "")
-        is_dsv4 = model_type == "deepseek_v4" or \
-            "DeepSeek-V4" in os.path.basename(os.path.normpath(model_path))
-        if is_dsv4 and self.world_size > 1:
-            raise ValueError(
-                "DeepSeek-V4 is not wired into the v9 EngineCore worker "
-                "parallel path yet; use the dsv41_a100_runtime launcher or "
-                "run EngineCore with tp_size=ep_size=pp_size=1.  Refusing "
-                "multi-worker startup avoids loading a full model per GPU.")
         self.config = config
         from transformers import AutoTokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True)
@@ -173,6 +133,8 @@ class EngineCore:
             "master_addr": "127.0.0.1", "master_port": master_port,
             "config_kwargs": config_kwargs, "dcp_size": dcp_size, "gpus": gpus,
             "pp_size": pp_size,
+            "pipeline_lanes": self.pipeline_lanes,
+            "pipeline_credit": self.pipeline_credit,
         }
         self.pp_size = pp_size
         self.dcp_size = dcp_size
@@ -223,75 +185,58 @@ class EngineCore:
             self.scheduler = Scheduler(config)          # 用 worker 的真实块数
             self.inproc_runner = None
 
-        # One slot is the ownership boundary of a virtual pipeline engine.
-        # The scheduler remains single-owner, while slots track in-flight plans.
-        requested = getattr(config, "pipeline_microbatches", 1)
-        if pp_size > 1 and getattr(config, "pipeline_schedule", "forward") == "zero_bubble":
-            # Forward-only inference has no backward phase to interleave.  The
-            # useful analogue of zero-bubble scheduling is to keep at least
-            # two full pipeline depths in flight; the actual count is still
-            # capped by the number of scheduled sequences in each step.
-            requested = max(requested, 2 * pp_size)
-        self.num_microbatches = max(1, requested) if pp_size > 1 else 1
-        self.virtual_engines = [VirtualEngineState(i)
-                                for i in range(self.num_microbatches)]
-
     # ---------------- busy loop ----------------
 
+    def _microbatches(self, seqs):
+        """Create bounded PP messages while preserving sequence/KV ownership.
+
+        A sequence is kept intact inside one message.  Scheduler chunked
+        prefill handles a long request across successive steps; splitting it
+        inside one step would require a second KV transaction.
+        """
+        if self.pp_size <= 1 or len(seqs) <= 1:
+            return [seqs]
+        limit = self.pipeline_microbatch_tokens
+        batches, current, tokens = [], [], 0
+        for seq in seqs:
+            n = max(1, int(seq.num_scheduled_tokens))
+            if current and tokens + n > limit:
+                batches.append(current)
+                current, tokens = [], 0
+            current.append(seq)
+            tokens += n
+        if current:
+            batches.append(current)
+        return batches
+
     def step(self):
-        self.last_step_had_work = False
         seqs, is_prefill = self.scheduler.schedule()
-        if not seqs:
-            return []
-        self.last_step_had_work = True
+        microbatches = self._microbatches(seqs)
 
         if self.world_size == 1:
-            msg = _spec_msg(seqs, is_prefill,
-                            block_size=self.config.kvcache_block_size)
+            msg = _spec_msg(seqs, is_prefill)
             specs = rebuild_specs(msg)
             token_ids = self.inproc_runner.run(specs, is_prefill)
-            self.scheduler.postprocess(seqs, token_ids, is_prefill)
-            return [(s.seq_id, s.completion_token_ids) for s in seqs
-                    if s.is_finished]
+        else:
+            from engine.mq import broadcast
+            # 先把一个调度步的所有微批下发，再等待最后 stage 的响应。
+            # stage worker 的预投递 irecv 允许相邻微批在不同 stage 重叠。
+            for mb_id, mb in enumerate(microbatches):
+                msg = _spec_msg(
+                    mb, is_prefill,
+                    pipeline_lane=mb_id % self.pipeline_lanes,
+                    microbatch_id=mb_id)
+                broadcast(msg, self.broadcast_q)
+            inner = self.tp_size * self.ep_size * self.dcp_size
+            resp_rank = (self.pp_size - 1) * inner if self.pp_size > 1 else 0
+            by_id = {}
+            for _ in microbatches:
+                out = self.response_q[resp_rank].recv()
+                by_id.update(zip(out.get("seq_ids", []), out["tokens"]))
+            token_ids = [by_id[s.seq_id] for s in seqs]
 
-        from engine.mq import broadcast
-        chunks = _partition_microbatches(seqs, self.num_microbatches)
-        plans = []
-        for mb_id, chunk in enumerate(chunks):
-            # A decode-only chunk must use the decode kernel even when another
-            # chunk in the scheduler step contains a prefill segment.
-            mb_prefill = any(s.num_cached_tokens < s.num_prompt_tokens
-                             for s in chunk)
-            slot = self.virtual_engines[mb_id % len(self.virtual_engines)]
-            if slot.in_flight:
-                raise RuntimeError(f"virtual engine slot {slot.slot_id} is busy")
-            slot.in_flight += 1
-            msg = _spec_msg(chunk, mb_prefill, mb_id, slot.slot_id,
-                            block_size=self.config.kvcache_block_size)
-            plans.append(PipelinePlan(mb_id, slot.slot_id, 0,
-                                       mb_prefill, msg, tuple(chunk)))
-            # Sending all plans before receiving the first output fills the PP
-            # pipeline and removes the old m=1 bubble.
-            broadcast(msg, self.broadcast_q)
-
-        inner = self.tp_size * self.ep_size * self.dcp_size
-        resp_rank = (self.pp_size - 1) * inner if self.pp_size > 1 else 0
-        by_id = {p.microbatch_id: p for p in plans}
-        finished = []
-        for _ in plans:
-            out = self.response_q[resp_rank].recv()
-            if out.get("type") != "output":
-                raise RuntimeError(f"unexpected PP response: {out}")
-            plan = by_id.pop(out.get("microbatch_id"), None)
-            if plan is None:
-                raise RuntimeError(f"unknown microbatch response: {out}")
-            original = chunks[plan.microbatch_id]
-            self.scheduler.postprocess(original, out["tokens"],
-                                       plan.is_prefill)
-            self.virtual_engines[plan.virtual_engine].in_flight -= 1
-            finished.extend((s.seq_id, s.completion_token_ids)
-                            for s in original if s.is_finished)
-        return finished
+        self.scheduler.postprocess(seqs, token_ids, is_prefill)
+        return [(s.seq_id, s.completion_token_ids) for s in seqs if s.is_finished]
 
     def add_request(self, prompt_ids, sampling_params=None):
         sp = sampling_params or SamplingParams(temperature=0.0)
@@ -306,32 +251,19 @@ class EngineCore:
         """批推理便捷入口（与 LLMEngine.generate 对齐）。"""
         if not isinstance(prompts_ids, list):
             prompts_ids = [prompts_ids]
-        elif prompts_ids and isinstance(prompts_ids[0], int):
-            prompts_ids = [prompts_ids]
         if sampling_params is None:
             from samplingParams import SamplingParams
             sampling_params = SamplingParams(temperature=0.0)
         sps = sampling_params if isinstance(sampling_params, list) \
             else [sampling_params] * len(prompts_ids)
-        if len(sps) != len(prompts_ids):
-            raise ValueError("sampling_params and prompts_ids must have equal length")
-        seqs = [self.add_request(p, sp)
-                for p, sp in zip(prompts_ids, sps)]
+        for p, sp in zip(prompts_ids, sps):
+            self.add_request(p, sp)
         while not self.is_finished():
             self.step()
-        eos = self.config.eos
-        return [{"text": self.tokenizer.decode(seq.completion_token_ids,
-                                                skip_special_tokens=True),
-                 "token_ids": list(seq.completion_token_ids),
-                 "finish_reason": ("stop" if (not seq.ignore_eos and
-                                                 eos in seq.completion_token_ids)
-                                   else "length")}
-                for seq in seqs]
+        outs = []
+        return outs
 
     def shutdown(self):
-        if self._shutdown:
-            return
-        self._shutdown = True
         if self.broadcast_q is not None:
             from engine.mq import broadcast
             broadcast(SHUTDOWN, self.broadcast_q)
@@ -339,5 +271,3 @@ class EngineCore:
                 p.join(timeout=10)
                 if p.is_alive():
                     p.terminate()
-            for conn in self.broadcast_q + self.response_q:
-                conn.close()

@@ -2,7 +2,6 @@
 """v9.3 并行组件架构：Linear 组件原生感知并行，weight_loader 直接装载本 rank 切片。
 
 v6-v8 的做法（shard_model_for_tp：全量加载后就地切片）的三个结构性问题：
-1. **每卡先持有全量权重再切**——Qwen3-30B 每卡瞬时 60GB；DSV4 的 149GB
    根本走不了这条路（被迫发明 layer_device_map）。组件架构从构造起就只有
    本 rank 的 1/N，装载时切片，GPU 上从不出现全量权重；
 2. **切分逻辑在引擎侧伸手进模型内部**（`attn.q_proj.weight = ...`），
@@ -20,8 +19,6 @@ v6-v8 的做法（shard_model_for_tp：全量加载后就地切片）的三个�
 单卡/多卡是同一条代码路径——这是组件架构相对"事后切"的核心优势。
 """
 
-from dataclasses import dataclass
-
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
@@ -37,12 +34,15 @@ class ParallelState:
     def __init__(self):
         self.tp_size, self.tp_rank = 1, 0
         self.ep_size, self.ep_rank = 1, 0
-        self.dp_size, self.dp_rank = 1, 0
         self.cp_size, self.cp_rank = 1, 0       # DCP（decode cache 并行）
         self.pp_size, self.pp_rank = 1, 0       # PP（层切 stage）
+        # PP transport 的运行时元数据。由 ModelRunner 在每个微批开始时写入，
+        # 模型层只读取它选择 lane，不把调度状态塞进模型参数。
+        self.pipeline_lane, self.microbatch_id = 0, 0
+        self.pipeline_transport = None
         self.tp_group = None       # o_proj/w2 的 allreduce 域（tp 维）
+        self.ep_group = None       # 同一 tp/cp/pp 坐标沿 ep 变化
         self.moe_group = None      # MoE 部分和的聚合域（tp×ep 张成的组）
-        self.ep_group = None       # token dispatch domain (EP dimension)
 
     @property
     def tp_enabled(self):
@@ -57,18 +57,16 @@ STATE = ParallelState()
 
 
 def configure_parallel(tp_size=1, tp_rank=0, ep_size=1, ep_rank=0,
-                       tp_group=None, moe_group=None, ep_group=None,
-                       dp_size=1, dp_rank=0,
+                       tp_group=None, moe_group=None,
+                       ep_group=None,
                        cp_size=1, cp_rank=0, pp_size=1, pp_rank=0):
     """launcher 注入（构造模型前调用）。通信组由引擎侧建好传入——
     组件不建组（v8.2 教训：new_group 必须全 rank 对称 + device_id + 预热）。"""
     STATE.tp_size, STATE.tp_rank = tp_size, tp_rank
     STATE.ep_size, STATE.ep_rank = ep_size, ep_rank
-    STATE.dp_size, STATE.dp_rank = dp_size, dp_rank
     STATE.cp_size, STATE.cp_rank = cp_size, cp_rank
     STATE.pp_size, STATE.pp_rank = pp_size, pp_rank
-    STATE.tp_group, STATE.moe_group = tp_group, moe_group
-    STATE.ep_group = ep_group
+    STATE.tp_group, STATE.ep_group, STATE.moe_group = tp_group, ep_group, moe_group
     return STATE
 
 
@@ -97,88 +95,6 @@ def moe_allreduce(x: torch.Tensor) -> torch.Tensor:
     if STATE.moe_group is not None and dist.is_available() and dist.is_initialized():
         dist.all_reduce(x, group=STATE.moe_group)
     return x
-
-
-@dataclass(frozen=True)
-class ParallelCoordinates:
-    """Canonical row-major coordinates for one model-parallel replica."""
-
-    dp_rank: int
-    pp_rank: int
-    ep_rank: int
-    tp_rank: int
-    cp_rank: int
-
-
-def rank_coordinates(rank: int, *, tp_size: int, ep_size: int,
-                     cp_size: int, pp_size: int, dp_size: int = 1):
-    """Decode a global rank using one canonical topology."""
-    inner = tp_size * cp_size * ep_size
-    replica = pp_size * inner
-    world = dp_size * replica
-    if not 0 <= rank < world:
-        raise ValueError(f"rank {rank} outside world size {world}")
-    dp_rank, local = divmod(rank, replica)
-    pp_rank, local = divmod(local, inner)
-    ep_rank, local = divmod(local, tp_size * cp_size)
-    tp_rank, cp_rank = divmod(local, cp_size)
-    return ParallelCoordinates(dp_rank, pp_rank, ep_rank, tp_rank, cp_rank)
-
-
-def initialize_model_parallel(*, rank: int, world_size: int, tp_size: int,
-                               ep_size: int, cp_size: int, pp_size: int,
-                               dp_size: int = 1, device=None):
-    """Create all model-parallel groups in a deterministic order.
-
-    This is the vLLM ``parallel_state`` boundary: workers provide topology
-    sizes, while this function owns rank decoding, group membership and the
-    eager NCCL warmup needed before the first layer collective.
-    """
-    import torch.distributed as dist
-    coords = rank_coordinates(rank, tp_size=tp_size, ep_size=ep_size,
-                               cp_size=cp_size, pp_size=pp_size,
-                               dp_size=dp_size)
-    if world_size == 1:
-        configure_parallel(tp_size=1, tp_rank=0, ep_size=1, ep_rank=0,
-                           dp_size=dp_size, dp_rank=coords.dp_rank,
-                           cp_size=1, cp_rank=0, pp_size=1, pp_rank=0)
-        return coords, {"tp": None, "moe": None, "ep": None, "cp": None}
-    if world_size != dp_size * tp_size * ep_size * cp_size * pp_size:
-        raise ValueError("parallel sizes do not match world size")
-
-    inner = tp_size * cp_size * ep_size
-    replica = pp_size * inner
-    base = coords.dp_rank * replica
-    stage_base = base + coords.pp_rank * inner
-    tp_group = dist.new_group(ranks=[
-        stage_base + coords.ep_rank * tp_size * cp_size + t * cp_size
-        + coords.cp_rank for t in range(tp_size)]) if tp_size > 1 else None
-    moe_group = dist.new_group(ranks=[
-        stage_base + e * tp_size * cp_size + t * cp_size + coords.cp_rank
-        for e in range(ep_size) for t in range(tp_size)]) \
-        if tp_size * ep_size > 1 else None
-    ep_group = dist.new_group(ranks=[
-        stage_base + e * tp_size * cp_size + coords.tp_rank * cp_size
-        + coords.cp_rank for e in range(ep_size)]) if ep_size > 1 else None
-    cp_group = dist.new_group(ranks=[
-        stage_base + coords.ep_rank * tp_size * cp_size
-        + coords.tp_rank * cp_size + c for c in range(cp_size)]) \
-        if cp_size > 1 else None
-    for group in (tp_group, moe_group, ep_group, cp_group):
-        if group is not None:
-            probe = torch.zeros(1, device=device or "cuda")
-            dist.all_reduce(probe, group=group)
-    if device is not None:
-        torch.cuda.synchronize(device)
-    configure_parallel(tp_size=tp_size, tp_rank=coords.tp_rank,
-                       ep_size=ep_size, ep_rank=coords.ep_rank,
-                       tp_group=tp_group, moe_group=moe_group,
-                       ep_group=ep_group, dp_size=dp_size,
-                       dp_rank=coords.dp_rank, cp_size=cp_size,
-                       cp_rank=coords.cp_rank, pp_size=pp_size,
-                       pp_rank=coords.pp_rank)
-    return coords, {"tp": tp_group, "moe": moe_group,
-                    "ep": ep_group, "cp": cp_group}
 
 
 # ================= 切分数学 =================

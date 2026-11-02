@@ -10,7 +10,6 @@ TP/EP/PP 三种并行及组合，产出了通信量公式、单机矩阵、跨�
 | v6.0 | Qwen3-Omni-30B MoE 单卡（router + grouped experts + fp32 对拍 0.0） | ✓ |
 | v6.1 | TP2/TP4/TP8 单机 + 跨节点 TP8（Megatron 切分） | ✓ |
 | v6.2 | EP2 单机 + 跨节点（专家对半 + all_reduce 聚合） | ✓ |
-| v6.3 | DeepSeek-V4 模型文件（MLA + sqrtsoftplus + FP8 反量化） | 待做 |
 | v6.4 | 调度集中化（rank0 决策 + broadcast，解 EP>2/PP lockstep） | 待做 |
 
 ## 核心实测结论（数据全在 PARALLEL_ANALYSIS.md）
@@ -53,5 +52,4 @@ layers/moe.py              MoE 组件（weight_loader 协议：融合逻辑在�
 tests/                     全部实验/启动脚本：
   run_tp.py / run_ep.py / run_pp.py / run_parallel.py / run_tp_crossnode.py   启动器
   tp_worker.py / ep_worker.py / pp_worker.py / parallel_worker.py             worker
-  test_dsv4_stage1.py / verify_hf.py / comm_bench.py                          测试与微基准
 ```

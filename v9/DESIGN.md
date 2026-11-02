@@ -140,8 +140,6 @@ v9 从 **RTN g=128 起步**（零校准依赖、上表证明 1.5% 权重误差�
 |---|---|---|---|---|
 | int4 packed | 4 | per-group fp16 | 无原生，kernel 里 unpack | v9.0 实现 |
 | int8 | 8 | per-channel | int8 tensor core | probe 已测 |
-| FP8 e4m3 | 8 | per-block（128×128）或 per-tensor | **H20 原生 FP8 GEMM** | v6.3 DeepSeek 装载时反量化 |
-| MXFP4 | 4+8/32 | 1×32 块共享 e8m0 指数 | Blackwell 原生 | v6.3 DeepSeek 装载时反量化 |
 | FP8 KV | 8 | per-head 或 per-block | kernel 内反量化 | v9.3 |
 
 v6.3 已经写过 `dequant_fp4`（int8 双 nibble + e8m0）/`dequant_fp8`（e4m3 +
@@ -313,7 +311,6 @@ weight_loader 协议（先装载全量再切）。正确架构应该是**组件�
 |---|---|---|
 | 并行语义归属 | 引擎（shard_model_for_tp/ep） | 组件（`layers/parallel.py`） |
 | 模型文件 | 对并行无感知（全量构造） | 构造时读 ParallelState，直接建本 rank 形状 |
-| 显存路径 | 每卡先全量加载再切（60GB 瞬时；DSV4 149GB 走不了） | **GPU 上从不出现全量权重** |
 | 装载 | 绕过协议（narrow 视图陷阱的温床） | weight_loader 吃全量张量、内部切片 |
 | 通信 | 层 forward 里显式 tp_allreduce | RowParallel/MoE 组件内置 |
 | 单卡路径 | 与多卡不同代码路径 | 同一路径（tp=1 退化），零分支 |

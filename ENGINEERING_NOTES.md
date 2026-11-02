@@ -60,9 +60,7 @@ bf16 累加顺序差异 → logits 差 ~0.1 → 概率接近的 token argmax 翻
 
 ---
 
-### 1.4 ⭐⭐ DSV4 乱码三连：yarn 方向反 → 压缩器缺失 → 双 rope 体系（v6.3）
 
-**现象**：DeepSeek-V4-Flash e2e 输出乱码 `'2 Programming# Ir...'`（管线跑通但数值全错）。
 
 **排查**（三轮，每轮一个独立 bug，靠"输出前缀对了几 token"递进定位）：
 1. **纸上推演 rope**：pos=5 处我们 cos=[0.999, 1.000, ...]（没旋转），HF cos=[0.284, -0.821, ...]——位置信息归零；
@@ -319,7 +317,6 @@ SFTP 写文件报 `OSError: Failure`、shell echo 重定向静默失败。
 **排查**：逐层测——代理对大文件 503/reset（curl 直连测出 hf-mirror 只有
 175KB/s）、ModelScope 直连 4.75MB/s（快 27 倍）→ 但 61GB 仍要 3.6h。
 
-**解决**：放弃下载，盘点本机已有模型（DeepSeek-V4-Flash 149GB +
 Qwen3-Omni-30B 66GB，都满足需求）。
 
 **教训**：下载前先测实际带宽；**"已有的资源"优先于"理想的资源"**。

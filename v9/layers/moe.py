@@ -8,8 +8,8 @@
     一次 batched gemm（不是 HF 的逐专家循环，也不是 dense 大矩阵乘全部专家）。
     权重布局 [num_experts, 3*I, H]（gate|up 融合在第一个 gemm，down 是第二个）。
 
-EP 扩展点（v6.2）：本文件只做"本地专家子集"的计算，dispatch/combine 的
-all-to-all 在 model_runner 层做（experts 的输入输出张量按 expert 分片搬运）。"""
+EP 使用独立 ep_group 做变长 dispatch/combine；模型层只负责路由和本地
+grouped expert，通信协议仍由组件封装，避免 model_runner 了解专家布局。"""
 import os
 
 import torch
@@ -146,50 +146,16 @@ class GroupedExperts(nn.Module):
             toks = sorted_token[start:end]             # 该专家的 token 索引
             xs = x[toks]                               # [n_e, H]
             h13 = xs @ w13[e].t()                      # [n_e, 2I]
-            from layers.kernels import silu_and_mul
-            act = silu_and_mul(h13)                    # [n_e, I]
+            gate, up = h13.chunk(2, dim=-1)
+            act = F.silu(gate) * up                    # [n_e, I]
             out = act @ w2[e].t()                      # [n_e, H]
             final.index_add_(0, toks, out * sorted_w[start:end, None].to(out.dtype))
             start = end
         return final
 
 
-class SharedExpert(nn.Module):
-    """Replicated dense expert used to hide EP dispatch latency.
-
-    Shared experts are intentionally replicated across EP ranks.  Their
-    output is independent of routing, so it can run on a side CUDA stream
-    while routed tokens are exchanged and processed by local experts.
-    """
-
-    def __init__(self, hidden_size: int, intermediate: int):
-        super().__init__()
-        self.hidden = hidden_size
-        self.inter = intermediate
-        self.w13 = nn.Parameter(torch.empty(2 * intermediate, hidden_size))
-        self.w2 = nn.Parameter(torch.empty(hidden_size, intermediate))
-        self.w13.weight_loader = self.weight_loader
-        self.w2.weight_loader = self.weight_loader
-
-    def weight_loader(self, param, loaded, shard_id=None):
-        """Load separate gate/up checkpoint tensors into fused ``w13``."""
-        if param is self.w13 and shard_id in (0, 1):
-            start = int(shard_id) * self.inter
-            param.data[start:start + self.inter].copy_(loaded)
-        else:
-            param.data.copy_(loaded)
-
-    def forward(self, x):
-        from layers.kernels import silu_and_mul
-        return silu_and_mul(x @ self.w13.t()) @ self.w2.t()
-
-
 class MoEMLP(nn.Module):
-    """一层完整 MoE：router + dispatch/combine + optional shared expert。
-
-    ``shared_expert_intermediate_size`` 非零时，shared expert 在 EP ranks
-    上复制；EP-only inference 会在 side CUDA stream 上与 routed dispatch
-    重叠，训练或 TP 模式回退到同步正确路径。
+    """一层完整 MoE：router + experts。无共享专家（Qwen3-Omni 配置为 0）。
 
     EP 模式（v6.2）：expert_parallel=True 时——
       1. 本地 experts 只持有自己一半专家的权重（loader/shard 切）；
@@ -205,62 +171,23 @@ class MoEMLP(nn.Module):
                                 getattr(config, "norm_topk_prob", True))
         self.experts = GroupedExperts(config.num_experts, config.hidden_size,
                                       config.moe_intermediate_size)
-        shared_intermediate = int(getattr(
-            config, "shared_expert_intermediate_size", 0) or 0)
-        from layers.parallel import STATE
-        if shared_intermediate > 0 and STATE.tp_size > 1:
-            raise ValueError(
-                "shared expert overlap currently requires tp_size=1; "
-                "use EP-only or add a sharded shared-expert component")
-        self.shared_expert = (SharedExpert(config.hidden_size,
-                                           shared_intermediate)
-                              if shared_intermediate > 0 else None)
-        self._shared_stream = None
         # v9.3: 并行状态在 GroupedExperts 内部（构造时从 ParallelState 读）,
         # MoEMLP 只负责 router + 本地计算 + 部分和聚合
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        from layers.parallel import STATE, moe_allreduce
-        idx, w = self.router(x)
+        from layers.parallel import STATE, tp_allreduce
+        with torch.autograd.profiler.record_function("moe.router"):
+            idx, w = self.router(x)
         if STATE.ep_size > 1:
-            # EP-only shared expert: replicate once per rank and overlap its
-            # dense GEMMs with the routed all-to-all.  TP requires a separate
-            # sharded shared-expert implementation, so keep correctness first.
-            shared, event = self._launch_shared(x, STATE)
-            routed = self._ep_dispatch(x, idx, w)
-            if self.shared_expert is None:
-                return routed
-            if shared is None:
-                return routed + self.shared_expert(x)
-            torch.cuda.current_stream(x.device).wait_event(event)
-            return routed + shared
+            # EP uses variable-size dispatch/combine.  Every destination
+            # receives exactly the token count for its local experts; no
+            # [world, max_tokens] padding or full-token replication.
+            out = self._ep_forward_alltoallv(x, idx, w)
+            return tp_allreduce(out)
         if not STATE.tp_enabled:
-            routed = self.experts(x, idx, w)
-            return routed + self.shared_expert(x) \
-                if self.shared_expert is not None else routed
+            return self.experts(x, idx, w)
         out = self._ep_forward_local(x, idx, w)
-        out = moe_allreduce(out)
-        return out + self.shared_expert(x) \
-            if self.shared_expert is not None else out
-
-    def _launch_shared(self, x, state):
-        """Launch shared expert before dispatch and return its join event.
-
-        The side stream waits for the current stream's writes to ``x``.  The
-        caller can then execute the routed all-to-all on the current stream.
-        """
-        if (self.shared_expert is None or state.tp_size != 1 or
-                not x.is_cuda or torch.is_grad_enabled()):
-            return None, None
-        if self._shared_stream is None:
-            self._shared_stream = torch.cuda.Stream(device=x.device)
-        current = torch.cuda.current_stream(x.device)
-        self._shared_stream.wait_stream(current)
-        with torch.cuda.stream(self._shared_stream):
-            shared = self.shared_expert(x)
-            event = torch.cuda.Event()
-            event.record(self._shared_stream)
-        return shared, event
+        return tp_allreduce(out)
 
     def _experts_local(self, xs, eids, ws):
         """本地专家子集的分组计算（eids 是本地编号）。"""
@@ -276,78 +203,12 @@ class MoEMLP(nn.Module):
                 continue
             toks = order[start:end]
             h13 = xs_s[start:end] @ self.experts.w13[e].t()
-            from layers.kernels import silu_and_mul
-            act = silu_and_mul(h13)
+            gate, up = h13.chunk(2, dim=-1)
+            act = torch.nn.functional.silu(gate) * up
             out = act @ self.experts.w2[e].t()
             final[toks] = out * ws_s[start:end, None].to(out.dtype)
             start = end
         return final
-
-    def _all_to_all(self, tensor, send_splits, recv_splits):
-        """Exchange a first-dimension tensor over the EP group."""
-        from layers.parallel import STATE
-        import torch.distributed as dist
-        out_shape = (sum(recv_splits),) + tuple(tensor.shape[1:])
-        out = torch.empty(out_shape, dtype=tensor.dtype, device=tensor.device)
-        dist.all_to_all_single(
-            out, tensor, output_split_sizes=recv_splits,
-            input_split_sizes=send_splits, group=STATE.ep_group)
-        return out
-
-    def _ep_dispatch(self, x, idx, w):
-        """Route token/expert pairs to their owning EP rank.
-
-        vLLM's MoE path separates router, dispatch, expert GEMM and combine.
-        We follow the same ownership rule here: each token/expert pair is sent
-        once over the EP dimension, local TP ranks compute their intermedate
-        shard, TP all-reduces the partial output, and a reverse all-to-all
-        restores the source token order.  This removes the old all-ranks
-        redundant expert computation and the tp×ep all-reduce of full hidden
-        tensors.
-        """
-        from layers.parallel import STATE
-        import torch.distributed as dist
-        if STATE.ep_group is None or not dist.is_initialized():
-            raise RuntimeError("EP requires an initialized EP process group")
-        ex = self.experts
-        T, H = x.shape
-        k = idx.shape[1]
-        per_ep = ex.num_experts
-        flat_expert = idx.reshape(-1)
-        flat_weight = w.reshape(-1)
-        flat_token = torch.arange(T, device=x.device).repeat_interleave(k)
-        dest = torch.div(flat_expert, per_ep, rounding_mode="floor")
-        local_eid = flat_expert - dest * per_ep
-        order = torch.argsort(dest, stable=True)
-        send_counts = torch.bincount(dest, minlength=STATE.ep_size).tolist()
-        send_x = x[flat_token[order]]
-        send_eid = local_eid[order].to(torch.int32)
-        send_weight = flat_weight[order]
-        send_token = flat_token[order].to(torch.int32)
-
-        # Exchange per-destination counts so all_to_all_single can allocate its
-        # receive tensor without a global padding buffer.
-        count_t = torch.tensor(send_counts, dtype=torch.int64, device=x.device)
-        gathered = [torch.empty_like(count_t) for _ in range(STATE.ep_size)]
-        dist.all_gather(gathered, count_t, group=STATE.ep_group)
-        recv_counts = [int(t[STATE.ep_rank].item()) for t in gathered]
-
-        recv_x = self._all_to_all(send_x, send_counts, recv_counts)
-        recv_eid = self._all_to_all(send_eid, send_counts, recv_counts)
-        recv_weight = self._all_to_all(send_weight, send_counts, recv_counts)
-        recv_token = self._all_to_all(send_token, send_counts, recv_counts)
-
-        local_out = self._experts_local(recv_x, recv_eid, recv_weight)
-        # w2 is input-sharded by TP. All TP ranks in this EP owner group must
-        # combine their partial hidden output before the return dispatch.
-        if STATE.tp_group is not None:
-            dist.all_reduce(local_out, group=STATE.tp_group)
-
-        returned = self._all_to_all(local_out, recv_counts, send_counts)
-        returned_token = self._all_to_all(recv_token, recv_counts, send_counts)
-        out = torch.zeros_like(x)
-        out.index_add_(0, returned_token.long(), returned)
-        return out
 
     def _ep_forward_local(self, x, idx, w):
         """本地专家部分和（DP-style EP，v6.2 设计）：
@@ -374,3 +235,55 @@ class MoEMLP(nn.Module):
             outs = self._experts_local(xs, eids_local, ws)
             out.index_add_(0, toks, outs)
         return out
+
+    def _ep_forward_alltoallv(self, x, idx, w):
+        """Variable-length EP dispatch and combine using NCCL all-to-allv.
+
+        The flattened route entries are grouped by destination EP rank.  The
+        destination computes only its local experts and returns outputs in the
+        same per-peer order, allowing the sender to scatter-add directly into
+        its original token rows.  ``send_counts``/``recv_counts`` are exchanged
+        first, so hot experts create real larger messages instead of padding.
+        """
+        from layers.parallel import STATE
+        if STATE.ep_group is None:
+            raise RuntimeError("EP all-to-allv requires an ep_group")
+        import torch.distributed as dist
+        T, H = x.shape
+        k = idx.shape[1]
+        experts_per_rank = self.experts.num_experts
+        flat_e = idx.reshape(-1).to(torch.int64)
+        flat_w = w.reshape(-1)
+        flat_t = torch.arange(T, device=x.device, dtype=torch.int64).repeat_interleave(k)
+        dest = torch.div(flat_e, experts_per_rank, rounding_mode="floor")
+        order = torch.argsort(dest, stable=True)
+        send_e = flat_e[order].contiguous()
+        send_w = flat_w[order].contiguous()
+        send_t = flat_t[order].contiguous()
+        send_x = x[send_t].contiguous()
+        world = STATE.ep_size
+        send_counts = torch.bincount(dest, minlength=world).to(torch.int64)
+        recv_counts = torch.empty_like(send_counts)
+        dist.all_to_all_single(recv_counts, send_counts, group=STATE.ep_group)
+        ss = [int(v) for v in send_counts.tolist()]
+        rs = [int(v) for v in recv_counts.tolist()]
+
+        def a2a(inp, out_shape, splits_in, splits_out):
+            out = torch.empty(out_shape, dtype=inp.dtype, device=inp.device)
+            dist.all_to_all_single(out, inp, output_split_sizes=splits_out,
+                                   input_split_sizes=splits_in, group=STATE.ep_group)
+            return out
+
+        with torch.autograd.profiler.record_function("moe.dispatch"):
+            recv_x = a2a(send_x, (sum(rs), H), ss, rs)
+        recv_e = a2a(send_e, (sum(rs),), ss, rs)
+        recv_w = a2a(send_w, (sum(rs),), ss, rs)
+        # Convert global expert ids to this rank's local interval.
+        local_e = recv_e - STATE.ep_rank * experts_per_rank
+        with torch.autograd.profiler.record_function("moe.expert"):
+            recv_out = self._experts_local(recv_x, local_e, recv_w)
+        with torch.autograd.profiler.record_function("moe.combine"):
+            returned = a2a(recv_out, (sum(ss), H), rs, ss)
+        result = torch.zeros((T, H), dtype=x.dtype, device=x.device)
+        result.index_add_(0, send_t, returned)
+        return result

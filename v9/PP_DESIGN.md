@@ -1,61 +1,19 @@
-# v9 Pipeline Parallelism
+# Qwen3-Omni-30B PP/DualPipe 说明
 
-v9 keeps one scheduler in `EngineCore`, as vLLM v1 does. A scheduled batch is
-turned into immutable `PipelinePlan` messages and split into ordered
-microbatches. Every plan carries a `microbatch_id` and `virtual_engine` slot;
-responses are matched by ID before the scheduler retires the corresponding
-sequences.
+## 一次完整 forward 为什么有气泡
 
-## Configuration
+假设有 p 个 stage 和一个 batch。stage0 必须先算完并发送 activation，stage1 才能开始；stage1 工作时 stage0 等待下一批，最后还要排空后续 stage。这个等待区间就是 pipeline bubble。m 个独立微批进入后，stage0 可以继续计算下一个微批，stage1 同时处理上一个微批，理想 bubble 约为 `(p-1)/(m+p-1)`。
 
-```python
-EngineCore(
-    model_path,
-    pp_size=2,
-    config_kwargs={"pipeline_microbatches": 4},
-    gpus=[0, 1],
-)
-```
+## 当前代码做了什么
 
-`virtual_engine_size` is an alias for `pipeline_microbatches`. PP=1 always
-uses one plan and keeps the single-card path unchanged. With PP>1 and
-`pipeline_microbatches=1`, behavior is equivalent to the old lockstep path.
-Increasing the value sends several plans before collecting the last-stage
-responses, filling the forward pipeline.
+`EngineCore` 把 scheduler 的多个序列按 token 预算切成微批，给每个微批分配 `microbatch_id` 和两个 lane 之一；它把一个调度步的消息全部下发后，再从最后 stage 收集输出。`PipelineTransport` 在 stage>0 启动时预投递 shape 接收，payload 使用异步 `irecv`，stage<last 使用异步 `isend`，并以 credit 限制在途 buffer。
 
-For a forward-only analogue of DeepSeek's zero-bubble idea, set
-`pipeline_schedule="zero_bubble"`. The engine keeps at least two pipeline
-depths worth of microbatch slots in flight (bounded by the number of scheduled
-sequences), while stage-to-stage sends remain asynchronous. This hides the
-steady-state wait between stages, but it is not the training ZB-H1/ZB-V
-schedule: there is no backward pass and a batch with fewer than `2 * pp_size`
-sequences still has fill/drain bubbles.
+因此 stage0 的微批 1 可以在 stage1 计算微批 0 时开始传输，减少串行等待。它是推理 forward-only 的双 lane 流水线，不包含训练 DualPipe 的 backward 调度。
 
-## Transport invariants
+## 仍然存在的边界
 
-- Each PP lane is formed by ranks with the same TP/EP/DCP coordinate.
-- The model owns no rank arithmetic or raw `dist.send/recv`;
-  `PipelineTransport` owns the shape header and activation protocol.
-- Intermediate activations use nonblocking sends. Send buffers stay referenced
-  until their `Work` completes; workers drain all pending sends before NCCL
-  teardown.
-- Only stage `pp_size - 1`, inner rank zero returns sampled token IDs. For
-  TP/EP without PP, only global rank zero returns them, so response pipes do
-  not accumulate unused outputs.
-- A microbatch is retired exactly once. Sequence mutation and KV-cache block
-  release remain in the EngineCore scheduler.
+单个超长请求在一个调度步内仍按完整序列传输；chunked prefill 会在多个调度步推进它，但不能只切 activation 而不同时切 KV 写入。请求数少于流水线深度时仍会有 fill/drain bubble。要声称 zero-bubble，必须在 CUDA trace 中同时看到计算 stream 和通信 stream 的重叠，并量化空闲比例。
 
-The current scheduler partitions complete scheduled sequences. This preserves
-KV-cache ownership and request ordering. A single very long sequence therefore
-cannot be split across microbatches; use chunked prefill or a larger request
-batch to expose more pipeline parallelism.
+## 面试时应如何表述
 
-## Validation
-
-`tests/test_pipeline_schedule.py` checks ordering, ownership, and message
-identity without loading a model. Use an EngineCore smoke script with
-`pp_size=2` and compare `pipeline_microbatches=1` and `4` with identical
-prompts. Verify token equality before comparing TTFT, TPOT, and throughput.
-The older `tests/run_pp.py` is a legacy standalone stage test and does not
-exercise EngineCore microbatching.
-
+可以说项目实现了“带预投递 receive、异步 P2P、双 lane 和 credit backpressure 的 forward-only pipeline prototype”，并明确还没有实现训练版 DualPipe 的 backward 优先调度，也没有 DeepEP 级别的自定义通信 kernel。这种边界比把字段名直接称为 zero-bubble 更可信。

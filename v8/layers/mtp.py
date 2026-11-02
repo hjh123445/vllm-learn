@@ -1,7 +1,6 @@
 # v7/layers/mtp.py
 """v7 MTP 投机解码：draft-verify 循环。
 
-算法（DeepSeek-V3 的 MTP 推理用法 / 标准 speculative decoding）:
   1. draft: 用轻量 draft 模型（n-gram 或 MTP 层）自回归生成 k 个候选 token
   2. verify: 把 k 个候选拼成序列，**一次前向**算出每个位置的概率
      p_target(t_1..t_k | prefix, t_1..t_{i-1})
