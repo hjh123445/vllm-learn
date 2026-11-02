@@ -75,21 +75,6 @@ class ParallelCoords:
         return f"Coords[{c}] (world={self.world_rank}/{self.world_size})"
 
 
-def warmup_groups(coords: ParallelCoords):
-    """每个维度的组做一次小 collective——强制 NCCL communicator 立即完成
-    wire-up（惰性初始化在多组交错时是死锁雷区：v8.2 实测 cp 组第一次
-    all_gather 的 bootstrap TCP 连接被拒 → 卡 barrier 25 分钟）。
-    所有 rank 以相同顺序调用（DIMES 顺序）。"""
-    if not dist.is_initialized():
-        return
-    for dim in ParallelCoords.DIMS:
-        g = coords.group(dim)
-        if g is not None:
-            t = torch.zeros(1, device="cuda")
-            dist.all_reduce(t, group=g)
-    torch.cuda.synchronize()
-
-
 def init_coords(dp=1, tp=1, cp=1, ep=1, pp=1, init_dist=False) -> ParallelCoords:
     """初始化坐标系统。
     init_dist=True 时自动 init_process_group（带 device_id——多 new_group 交错
@@ -107,40 +92,3 @@ def init_coords(dp=1, tp=1, cp=1, ep=1, pp=1, init_dist=False) -> ParallelCoords
 
 
 # ============ 各维的通信原语 ============
-
-def tp_allreduce(x: torch.Tensor, coords: ParallelCoords) -> torch.Tensor:
-    """TP: 层输出同步（本维组内）。"""
-    g = coords.group("tp")
-    if g is None:
-        return x
-    dist.all_reduce(x, group=g)
-    return x
-
-
-def ep_allreduce(x: torch.Tensor, coords: ParallelCoords) -> torch.Tensor:
-    """EP: 专家部分和聚合（本维组内）。"""
-    g = coords.group("ep")
-    if g is None:
-        return x
-    dist.all_reduce(x, group=g)
-    return x
-
-
-def dcp_allgather(x: torch.Tensor, coords: ParallelCoords) -> torch.Tensor:
-    """DCP: partial 结果 allgather 到本维组（ag_rs 后端的第一步）。"""
-    g = coords.group("cp")
-    if g is None:
-        return x
-    out = torch.empty_like(x).unsqueeze(0).expand(coords.sizes["cp"], *x.shape)
-    dist.all_gather_into_tensor(out.reshape(-1, *x.shape), x, group=g)
-    return out
-
-
-def dcp_reducescatter(x: torch.Tensor, coords: ParallelCoords) -> torch.Tensor:
-    """DCP: 合并结果 reducescatter 回各卡（ag_rs 后端的第二步）。"""
-    g = coords.group("cp")
-    if g is None:
-        return x
-    out = torch.empty_like(x)
-    dist.reduce_scatter_tensor(out, x, group=g)
-    return out

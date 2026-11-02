@@ -37,12 +37,8 @@ class ModelRunner:
         self.sampler = Sampler()
 
         # ---- warmup 量激活峰值 → 按显存预算公式定池子 ----
-        # TP 模式下 warmup 在切分前跑会按全量权重分配爆显存 → 跳过 warmup，
-        # 池子由 run_tp.py 在切分后手动分配
+        # （v6-v8 快照：单卡路径——多卡 TP/EP 启动器已删除，多卡在 v9）
         self.kv_cache = None
-        if getattr(config, "tensor_parallel_size", 1) > 1 or \
-           getattr(config, "expert_parallel_size", 1) > 1:
-            return          # TP/EP: 切分后由启动器手动分配
         self._warmup_model()
         self.allocate_kv_cache()
 
@@ -58,16 +54,6 @@ class ModelRunner:
                 layer_id += 1
         assert layer_id == self.config.hf_config.num_hidden_layers
 
-    def _shard_kv_heads_for_tp(self, tp_rank: int, tp_size: int):
-        """TP 切分后 attention 的 kv 头数变 kv/TP——池子和 Attention 模块同步缩。
-        在 shard_model_for_tp 之后、allocate_kv_cache 之前调用。"""
-        hf = self.config.hf_config
-        # kv 头数 < TP 时复制（parallel.py 同语义）：per_kv = max(1, kv/TP)
-        per_kv = max(1, hf.num_key_value_heads // tp_size)
-        for m in self.model.modules():
-            if hasattr(m, "num_kv_head"):
-                m.num_kv_head = per_kv
-        self._tp_kv_heads = per_kv
 
     def _warmup_model(self):
         """dummy 最大压力前向量激活峰值（prefill + decode 两种形状都量到）。
