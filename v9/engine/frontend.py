@@ -92,7 +92,11 @@ class DPFrontend:
             kw.setdefault("master_port", 29750 + i)
             parent, child = self._ctx.Pipe()
             p = self._ctx.Process(target=_enginecore_process,
-                                   args=(child, model_path, kw, g), daemon=True)
+                                   # EngineCore itself owns one worker process per
+                                   # GPU.  A daemon DP wrapper cannot create child
+                                   # processes (multiprocessing forbids nesting),
+                                   # so keep the replica supervisor non-daemonic.
+                                   args=(child, model_path, kw, g), daemon=False)
             p.start()
             self._conns.append(parent)
             self.cores.append(p)
