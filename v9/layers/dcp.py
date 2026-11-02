@@ -30,14 +30,9 @@ class DCPCacheCoordinator:
     def owns(self, global_block: int) -> bool:
         return global_block % self.size == self.rank
 
-    def local_blocks(self, block_table: list[int]) -> list[int]:
-        """本 rank 持有的块（保持顺序）。"""
-        return [b for b in block_table if self.owns(b)]
 
-    def mask_for(self, block_table: list[int]) -> torch.Tensor:
-        """[n_blocks] 的 bool：True = 本 rank 持有。"""
-        t = torch.tensor(block_table)
-        return t % self.size == self.rank
+
+
 
 
 def partial_attention_with_lse(q, k, v, scale):
@@ -52,25 +47,7 @@ def partial_attention_with_lse(q, k, v, scale):
     return out, m, l
 
 
-def dcp_ag_rs_merge(partials, ms, ls, coords):
-    """ag_rs 后端：AllGather partial+LSE → 加权合并 → ReduceScatter。
-    本版实现为 all_reduce 简化（数学等价：LSE 加权和的结合律）——
-    真正的 ag_rs 切分留 8.2（当前 batch=decode 的 b 小, 全量 allreduce
-    的额外开销可忽略）。"""
-    g = coords.group("cp")
-    if g is None:
-        # 单卡：直接合并（只有一个 partial）
-        return partials[0] if partials else None
-    # 堆叠通信: [b, h, d] + [b, h] × 2 拼一个大 tensor 一次 all_reduce
-    b, h, d = partials[0].shape
-    buf = torch.zeros(b, h, d + 2, device=partials[0].device,
-                      dtype=partials[0].dtype)
-    buf[..., :d] = 0                    # partial 走加法不行——LSE 合并非线性!
-    # 正确做法: all_gather 全部再本地合并（ag 的前半）, 不做 rs 的切分
-    parts = torch.stack(partials)       # [N, b, h, d]
-    mm = torch.stack(ms)                # [N, b, h]
-    ll = torch.stack(ls)                # [N, b, h]
-    return lse_merge_stack(parts, mm, ll)
+
 
 
 def lse_merge_stack(parts, ms, ls):

@@ -67,8 +67,7 @@ class ParallelCoords:
         """本进程在 dim 维的组（None = 该维不并行，单进程）。"""
         return self._groups.get(dim)
 
-    def coord_vector(self) -> dict:
-        return dict(self._coord)
+
 
     def __repr__(self):
         c = ",".join(f"{k}={v}" for k, v in self._coord.items())

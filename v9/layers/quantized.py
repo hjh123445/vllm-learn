@@ -136,13 +136,6 @@ class QuantizedLinear(nn.Module):
         deq = (q.reshape(N, -1, self.group) * sv).reshape(N, -1)[:, :K]
         return F.linear(x, deq)
 
-    @staticmethod
-    def from_bf16(linear: nn.Module, group: int = 128) -> "QuantizedLinear":
-        """把已装载 bf16 的 BaseLinear 就地转换（保持 weight_loader 协议）。"""
-        ql = QuantizedLinear(linear.weight.shape[1], linear.weight.shape[0], group)
-        ql.weight_loader(None, linear.weight.data)
-        return ql
-
 
 class QuantizedRowParallelLinear(QuantizedLinear):
     """量化版 RowParallelLinear（P0-10 修复）。

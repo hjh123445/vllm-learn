@@ -96,18 +96,7 @@ def dequant_gemm(x: torch.Tensor, w_packed: torch.Tensor, w_scales: torch.Tensor
     return y
 
 
-def quant_linear(x, w_packed, w_scales, group=128, dequant_threshold=64):
-    """量化权重的混合路由（vLLM w4a16 的策略同款）：
-    - 小 M（decode，带宽 bound）：B2 融合 kernel——int4 读 + 寄存器反量化；
-    - 大 M（prefill，算力 bound）：B1 反量化 + cuBLAS——dequant 开销被
-      大 M 摊薄（实测 M=4096: B1 0.356ms vs B2 4.4ms，B1 赢 12x）。
-    阈值由 K/N 形状微调，默认 64（M<64 走 kernel）。"""
-    M = x.shape[0]
-    if M <= dequant_threshold:
-        return dequant_gemm(x, w_packed, w_scales, group)
-    from layers.quantized import dequantize
-    w = dequantize(w_packed, w_scales, group).to(x.dtype)
-    return x @ w.t()
+
 
 
 if __name__ == "__main__":
