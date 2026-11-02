@@ -45,6 +45,9 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     if "," not in visible and visible.strip() and requested >= torch.cuda.device_count():
         requested = 0
     torch.cuda.set_device(requested if requested < torch.cuda.device_count() else 0)
+    print(f"[worker-device] rank={rank} gpu_id={gpu_id} visible={visible!r} "
+          f"count={torch.cuda.device_count()} current={torch.cuda.current_device()}",
+          flush=True)
     import torch.distributed as dist
 
     # v8.2 教训三件套：device_id 显式绑定 + 组预热 + 对称收发
