@@ -64,9 +64,13 @@ class PipelineTransport:
         self.comm_stream = (torch.cuda.Stream(device=self.device)
                             if self.device.type == "cuda" and torch.cuda.is_available()
                             else None)
-        if self.src is not None:
-            for lane in range(self.lanes):
-                self._post_shape(lane)
+        # Do not call NCCL ``irecv`` during worker construction.  NCCL's
+        # point-to-point communicator setup is a rendezvous with the sender;
+        # stage 0 is still loading its model at this point and cannot issue an
+        # ``isend``.  Eager receives therefore deadlock PP startup.  The first
+        # receive is posted lazily from ``recv_forward`` once the matching
+        # stage-0 send is in the same forward schedule; subsequent receives are
+        # still preposted to preserve the credit-window overlap.
 
     def _post_shape(self, lane: int):
         shape = torch.empty(4, dtype=torch.int64, device=self.device)
@@ -116,6 +120,9 @@ class PipelineTransport:
             raise RuntimeError("stage 0 cannot recv_forward")
         lane %= self.lanes
         slot = self._recv[lane]
+        if slot is None:
+            self._post_shape(lane)
+            slot = self._recv[lane]
         assert slot is not None
         slot.request.wait()
         tokens, hidden_size, microbatch_id, msg_lane = map(int, slot.shape.cpu().tolist())
