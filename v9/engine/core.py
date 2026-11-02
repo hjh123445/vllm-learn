@@ -106,6 +106,7 @@ class EngineCore:
                  pipeline_lanes=2, pipeline_credit=4,
                  pipeline_microbatch_tokens=2048):
         self.world_size = tp_size * ep_size * dcp_size * pp_size
+        self.debug = os.getenv("VLLM_LEARN_DEBUG", "0") == "1"
         self.tp_size, self.ep_size = tp_size, ep_size
 
         # ---- 顺序关键：runner 先于 scheduler ----
@@ -179,6 +180,8 @@ class EngineCore:
             blocks = []
             for r in senders:
                 m = self.response_q[r].recv()
+                if self.debug:
+                    print(f"[core-ready] rank={r} blocks={m.get('num_kvcache_blocks')}", flush=True)
                 assert m.get("type") == "ready", m
                 blocks.append(m["num_kvcache_blocks"])
             # TP 切分对称 → 各 rank 块数应一致；EP 下本地专家不同 → 激活峰值
@@ -230,11 +233,15 @@ class EngineCore:
                     pipeline_lane=mb_id % self.pipeline_lanes,
                     microbatch_id=mb_id)
                 broadcast(msg, self.broadcast_q)
+                if self.debug:
+                    print(f"[core-send] mb={mb_id} n={len(mb)}", flush=True)
             inner = self.tp_size * self.ep_size * self.dcp_size
             resp_rank = (self.pp_size - 1) * inner if self.pp_size > 1 else 0
             by_id = {}
             for _ in microbatches:
                 out = self.response_q[resp_rank].recv()
+                if self.debug:
+                    print(f"[core-output] mb={out.get('microbatch_id')} n={out.get('n')}", flush=True)
                 by_id.update(zip(out.get("seq_ids", []), out["tokens"]))
             token_ids = [by_id[s.seq_id] for s in seqs]
 

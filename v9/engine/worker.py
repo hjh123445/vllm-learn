@@ -28,6 +28,7 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     tp/ep:     本 EngineCore 内的并行坐标（ParallelCoords 的 (tp,ep) 笛卡尔积）
     broadcast_q/response_q: 引擎侧传来的 Queue（mp.Queue 可 pickle 跨进程）
     """
+    debug = os.getenv("VLLM_LEARN_DEBUG", "0") == "1"
     # 设备由 launcher 通过 CUDA_VISIBLE_DEVICES 控制（每 worker 只见一张卡,
     # spawn 继承父进程 env → EngineCore 在 spawn 前为每个 worker 设置子进程 env）
     os.environ["RANK"] = str(rank)
@@ -139,20 +140,28 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
                  "num_kvcache_blocks": config.num_kvcache_blocks}
     if is_ready_rank:
         response_conn.send(ready_sig)
+        if debug:
+            print(f"[worker-ready] rank={rank} blocks={config.num_kvcache_blocks}", flush=True)
 
     while True:
         msg = broadcast_conn.recv()
         if msg is SHUTDOWN or msg.get("type") == "shutdown":
             break
+        if debug:
+            print(f"[worker-recv] rank={rank} mb={msg.get('microbatch_id')} n={len(msg.get('scheduled', []))}", flush=True)
         # scheduler_output → forward 输入（用完即弃的快照）
         from engine.core import rebuild_specs
         specs = rebuild_specs(msg)
         is_prefill = msg["is_prefill"]
         token_ids = []
         if specs:
+            if debug:
+                print(f"[worker-run] rank={rank} mb={msg.get('microbatch_id')}", flush=True)
             token_ids = runner.run(specs, is_prefill,
                                    pipeline_lane=msg.get("pipeline_lane", 0),
                                    microbatch_id=msg.get("microbatch_id", 0))
+            if debug:
+                print(f"[worker-done] rank={rank} mb={msg.get('microbatch_id')}", flush=True)
         if is_resp_rank:
             response_conn.send({"type": "output", "tokens": token_ids,
                                 "seq_ids": [s.seq_id for s in specs],
