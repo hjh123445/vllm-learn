@@ -7,11 +7,13 @@ TP/PP 的 CUDA trace 需要分别在 worker 内启动 profiler，不能由父进
 import argparse
 import json
 import os
+import sys
 import time
 
 import torch
 from transformers import AutoTokenizer
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from samplingParams import SamplingParams
 
 
