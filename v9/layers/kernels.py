@@ -61,11 +61,16 @@ def _silu_mul_kernel(X, OUT, M, BLOCK: tl.constexpr):
 
 
 def silu_and_mul(x: torch.Tensor) -> torch.Tensor:
+    # Grouped-expert BMM produces [E_active, M, 2I], while the decode path
+    # produces [T, 2I].  The Triton kernel is row-wise, so flatten arbitrary
+    # leading dimensions and restore them after the fused activation.
+    prefix = x.shape[:-1]
+    x = x.reshape(-1, x.shape[-1])
     T, M2 = x.shape
     M = M2 // 2
     out = torch.empty((T, M), dtype=x.dtype, device=x.device)
     _silu_mul_kernel[(T,)](x, out, M, BLOCK=triton.next_power_of_2(M))
-    return out
+    return out.reshape(*prefix, M)
 
 
 # ================= q/k norm + rope + cache 写入 融合 =================
