@@ -199,7 +199,7 @@ class Qwen3MoeForCausalLM(nn.Module):
                 n_replaced += 1
         # dense: q_proj/k_proj/v_proj/o_proj → 量化组件（B1 路径）
         # v9.3: 投影已是并行组件——按【本 rank 的形状】量化（粒度沿输入维 K，
-        # 与输出维切分正交；DSV4 DESIGN §II.3.2 的"切分后再量化"约定）
+        # 与输出维切分正交——"切分后再量化"约定（scale 是 shard 局部））
         if not skip_dense:
             device = next(self.parameters()).device
             for layer in self.model.layers:

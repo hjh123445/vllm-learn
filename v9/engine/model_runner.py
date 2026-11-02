@@ -18,16 +18,9 @@ from utils.loader import load_model, load_thinker_config
 from engine.sampler import Sampler
 
 
-def _is_dsv4(model_path: str, hf) -> bool:
-    """DSV4 判定（P0-1 修复：本条件引用 os —— 文件此前没有 import os，
-    Qwen 路径求值 os.path.basename 直接 NameError）。"""
-    return getattr(hf, "model_type", "") == "deepseek_v4" or \
-        "DeepSeek-V4" in os.path.basename(model_path)
-
-
 def _load_hf_config(config: Config):
     """hf_config 归一化（P0-1 修复）：旧代码无条件 load_thinker_config()，
-    但普通 Qwen3 / DSV4 的 config.json 没有 thinker_config——在进入模型
+    但普通 Qwen3 的 config.json 没有 thinker_config——在进入模型
     分派之前就 KeyError。现在：Omni（有 thinker_config.text_config）平铺
     text_config；其余模型用 AutoConfig 属性 + config.json 平铺。"""
     from types import SimpleNamespace
@@ -72,17 +65,10 @@ class ModelRunner:
         self._is_pp_last_stage = STATE.pp_rank == STATE.pp_size - 1
 
         # ---- 载模型（MoE：CPU 构造 + 对账装载（专家融合 w13/w2）+ 迁移）----
-        # 模型选择（多模型共存不互斥）: DSV4-Flash 走专属 loader（MXFP4/FP8
-        # 双格式反量化 + 分层分放 layer_device_map），其余走 Qwen thinker 路径
-        if _is_dsv4(config.model, hf):
-            from models.deepseek_v4 import DSV4ForCausalLM
-            from utils.dsv4_loader import load_dsv4
-            self.model = DSV4ForCausalLM(config.model)
-            load_dsv4(self.model, config.model, device=self.device,
-                      dtype=self.dtype)
-        else:
-            self.model = Qwen3MoeForCausalLM(hf, config.max_model_len)
-            load_model(self.model, config.model, device=self.device, dtype=self.dtype)
+        # （项目聚焦 Qwen3 系列——v6.3 的 DeepSeek-V4 路径已于 2026-11-02 移除，
+        # 历史实验记录见 WORKLOG_A800_20261102.md §8/§3.2）
+        self.model = Qwen3MoeForCausalLM(hf, config.max_model_len)
+        load_model(self.model, config.model, device=self.device, dtype=self.dtype)
         self.model.eval()
         self.sampler = Sampler()
 

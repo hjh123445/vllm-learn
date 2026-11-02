@@ -10,7 +10,7 @@ TP/EP/PP 三种并行及组合，产出了通信量公式、单机矩阵、跨�
 | v6.0 | Qwen3-Omni-30B MoE 单卡（router + grouped experts + fp32 对拍 0.0） | ✓ |
 | v6.1 | TP2/TP4/TP8 单机 + 跨节点 TP8（Megatron 切分） | ✓ |
 | v6.2 | EP2 单机 + 跨节点（专家对半 + all_reduce 聚合） | ✓ |
-| v6.3 | DeepSeek-V4 模型文件（MLA + sqrtsoftplus + FP8 反量化） | 待做 |
+| v6.3 | ~~DeepSeek-V4 模型文件~~（2026-11-02 移除——项目聚焦 Qwen3，历史记录见 WORKLOG §8/§3.2） | 已移除 |
 | v6.4 | 调度集中化（rank0 决策 + broadcast，解 EP>2/PP lockstep） | 待做 |
 
 ## 核心实测结论（数据全在 PARALLEL_ANALYSIS.md）
