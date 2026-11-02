@@ -177,10 +177,12 @@ class MoEMLP(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         from layers.parallel import STATE, moe_allreduce
         idx, w = self.router(x)
-        if not (STATE.tp_enabled or STATE.ep_size > 1):
+        if STATE.ep_size > 1:
+            return self._ep_dispatch(x, idx, w)
+        if not STATE.tp_enabled:
             return self.experts(x, idx, w)
         out = self._ep_forward_local(x, idx, w)
-        return moe_allreduce(out)          # tp×ep 张成组上的部分和聚合
+        return moe_allreduce(out)
 
     def _experts_local(self, xs, eids, ws):
         """本地专家子集的分组计算（eids 是本地编号）。"""
@@ -202,6 +204,72 @@ class MoEMLP(nn.Module):
             final[toks] = out * ws_s[start:end, None].to(out.dtype)
             start = end
         return final
+
+    def _all_to_all(self, tensor, send_splits, recv_splits):
+        """Exchange a first-dimension tensor over the EP group."""
+        from layers.parallel import STATE
+        import torch.distributed as dist
+        out_shape = (sum(recv_splits),) + tuple(tensor.shape[1:])
+        out = torch.empty(out_shape, dtype=tensor.dtype, device=tensor.device)
+        dist.all_to_all_single(
+            out, tensor, output_split_sizes=recv_splits,
+            input_split_sizes=send_splits, group=STATE.ep_group)
+        return out
+
+    def _ep_dispatch(self, x, idx, w):
+        """Route token/expert pairs to their owning EP rank.
+
+        vLLM's MoE path separates router, dispatch, expert GEMM and combine.
+        We follow the same ownership rule here: each token/expert pair is sent
+        once over the EP dimension, local TP ranks compute their intermedate
+        shard, TP all-reduces the partial output, and a reverse all-to-all
+        restores the source token order.  This removes the old all-ranks
+        redundant expert computation and the tp×ep all-reduce of full hidden
+        tensors.
+        """
+        from layers.parallel import STATE
+        import torch.distributed as dist
+        if STATE.ep_group is None or not dist.is_initialized():
+            raise RuntimeError("EP requires an initialized EP process group")
+        ex = self.experts
+        T, H = x.shape
+        k = idx.shape[1]
+        per_ep = ex.num_experts
+        flat_expert = idx.reshape(-1)
+        flat_weight = w.reshape(-1)
+        flat_token = torch.arange(T, device=x.device).repeat_interleave(k)
+        dest = torch.div(flat_expert, per_ep, rounding_mode="floor")
+        local_eid = flat_expert - dest * per_ep
+        order = torch.argsort(dest, stable=True)
+        send_counts = torch.bincount(dest, minlength=STATE.ep_size).tolist()
+        send_x = x[flat_token[order]]
+        send_eid = local_eid[order].to(torch.int32)
+        send_weight = flat_weight[order]
+        send_token = flat_token[order].to(torch.int32)
+
+        # Exchange per-destination counts so all_to_all_single can allocate its
+        # receive tensor without a global padding buffer.
+        count_t = torch.tensor(send_counts, dtype=torch.int64, device=x.device)
+        gathered = [torch.empty_like(count_t) for _ in range(STATE.ep_size)]
+        dist.all_gather(gathered, count_t, group=STATE.ep_group)
+        recv_counts = [int(t[STATE.ep_rank].item()) for t in gathered]
+
+        recv_x = self._all_to_all(send_x, send_counts, recv_counts)
+        recv_eid = self._all_to_all(send_eid, send_counts, recv_counts)
+        recv_weight = self._all_to_all(send_weight, send_counts, recv_counts)
+        recv_token = self._all_to_all(send_token, send_counts, recv_counts)
+
+        local_out = self._experts_local(recv_x, recv_eid, recv_weight)
+        # w2 is input-sharded by TP. All TP ranks in this EP owner group must
+        # combine their partial hidden output before the return dispatch.
+        if STATE.tp_group is not None:
+            dist.all_reduce(local_out, group=STATE.tp_group)
+
+        returned = self._all_to_all(local_out, recv_counts, send_counts)
+        returned_token = self._all_to_all(recv_token, recv_counts, send_counts)
+        out = torch.zeros_like(x)
+        out.index_add_(0, returned_token.long(), returned)
+        return out
 
     def _ep_forward_local(self, x, idx, w):
         """本地专家部分和（DP-style EP，v6.2 设计）：

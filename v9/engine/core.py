@@ -37,7 +37,8 @@ from engine.pipeline import PipelinePlan, VirtualEngineState
 from samplingParams import SamplingParams
 
 
-def _spec_msg(seqs, is_prefill, microbatch_id=0, virtual_engine=0):
+def _spec_msg(seqs, is_prefill, microbatch_id=0, virtual_engine=0,
+              data_parallel_rank=0):
     """scheduler 的输出 → 可 pickle 的结构化消息。
 
     对齐 vLLM 的 SchedulerOutput：scheduled（要 forward 的序列描述）+
@@ -60,7 +61,8 @@ def _spec_msg(seqs, is_prefill, microbatch_id=0, virtual_engine=0):
         })
     return {"type": "schedule", "scheduled": scheduled,
             "is_prefill": is_prefill, "microbatch_id": microbatch_id,
-            "virtual_engine": virtual_engine}
+            "virtual_engine": virtual_engine,
+            "data_parallel_rank": data_parallel_rank}
 
 
 def _partition_microbatches(seqs, count):
@@ -237,7 +239,8 @@ class EngineCore:
                 raise RuntimeError(f"virtual engine slot {slot.slot_id} is busy")
             slot.in_flight += 1
             msg = _spec_msg(chunk, mb_prefill, mb_id, slot.slot_id)
-            plans.append(PipelinePlan(mb_id, slot.slot_id, mb_prefill, msg))
+            plans.append(PipelinePlan(mb_id, slot.slot_id, 0,
+                                       mb_prefill, msg, tuple(chunk)))
             # Sending all plans before receiving the first output fills the PP
             # pipeline and removes the old m=1 bubble.
             broadcast(msg, self.broadcast_q)
@@ -294,3 +297,5 @@ class EngineCore:
                 p.join(timeout=10)
                 if p.is_alive():
                     p.terminate()
+            for conn in self.broadcast_q + self.response_q:
+                conn.close()

@@ -30,9 +30,9 @@ class DPFrontend:
 
     def __init__(self, model_path, dp_size=1, **engine_kwargs):
         from engine.core import EngineCore
+        dp_size = engine_kwargs.pop("data_parallel_size", dp_size)
         assert dp_size >= 1
         self.dp_size = dp_size
-        self.gpus = engine_kwargs.pop("gpus", None) or list(range(dp_size))
         # GPU 分组: dp rank i 拿 self.gpus[i*per:(i+1)*per]
         per = None
         if "tp_size" in engine_kwargs or "ep_size" in engine_kwargs:
@@ -43,6 +43,8 @@ class DPFrontend:
             per = tp * ep * dcp * pp
         if per is None:
             per = 1
+        self.gpus = engine_kwargs.pop("gpus", None) or list(
+            range(dp_size * per))
         assert len(self.gpus) >= dp_size * per, \
             f"GPUs {self.gpus} < dp{dp_size}×inner{per}"
         self.cores = []

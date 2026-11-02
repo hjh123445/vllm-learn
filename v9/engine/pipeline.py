@@ -12,8 +12,10 @@ class PipelinePlan:
 
     microbatch_id: int
     virtual_engine: int
+    data_parallel_rank: int
     is_prefill: bool
     message: dict
+    sequences: tuple
 
 
 @dataclass
