@@ -144,11 +144,10 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     # slot leaves the other slots without an ACK and blocks the next step.
     is_resp_rank = (pp_rank == pp_size - 1 and rank % inner == 0) \
         if pp_size > 1 else (rank == 0)
-    # PP 时 ready 只由 stage0 发（core 的 ready 循环只收 stage0 的 rank0——
-    # last stage 若也发，其 ready 会残留在 response 管道里，step 的第一次
-    # recv 收到的是它而不是 output → KeyError 'tokens'）
-    is_ready_rank = (pp_rank == 0 and rank % inner == 0) \
-        if pp_size > 1 else True
+    # 每个 PP stage 都必须报告 ready。EngineCore 会等齐所有 stage 后再
+    # 调度请求；否则 stage0 可能已经进入真实 forward，而 stage1 仍在
+    # warmup，P2P mailbox 的消息顺序就会错位。
+    is_ready_rank = (rank % inner == 0)
     # ready 带块数（EngineCore 的 BlockManager 用它建——worker 与 master 的
     # 池子视图一致性 = 相同的 warmup+预算公式，构造序差异不再产生 0 块池）
     ready_sig = {"type": "ready", "rank": rank,

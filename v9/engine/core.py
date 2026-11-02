@@ -173,10 +173,11 @@ class EngineCore:
                 p.start()
                 self.procs.append(p)
             # 等 ready（模型加载 + 池子分配完成，worker 回传块数）。
-            # 收谁的：PP 时 stage0 的 inner-rank0（块数视图对 scheduler 有效）；
-            # 非 PP 时全部 rank 都发，且块数必须一致（同预算公式）
+            # PP 必须等待每个 stage 的 inner-rank0；各 stage 层数不同，
+            # scheduler 使用最小 block 数保证任一 stage 都不会超发。
             inner = tp_size * ep_size * dcp_size
-            senders = [0] if pp_size > 1 else list(range(self.world_size))
+            senders = ([s * inner for s in range(pp_size)]
+                       if pp_size > 1 else list(range(self.world_size)))
             blocks = []
             for r in senders:
                 m = self.response_q[r].recv()
