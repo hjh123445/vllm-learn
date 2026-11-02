@@ -57,6 +57,20 @@ class ModelRunner:
         self.device = "cuda"
         self.dtype = dtype or hf.dtype
 
+        # ---- PP 视角属性（收敛 4 处 getattr(STATE,"pp_size") 重复）----
+        # launcher 在构造 ModelRunner 之前 configure_parallel()——这里读到的
+        # 即本 rank 的最终坐标。单卡退化：pp=1 时 _pp_layers=(0, n)，
+        # _is_pp_last_stage=True，后续判断零分支。
+        from layers.parallel import STATE, get_pp_indices
+        self._n_layers_total = hf.num_hidden_layers
+        if getattr(STATE, "pp_size", 1) > 1:
+            self._pp_layers = get_pp_indices(self._n_layers_total,
+                                             STATE.pp_rank, STATE.pp_size)
+        else:
+            self._pp_layers = (0, self._n_layers_total)
+        self._n_layers_local = self._pp_layers[1] - self._pp_layers[0]
+        self._is_pp_last_stage = STATE.pp_rank == STATE.pp_size - 1
+
         # ---- 载模型（MoE：CPU 构造 + 对账装载（专家融合 w13/w2）+ 迁移）----
         # 模型选择（多模型共存不互斥）: DSV4-Flash 走专属 loader（MXFP4/FP8
         # 双格式反量化 + 分层分放 layer_device_map），其余走 Qwen thinker 路径
@@ -102,13 +116,8 @@ class ModelRunner:
                 module.k_cache = kv_cache[0, layer_id]
                 module.v_cache = kv_cache[1, layer_id]
                 layer_id += 1
-        from layers.parallel import STATE
-        n_local = self.config.hf_config.num_hidden_layers
-        if getattr(STATE, "pp_size", 1) > 1:
-            from layers.parallel import get_pp_indices
-            s, e = get_pp_indices(n_local, STATE.pp_rank, STATE.pp_size)
-            n_local = e - s
-        assert layer_id == n_local, f"{layer_id} != 本 stage 层数 {n_local}"
+        assert layer_id == self._n_layers_local, \
+            f"{layer_id} != 本 stage 层数 {self._n_layers_local}"
 
     def _per_rank_kv_heads(self):
         """per-rank kv 头数：从模型第一层 attention 组件读（v9.3 组件构造时
@@ -131,12 +140,7 @@ class ModelRunner:
         num_seqs = min(self.config.max_num_batched_tokens // seq_len, self.config.max_num_seqs)
         kvh = self._per_rank_kv_heads()
         # PP：本 stage 层数（池子/块字节数按 stage 层算）
-        n_layers = hf.num_hidden_layers
-        from layers.parallel import STATE as _ST
-        if getattr(_ST, "pp_size", 1) > 1:
-            from layers.parallel import get_pp_indices
-            _s, _e = get_pp_indices(n_layers, _ST.pp_rank, _ST.pp_size)
-            n_layers = _e - _s
+        n_layers = self._n_layers_local
         hd = getattr(hf, "head_dim", hf.hidden_size // hf.num_attention_heads)
         blocks_per_seq = (seq_len + bs - 1) // bs
         tmp = torch.empty(2, n_layers, num_seqs * blocks_per_seq, bs, kvh, hd,
@@ -174,12 +178,7 @@ class ModelRunner:
         current = torch.cuda.memory_stats()["allocated_bytes.all.current"]
         num_kv_heads = self._per_rank_kv_heads()
         head_dim = getattr(hf, "head_dim", hf.hidden_size // hf.num_attention_heads)
-        from layers.parallel import STATE as _ST2
-        _n = hf.num_hidden_layers
-        if getattr(_ST2, "pp_size", 1) > 1:
-            from layers.parallel import get_pp_indices
-            _s2, _e2 = get_pp_indices(_n, _ST2.pp_rank, _ST2.pp_size)
-            _n = _e2 - _s2
+        _n = self._n_layers_local
         block_bytes = 2 * _n * self.block_size * num_kv_heads * head_dim * self.dtype.itemsize
         if getattr(self, "_activation_peak", None) is not None:
             # warmup 路径（tmp 已在 warmup 末尾释放）：used 只含 权重+context+其他进程，
@@ -270,8 +269,7 @@ class ModelRunner:
         hidden = self.model(input_ids, positions)                 # [total_q, hidden]
         # PP 中间 stage：hidden 已发给下游，跳过 lm_head/采样（worker 只在
         # last stage 发 response）
-        from layers.parallel import STATE
-        if getattr(STATE, "pp_size", 1) > 1 and STATE.pp_rank < STATE.pp_size - 1:
+        if not self._is_pp_last_stage:
             return [0] * len(seqs)
         if is_prefill:
             last = get_context().cu_seqlens_q[1:] - 1              # 每序列最后一个 q 位置
