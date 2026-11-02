@@ -32,7 +32,7 @@ class SharedMemoryEndpoint:
             self._shm = SharedMemory(name=self.shm_name)
         return self._shm.buf
 
-    def send(self, message):
+    def send(self, message, *, wait_ack=True):
         if not self.sender:
             raise RuntimeError("shared-memory endpoint is receive-only")
         payload = pickle.dumps(message, protocol=pickle.HIGHEST_PROTOCOL)
@@ -45,6 +45,11 @@ class SharedMemoryEndpoint:
         self.notify.send(len(payload))
         # One producer/consumer pair owns the slot. This acknowledgement is
         # what makes reuse safe without a heavyweight lock.
+        if wait_ack:
+            self.wait_ack()
+
+    def wait_ack(self):
+        """Wait until the consumer has copied the current shared slot."""
         self.ack.recv()
 
     def recv(self):
@@ -116,5 +121,12 @@ def broadcast(msg, bc_parents, ranks=None):
     """Send one scheduler message to a worker set."""
     if ranks is None:
         ranks = range(len(bc_parents))
-    for rank in ranks:
-        bc_parents[rank].send(msg)
+    # Each worker owns an independent shared-memory slot.  Do not wait for
+    # rank 0 before publishing to rank 1: in TP/EP all workers must enter the
+    # same NCCL collective, and rank 0 can otherwise block inside the first
+    # all-reduce while rank 1 is still waiting for its control message.
+    selected = [bc_parents[rank] for rank in ranks]
+    for endpoint in selected:
+        endpoint.send(msg, wait_ack=False)
+    for endpoint in selected:
+        endpoint.wait_ack()
