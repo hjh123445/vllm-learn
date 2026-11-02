@@ -105,8 +105,9 @@ def tp_allreduce(x: torch.Tensor) -> torch.Tensor:
 
 
 def moe_allreduce(x: torch.Tensor) -> torch.Tensor:
-    """MoE 部分和聚合：partial 同时张成 tp（inter 切片）× ep（本地专家）两维，
-    moe_group 是这两维张成的组。单卡直通。"""
+    """MoE 部分和聚合（纯 TP 路径）：inter 切片的部分和在 tp 维归约。
+    （EP 的聚合已改走 a2a dispatch/combine——moe.py _ep_forward_a2a；
+    本原语只剩 tp>1 且 ep==1 的场景。）单卡直通。"""
     if STATE.moe_group is not None and dist.is_available() and dist.is_initialized():
         dist.all_reduce(x, group=STATE.moe_group)
     return x

@@ -59,6 +59,7 @@ class GroupedExperts(nn.Module):
             f"E={num_experts} 切不动 EP{STATE.ep_size}"
         self.e_start = STATE.ep_rank * per
         self.num_experts = per                    # 本地专家数（E_local）
+        self._num_global = num_experts            # 全局专家数（a2a 路由用）
         # ---- TP: inter 切片（w13 的行 / w2 的列）----
         assert intermediate % STATE.tp_size == 0, \
             f"I={intermediate} 切不动 TP{STATE.tp_size}"
@@ -186,10 +187,100 @@ class MoEMLP(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         from layers.parallel import STATE, moe_allreduce
         idx, w = self.router(x)
-        if not (STATE.tp_enabled or STATE.ep_size > 1):
-            return self.experts(x, idx, w)
-        out = self._ep_forward_local(x, idx, w)
-        return moe_allreduce(out)          # tp×ep 张成组上的部分和聚合
+        if STATE.ep_size > 1:
+            # EP（对齐 vLLM no-DP EP）：token 按 a2a dispatch 到专家所在
+            # rank，本地算完 combine 回原位——通信量 ∝ 被路由的 token
+            # （T×topk×H），不再传全激活（旧 AR 版是 T×H × 组大小，已删）。
+            # ⚠ 已知状态（2026-11-02）：EP2 实机早期卡死（日志空，疑
+            # moe_group 上的首次 all_to_all wire-up 或 send_sizes 的 D2H
+            # 同步点）——待定位，见 WORKLOG §11。在此修复前 EP 不可用。
+            return self._ep_forward_a2a(x, idx, w)
+        if STATE.tp_enabled:
+            # 纯 TP：inter 切片的部分和在 tp 组聚合（无 EP 维度）
+            out = self._ep_forward_local(x, idx, w)
+            return moe_allreduce(out)
+        return self.experts(x, idx, w)
+
+    # ---------------- 工业级 EP：dispatch / combine（对齐 vLLM）----------------
+    # vLLM 数据流（model_executor/layers/fused_moe/）：
+    #   moe_permute   —— token 按 (dst_rank, expert) 稳定重排（索引构建）
+    #   all_to_all    —— 单次 dispatch：只发非本地 token 的 hidden
+    #   grouped GEMM  —— moe_align_block_size 对齐后按专家分组计算
+    #   all_to_all 逆 —— combine：结果回原位，router 权重加权求和
+    # 本实现同语义（规模适配单机）：
+    #   _a2a 打包 hidden/eid/w/src_row 四路 → all_to_all_single →
+    #   _experts_local（复用）→ 逆 a2a → order 逆散 + topk 求和
+    # 限制：TP×EP 混合仍走 AR 版（a2a 的 rank 交集语义需独立 dispatch
+    # 协议，vLLM 用 DeepEP/flashinfer 处理，我们的树里暂不展开）。
+
+    def _ep_forward_a2a(self, x, idx, w):
+        """vLLM 式 EP：dispatch（按条目 a2a）→ 本地 grouped → combine。
+
+        TP×EP 混合暂不支持（需独立 dispatch 协议处理 tp 维切片的 rank
+        交集，vLLM 用 DeepEP/flashinfer 后端；本树限定 ep_mode 纯 EP）。
+        ⚠ 实机 EP2 早期卡死待修（见 forward 注释与 WORKLOG §11）。"""
+        import torch.distributed as dist
+        from layers.parallel import STATE
+        T, H = x.shape
+        k = idx.shape[1]
+        ex = self.experts
+        E_local, e_start = ex.num_experts, ex.e_start
+        ep = STATE.ep_size
+        grp = STATE.moe_group
+
+        flat_eid = idx.reshape(-1)                          # [T*k] 全局专家号
+        flat_w = w.reshape(-1).to(x.dtype)
+        # 条目 → 专家所在 rank（连续区间切分的逆映射；vLLM 的 expert_map 同义）
+        dst_rank = (flat_eid * ep // ex._num_global).clamp(0, ep - 1)
+
+        # ---- dispatch 侧打包（vLLM moe_permute 的核心：按 dst 稳定排序）----
+        order = torch.argsort(dst_rank, stable=True)
+        sorted_tok = (torch.arange(T * k, device=x.device) // k)[order]
+        sorted_eid = flat_eid[order].to(torch.long)
+        sorted_w = flat_w[order]
+        send_hidden = x[sorted_tok]                         # [n_send, H]
+        counts = torch.bincount(dst_rank, minlength=ep)
+        send_sizes = counts.tolist()                        # 一次 D2H 同步点
+
+        # ---- all_to_all（自环条目走同一管道，保证顺序一致——vLLM 同款）----
+        sizes_t = torch.tensor(send_sizes, device=x.device, dtype=torch.long)
+        recv_sizes_t = torch.empty_like(sizes_t)
+        dist.all_to_all_single(sizes_t, recv_sizes_t, group=grp)
+        recv_sizes = recv_sizes_t.tolist()
+        n_recv = sum(recv_sizes)
+
+        recv_hidden = torch.empty(n_recv, H, device=x.device, dtype=x.dtype)
+        dist.all_to_all_single(send_hidden, recv_hidden,
+                               send_sizes, recv_sizes, group=grp)
+        recv_eid = torch.empty(n_recv, dtype=torch.long, device=x.device)
+        dist.all_to_all_single(sorted_eid, recv_eid,
+                               send_sizes, recv_sizes, group=grp)
+        recv_w = torch.empty(n_recv, dtype=x.dtype, device=x.device)
+        dist.all_to_all_single(sorted_w, recv_w,
+                               send_sizes, recv_sizes, group=grp)
+        recv_src = torch.empty(n_recv, dtype=torch.long, device=x.device)
+        dist.all_to_all_single(sorted_tok.to(torch.long), recv_src,
+                               send_sizes, recv_sizes, group=grp)
+
+        # ---- 本地：只算路由到本地专家区间的条目 ----
+        out_local = torch.zeros(n_recv, H, device=x.device, dtype=x.dtype)
+        local_mask = (recv_eid >= e_start) & (recv_eid < e_start + E_local)
+        if local_mask.any():
+            eids_local = recv_eid[local_mask] - e_start
+            outs = self._experts_local(recv_hidden[local_mask], eids_local,
+                                       recv_w[local_mask])
+            out_local.index_add_(0, torch.nonzero(local_mask).squeeze(1),
+                                 outs)
+
+        # ---- combine：逆 all_to_all（结果条目回源 rank，含原顺序信息）----
+        back_hidden = torch.empty(T * k, H, device=x.device, dtype=x.dtype)
+        dist.all_to_all_single(out_local, back_hidden,
+                               recv_sizes, send_sizes, group=grp)
+
+        # ---- finalize：order 逆散回 (token, topk) 求和（vLLM TopKWeightAndReduce）----
+        unsorted = torch.empty_like(back_hidden)
+        unsorted[order] = back_hidden
+        return unsorted.view(T, k, H).sum(dim=1)
 
     def _experts_local(self, xs, eids, ws):
         """本地专家子集的分组计算（eids 是本地编号）。
@@ -238,13 +329,10 @@ class MoEMLP(nn.Module):
         return final
 
     def _ep_forward_local(self, x, idx, w):
-        """本地专家部分和（DP-style EP，v6.2 设计）：
-        输入 x 组内冗余（上游 RowParallel 的 allreduce 已保证各 tp rank 一致），
-        每卡只算本地专家区间内的 (token, expert) 条目，非本地条目贡献 0，
-        由调用方 moe_allreduce 聚合（tp 切 inter 的部分和 + ep 切专家的部分和
-        在同一个组上一次 allreduce 完成）。
-        v6.4 起可换 all_to_all 省带宽（dispatch/combine），本版保留冗余计算换零
-        dispatch 通信的简单形态。"""
+        """纯 TP 的本地 inter 切片计算（EP>1 时走 _ep_forward_a2a，不进来）：
+        输入 x 组内冗余（上游 RowParallel 的 allreduce 已保证一致），
+        每卡算全部 (token, expert) 条目的 inter 切片部分和，
+        由调用方 moe_allreduce 在 tp 组聚合。"""
         T, H = x.shape
         k = idx.shape[1]
         flat_expert = idx.reshape(-1)                      # [T*k] 全局 expert 号
