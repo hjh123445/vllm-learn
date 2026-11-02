@@ -31,6 +31,8 @@ def run(quant=False):
     t0 = time.time()
     out = eng.generate(prompts, SamplingParams(temperature=0.0, max_tokens=24))
     wall = time.time() - t0
+    del eng
+    torch.cuda.empty_cache()
     return out, before, after, wall
 
 if __name__ == "__main__":
