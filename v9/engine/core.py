@@ -176,8 +176,12 @@ class EngineCore:
             # PP 必须等待每个 stage 的 inner-rank0；各 stage 层数不同，
             # scheduler 使用最小 block 数保证任一 stage 都不会超发。
             inner = tp_size * ep_size * dcp_size
-            senders = ([s * inner for s in range(pp_size)]
-                       if pp_size > 1 else list(range(self.world_size)))
+            # Read one ready message from every PP stage and EP replica.
+            # TP/CP ranks within a replica share the same logical KV budget;
+            # EP replicas may differ by routing/activation pressure, so the
+            # scheduler uses the minimum of all reported block counts.
+            senders = [s * inner + e * tp_size * dcp_size
+                       for s in range(pp_size) for e in range(ep_size)]
             blocks = []
             for r in senders:
                 m = self.response_q[r].recv()

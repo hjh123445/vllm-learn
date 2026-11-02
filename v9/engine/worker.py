@@ -153,7 +153,10 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     # 每个 PP stage 都必须报告 ready。EngineCore 会等齐所有 stage 后再
     # 调度请求；否则 stage0 可能已经进入真实 forward，而 stage1 仍在
     # warmup，P2P mailbox 的消息顺序就会错位。
-    is_ready_rank = (rank % inner == 0)
+    # One readiness signal per EP replica (the first TP/CP rank in each
+    # replica).  Waiting only for global rank 0 makes TP/EP/DP supervisors
+    # hang forever when the other logical replicas never publish readiness.
+    is_ready_rank = (tp_rank == 0 and cp_rank == 0)
     # ready 带块数（EngineCore 的 BlockManager 用它建——worker 与 master 的
     # 池子视图一致性 = 相同的 warmup+预算公式，构造序差异不再产生 0 块池）
     ready_sig = {"type": "ready", "rank": rank,
