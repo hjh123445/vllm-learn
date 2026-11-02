@@ -21,8 +21,6 @@ forward 执行器"，通信从固定形状 NCCL 张量变成结构化 MQ 消息�
 import multiprocessing as mp
 import os
 
-import torch
-
 
 def _spawn_with_env(env, fn, args):
     """spawn 的 env 传递：mp.Process 不支持 per-child env，包一层。
