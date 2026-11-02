@@ -150,7 +150,13 @@ class EngineCore:
             self.response_q = [c[0] for c in rc]
             bc_children = [c[1] for c in bc]          # child 端随 worker 传递
             rc_children = [c[1] for c in rc]
-            ctx = mp.get_context("spawn")
+            # On Linux, fork after importing torch but before any CUDA context
+            # is created preserves the parent's Python state while allowing
+            # each child to apply its CUDA_VISIBLE_DEVICES before the first
+            # CUDA call.  spawn re-executes the benchmark module first; if that
+            # module imports torch, changing visibility in the target wrapper
+            # is already too late and NCCL maps every rank to one GPU.
+            ctx = mp.get_context("fork" if os.name != "nt" else "spawn")
             self.procs = []
             gpus = engine_kwargs.get("gpus") or list(range(self.world_size))
             assert len(gpus) >= self.world_size, f"GPUs {gpus} < world_size {self.world_size}"
