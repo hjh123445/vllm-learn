@@ -68,6 +68,8 @@ launcher 根据能力矩阵拒绝组合，并把 DSV4 专用 runtime 作为独�
 
 `DPFrontend` 当前是多个独立 EngineCore 的路由器：每个 DP rank 拥有完整 scheduler、KV cache 和模型副本，请求进入后不迁移。这与 vLLM 的 data-parallel frontend 思路一致，但它不是单个 NCCL world 中的“DP collective”。它适合副本级扩展，不能代替训练式 DDP，也没有跨副本负载迁移。
 
+DeepSeek 风格的前向 zero-bubble 近似、EP=8 和 shared-expert/A2A overlap 的边界与实验方案见 [`DEEPSEEK_INSPIRED.md`](DEEPSEEK_INSPIRED.md)。其中 ZeRO-1 明确列为训练侧概念：推理引擎没有 optimizer state，不能为了概念完整而伪造一个无效的 ZeRO 实现。
+
 ### PP/Virtual Engine 的当前边界
 
 PP 已有 stage 间激活传输和微批消息，但 scheduler 仍是单 owner，所有 microbatch 在一个调度步中先发送再收结果；没有 vLLM 那样的每 virtual engine 独立 request queue、抢占状态和真正的 1F1B 调度。因此它是“可验证的微批 transport + lockstep pipeline”，还不是完整生产级 pipeline scheduler。文档和面试表述应保持这个边界。

@@ -21,12 +21,15 @@ class Config:
     # it overrides the explicit microbatch count.
     pipeline_microbatches: int = 1
     virtual_engine_size: int | None = None
+    pipeline_schedule: str = "forward"
 
     def __post_init__(self):
         assert os.path.isdir(self.model)
         assert self.kvcache_block_size % 256 == 0
         assert 1 <= self.tensor_parallel_size <= 8
         assert self.pipeline_microbatches >= 1
+        if self.pipeline_schedule not in ("forward", "zero_bubble"):
+            raise ValueError("pipeline_schedule must be 'forward' or 'zero_bubble'")
         if self.virtual_engine_size is not None:
             assert self.virtual_engine_size >= 1
             self.pipeline_microbatches = self.virtual_engine_size

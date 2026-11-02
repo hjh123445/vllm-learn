@@ -146,16 +146,50 @@ class GroupedExperts(nn.Module):
             toks = sorted_token[start:end]             # 该专家的 token 索引
             xs = x[toks]                               # [n_e, H]
             h13 = xs @ w13[e].t()                      # [n_e, 2I]
-            gate, up = h13.chunk(2, dim=-1)
-            act = F.silu(gate) * up                    # [n_e, I]
+            from layers.kernels import silu_and_mul
+            act = silu_and_mul(h13)                    # [n_e, I]
             out = act @ w2[e].t()                      # [n_e, H]
             final.index_add_(0, toks, out * sorted_w[start:end, None].to(out.dtype))
             start = end
         return final
 
 
+class SharedExpert(nn.Module):
+    """Replicated dense expert used to hide EP dispatch latency.
+
+    Shared experts are intentionally replicated across EP ranks.  Their
+    output is independent of routing, so it can run on a side CUDA stream
+    while routed tokens are exchanged and processed by local experts.
+    """
+
+    def __init__(self, hidden_size: int, intermediate: int):
+        super().__init__()
+        self.hidden = hidden_size
+        self.inter = intermediate
+        self.w13 = nn.Parameter(torch.empty(2 * intermediate, hidden_size))
+        self.w2 = nn.Parameter(torch.empty(hidden_size, intermediate))
+        self.w13.weight_loader = self.weight_loader
+        self.w2.weight_loader = self.weight_loader
+
+    def weight_loader(self, param, loaded, shard_id=None):
+        """Load separate gate/up checkpoint tensors into fused ``w13``."""
+        if param is self.w13 and shard_id in (0, 1):
+            start = int(shard_id) * self.inter
+            param.data[start:start + self.inter].copy_(loaded)
+        else:
+            param.data.copy_(loaded)
+
+    def forward(self, x):
+        from layers.kernels import silu_and_mul
+        return silu_and_mul(x @ self.w13.t()) @ self.w2.t()
+
+
 class MoEMLP(nn.Module):
-    """一层完整 MoE：router + experts。无共享专家（Qwen3-Omni 配置为 0）。
+    """一层完整 MoE：router + dispatch/combine + optional shared expert。
+
+    ``shared_expert_intermediate_size`` 非零时，shared expert 在 EP ranks
+    上复制；EP-only inference 会在 side CUDA stream 上与 routed dispatch
+    重叠，训练或 TP 模式回退到同步正确路径。
 
     EP 模式（v6.2）：expert_parallel=True 时——
       1. 本地 experts 只持有自己一半专家的权重（loader/shard 切）；
@@ -171,6 +205,17 @@ class MoEMLP(nn.Module):
                                 getattr(config, "norm_topk_prob", True))
         self.experts = GroupedExperts(config.num_experts, config.hidden_size,
                                       config.moe_intermediate_size)
+        shared_intermediate = int(getattr(
+            config, "shared_expert_intermediate_size", 0) or 0)
+        from layers.parallel import STATE
+        if shared_intermediate > 0 and STATE.tp_size > 1:
+            raise ValueError(
+                "shared expert overlap currently requires tp_size=1; "
+                "use EP-only or add a sharded shared-expert component")
+        self.shared_expert = (SharedExpert(config.hidden_size,
+                                           shared_intermediate)
+                              if shared_intermediate > 0 else None)
+        self._shared_stream = None
         # v9.3: 并行状态在 GroupedExperts 内部（构造时从 ParallelState 读）,
         # MoEMLP 只负责 router + 本地计算 + 部分和聚合
 
@@ -178,11 +223,44 @@ class MoEMLP(nn.Module):
         from layers.parallel import STATE, moe_allreduce
         idx, w = self.router(x)
         if STATE.ep_size > 1:
-            return self._ep_dispatch(x, idx, w)
+            # EP-only shared expert: replicate once per rank and overlap its
+            # dense GEMMs with the routed all-to-all.  TP requires a separate
+            # sharded shared-expert implementation, so keep correctness first.
+            shared, event = self._launch_shared(x, STATE)
+            routed = self._ep_dispatch(x, idx, w)
+            if self.shared_expert is None:
+                return routed
+            if shared is None:
+                return routed + self.shared_expert(x)
+            torch.cuda.current_stream(x.device).wait_event(event)
+            return routed + shared
         if not STATE.tp_enabled:
-            return self.experts(x, idx, w)
+            routed = self.experts(x, idx, w)
+            return routed + self.shared_expert(x) \
+                if self.shared_expert is not None else routed
         out = self._ep_forward_local(x, idx, w)
-        return moe_allreduce(out)
+        out = moe_allreduce(out)
+        return out + self.shared_expert(x) \
+            if self.shared_expert is not None else out
+
+    def _launch_shared(self, x, state):
+        """Launch shared expert before dispatch and return its join event.
+
+        The side stream waits for the current stream's writes to ``x``.  The
+        caller can then execute the routed all-to-all on the current stream.
+        """
+        if (self.shared_expert is None or state.tp_size != 1 or
+                not x.is_cuda or torch.is_grad_enabled()):
+            return None, None
+        if self._shared_stream is None:
+            self._shared_stream = torch.cuda.Stream(device=x.device)
+        current = torch.cuda.current_stream(x.device)
+        self._shared_stream.wait_stream(current)
+        with torch.cuda.stream(self._shared_stream):
+            shared = self.shared_expert(x)
+            event = torch.cuda.Event()
+            event.record(self._shared_stream)
+        return shared, event
 
     def _experts_local(self, xs, eids, ws):
         """本地专家子集的分组计算（eids 是本地编号）。"""
@@ -198,8 +276,8 @@ class MoEMLP(nn.Module):
                 continue
             toks = order[start:end]
             h13 = xs_s[start:end] @ self.experts.w13[e].t()
-            gate, up = h13.chunk(2, dim=-1)
-            act = torch.nn.functional.silu(gate) * up
+            from layers.kernels import silu_and_mul
+            act = silu_and_mul(h13)
             out = act @ self.experts.w2[e].t()
             final[toks] = out * ws_s[start:end, None].to(out.dtype)
             start = end

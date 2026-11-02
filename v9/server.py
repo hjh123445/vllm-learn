@@ -145,6 +145,8 @@ def main():
     ap.add_argument("--expert-parallel-size", type=int, default=1)
     ap.add_argument("--pipeline-parallel-size", type=int, default=1)
     ap.add_argument("--pipeline-microbatches", type=int, default=1)
+    ap.add_argument("--zero-bubble", action="store_true",
+                    help="use forward-only zero-bubble-inspired PP scheduling")
     ap.add_argument("--gpus", default=None,
                     help="comma-separated physical GPU ids, e.g. 0,1,2,3")
     args = ap.parse_args()
@@ -161,6 +163,7 @@ def main():
         expert_parallel_size=args.expert_parallel_size,
         pipeline_parallel_size=args.pipeline_parallel_size,
         pipeline_microbatches=args.pipeline_microbatches,
+        pipeline_schedule=("zero_bubble" if args.zero_bubble else "forward"),
         gpus=gpus)
     engine.start()
 

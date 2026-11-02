@@ -228,6 +228,12 @@ class EngineCore:
         # One slot is the ownership boundary of a virtual pipeline engine.
         # The scheduler remains single-owner, while slots track in-flight plans.
         requested = getattr(config, "pipeline_microbatches", 1)
+        if pp_size > 1 and getattr(config, "pipeline_schedule", "forward") == "zero_bubble":
+            # Forward-only inference has no backward phase to interleave.  The
+            # useful analogue of zero-bubble scheduling is to keep at least
+            # two full pipeline depths in flight; the actual count is still
+            # capped by the number of scheduled sequences in each step.
+            requested = max(requested, 2 * pp_size)
         self.num_microbatches = max(1, requested) if pp_size > 1 else 1
         self.virtual_engines = [VirtualEngineState(i)
                                 for i in range(self.num_microbatches)]

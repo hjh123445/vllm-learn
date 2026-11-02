@@ -48,7 +48,7 @@ class AsyncEngine:
         config_fields = {
             "max_num_batched_tokens", "max_num_seqs", "max_model_len",
             "gpu_memory_utilization", "enforce_eager", "kvcache_block_size",
-            "pipeline_microbatches", "virtual_engine_size",
+            "pipeline_microbatches", "virtual_engine_size", "pipeline_schedule",
         }
         config_kwargs = {k: v for k, v in kwargs.items()
                          if k in config_fields}

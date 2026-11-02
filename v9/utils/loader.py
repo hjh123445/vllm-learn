@@ -32,6 +32,19 @@ def _ckpt_name(name: str):
         return None, None
     # thinker.model.X → model.X（我们的 Qwen3MoeModel 挂在 .model 下）
     n = "model." + name[len("thinker.model."):]
+    # Optional replicated dense expert.  Both singular/plural checkpoint
+    # spellings occur across Qwen-MoE revisions; fuse gate/up like routed
+    # experts so the model can overlap this GEMM with EP dispatch.
+    if ".mlp.shared_expert." in n or ".mlp.shared_experts." in n:
+        marker = (".mlp.shared_expert." if ".mlp.shared_expert." in n
+                  else ".mlp.shared_experts.")
+        proj = n.split(marker, 1)[1].split(".")[-2]
+        base = n.split(marker, 1)[0] + ".mlp.shared_expert"
+        if proj in ("gate_proj", "up_proj"):
+            half = 0 if proj == "gate_proj" else 1
+            return f"{base}.w13", half
+        if proj == "down_proj":
+            return f"{base}.w2", None
     # MoE 专家：...mlp.experts.{i}.{proj}.weight → 融合进 w13/w2 的第 i 个专家
     if ".mlp.experts." in n:
         parts = n.split(".")

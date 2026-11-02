@@ -23,6 +23,14 @@ uses one plan and keeps the single-card path unchanged. With PP>1 and
 Increasing the value sends several plans before collecting the last-stage
 responses, filling the forward pipeline.
 
+For a forward-only analogue of DeepSeek's zero-bubble idea, set
+`pipeline_schedule="zero_bubble"`. The engine keeps at least two pipeline
+depths worth of microbatch slots in flight (bounded by the number of scheduled
+sequences), while stage-to-stage sends remain asynchronous. This hides the
+steady-state wait between stages, but it is not the training ZB-H1/ZB-V
+schedule: there is no backward pass and a batch with fewer than `2 * pp_size`
+sequences still has fill/drain bubbles.
+
 ## Transport invariants
 
 - Each PP lane is formed by ranks with the same TP/EP/DCP coordinate.
