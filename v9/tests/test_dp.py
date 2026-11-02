@@ -36,6 +36,9 @@ def main():
     fe = DPFrontend(PATH, dp_size=2, tp_size=2,
                     gpus=[0, 1, 2, 3],
                     config_kwargs={"max_num_seqs": 8, "max_model_len": 2048,
+                                   # Keep the DP smoke test representative but fast:
+                                   # each EngineCore still performs its own warmup.
+                                   "max_num_batched_tokens": 64,
                                    "gpu_memory_utilization": 0.85, "enforce_eager": True})
     sid2prompt = {}
     for p in prompts:                      # 6 请求 round-robin → 每 rank 3 个
