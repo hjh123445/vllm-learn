@@ -281,3 +281,5 @@ class EngineCore:
                 p.join(timeout=10)
                 if p.is_alive():
                     p.terminate()
+            for endpoint in (*self.broadcast_q, *self.response_q):
+                endpoint.close()

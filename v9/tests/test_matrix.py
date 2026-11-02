@@ -89,6 +89,8 @@ def run_one(cfg):
 
 def main():
     which = sys.argv[1:]
+    log_dir = os.environ.get("VLLM_LEARN_LOG_DIR", "/tmp/v94_logs")
+    os.makedirs(log_dir, exist_ok=True)
     results = {}
     if os.path.exists("/tmp/v94_matrix.json"):
         try:
@@ -101,6 +103,10 @@ def main():
             p = subprocess.run(
                 [sys.executable, os.path.abspath(__file__), "--one", cfg],
                 capture_output=True, text=True, timeout=900)
+            with open(os.path.join(log_dir, f"{cfg}.stdout.log"), "w", encoding="utf-8") as f:
+                f.write(p.stdout)
+            with open(os.path.join(log_dir, f"{cfg}.stderr.log"), "w", encoding="utf-8") as f:
+                f.write(p.stderr)
             if p.returncode != 0:
                 err = p.stderr.strip().splitlines()
                 print(f"[{cfg}] FAILED rc={p.returncode}: "
@@ -112,6 +118,18 @@ def main():
                   f"tok={r['n_tok']} ({r['tok_s']} tok/s) workers={r['n_gpu']}",
                   flush=True)
             results[cfg] = r
+        except subprocess.TimeoutExpired as e:
+            out = e.stdout or ""
+            err = e.stderr or ""
+            if isinstance(out, bytes):
+                out = out.decode("utf-8", "replace")
+            if isinstance(err, bytes):
+                err = err.decode("utf-8", "replace")
+            with open(os.path.join(log_dir, f"{cfg}.stdout.log"), "w", encoding="utf-8") as f:
+                f.write(out)
+            with open(os.path.join(log_dir, f"{cfg}.stderr.log"), "w", encoding="utf-8") as f:
+                f.write(err)
+            print(f"[{cfg}] TIMEOUT after {e.timeout}s; logs saved in {log_dir}", flush=True)
         except Exception as e:
             print(f"[{cfg}] FAILED: {e}", flush=True)
         with open("/tmp/v94_matrix.json", "w") as f:

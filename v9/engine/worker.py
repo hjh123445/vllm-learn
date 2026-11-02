@@ -175,3 +175,8 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         STATE.pipeline_transport.drain()
     if world_size > 1:
         dist.destroy_process_group()
+    # Release the child-side pipes and shared-memory handles.  The parent
+    # owns unlinking; closing here keeps multiprocessing.resource_tracker from
+    # reporting leaked slots after every matrix configuration.
+    broadcast_conn.close()
+    response_conn.close()
