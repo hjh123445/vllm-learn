@@ -27,6 +27,10 @@ def main():
         args.model = "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct"
 
     tok = AutoTokenizer.from_pretrained(args.model, use_fast=True)
+    template_file = os.path.join(args.model, "chat_template.json")
+    if os.path.exists(template_file):
+        with open(template_file, encoding="utf-8") as f:
+            tok.chat_template = json.load(f)["chat_template"]
     prompt = tok.apply_chat_template(
         [{"role": "user", "content": "用一句话介绍你自己。"}],
         tokenize=False, add_generation_prompt=True)
