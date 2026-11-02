@@ -31,9 +31,14 @@ def _enginecore_process(conn, model_path, core_kwargs, physical_gpus):
     from engine.core import EngineCore
     kw = dict(core_kwargs)
     kw["gpus"] = list(range(len(physical_gpus)))
+    debug = os.getenv("VLLM_LEARN_DEBUG", "0") == "1"
     core = EngineCore(model_path, **kw)
+    if debug:
+        print(f"[dp-core-ready] gpus={physical_gpus}", flush=True)
     while True:
         cmd, payload = conn.recv()
+        if debug:
+            print(f"[dp-cmd] gpus={physical_gpus} cmd={cmd}", flush=True)
         if cmd == "add":
             seq = core.add_request(payload[0], payload[1])
             conn.send(("seq", seq.seq_id))
