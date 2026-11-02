@@ -135,7 +135,7 @@ class Qwen3MoeModel(nn.Module):
         boundaries.  The model itself remains unaware of scheduler queues.
         """
         from layers.parallel import STATE
-        if STATE.pp_size > 1:
+        if STATE.pp_size > 1 and not STATE.pipeline_warmup:
             if STATE.pp_rank > 0:
                 if STATE.pipeline_transport is None:
                     raise RuntimeError("PP transport was not initialized")
@@ -144,6 +144,14 @@ class Qwen3MoeModel(nn.Module):
             else:
                 x = self.embed_tokens(input_ids)
                 residual = torch.zeros_like(x)
+        elif STATE.pp_size > 1 and STATE.pipeline_warmup:
+            # Warmup is local to each stage.  Real requests still use the
+            # P2P transport above; avoiding P2P during cache sizing prevents
+            # stage initialization from depending on a mailbox handshake.
+            x = torch.zeros((input_ids.numel(), self.embed_tokens.weight.shape[1]),
+                            dtype=self.embed_tokens.weight.dtype,
+                            device=input_ids.device)
+            residual = torch.zeros_like(x)
         else:
             x = self.embed_tokens(input_ids)
             residual = torch.zeros_like(x)
@@ -153,8 +161,9 @@ class Qwen3MoeModel(nn.Module):
                 x, residual = layer(x, residual, positions)
         if STATE.pp_size > 1 and STATE.pp_rank < STATE.pp_size - 1:
             # 中间 stage：异步把 hidden/residual 传给下游，不进 norm。
-            STATE.pipeline_transport.send_forward(
-                x, residual, STATE.pipeline_lane, STATE.microbatch_id)
+            if not STATE.pipeline_warmup:
+                STATE.pipeline_transport.send_forward(
+                    x, residual, STATE.pipeline_lane, STATE.microbatch_id)
             return x          # 占位（中间 stage 的返回不被使用）
         out, _ = fused_add_rmsnorm(x, residual, self.norm.weight, self.norm.eps)
         return out

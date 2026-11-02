@@ -115,11 +115,14 @@ class ModelRunner:
         for i, seq in enumerate(seqs):
             seq.block_table = [i * blocks_per_seq + j for j in range(blocks_per_seq)]
             seq.num_scheduled_tokens = seq_len
+        from layers.parallel import STATE as _warmup_state
+        _warmup_state.pipeline_warmup = getattr(_warmup_state, "pp_size", 1) > 1
         self.run(seqs, True)
         for seq in seqs:                              # decode 形状
             seq.num_scheduled_tokens = 1
             seq.is_prefill = False
         self.run(seqs, False)
+        _warmup_state.pipeline_warmup = False
         # 记录激活峰值：此时 peak/current 都含 tmp，差值恰好隔离出 A（数学上 T 抵消）
         stats = torch.cuda.memory_stats()
         self._activation_peak = stats["allocated_bytes.all.peak"] - stats["allocated_bytes.all.current"]

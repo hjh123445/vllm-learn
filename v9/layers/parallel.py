@@ -39,6 +39,7 @@ class ParallelState:
         # PP transport 的运行时元数据。由 ModelRunner 在每个微批开始时写入，
         # 模型层只读取它选择 lane，不把调度状态塞进模型参数。
         self.pipeline_lane, self.microbatch_id = 0, 0
+        self.pipeline_warmup = False
         self.pipeline_transport = None
         self.tp_group = None       # o_proj/w2 的 allreduce 域（tp 维）
         self.ep_group = None       # 同一 tp/cp/pp 坐标沿 ep 变化
