@@ -53,8 +53,12 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
 
     # v8.2 教训三件套：device_id 显式绑定 + 组预热 + 对称收发
     if world_size > 1:
+        if debug:
+            print(f"[worker-dist-before] rank={rank}", flush=True)
         dist.init_process_group(
             "nccl", device_id=torch.device(f"cuda:{torch.cuda.current_device()}"))
+        if debug:
+            print(f"[worker-dist-after] rank={rank}", flush=True)
 
     # ---- 四维坐标（row-major 解码，对齐 ParallelCoords DIMS=(tp,cp,ep,pp)）----
     # rank = pp*(tp*cp*ep) + ep*(tp*cp) + tp*cp + cp
@@ -73,9 +77,13 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         # tp 组 = 同 (pp, ep, cp) 沿 tp 变化——v9.4a 曾写成 r%tp_size==tp_rank
         # → 单成员组 → allreduce 变 no-op（e2e 全错的根因，勿回退）
         if tp_size > 1:
+            if debug:
+                print(f"[worker-group-before] rank={rank} tp", flush=True)
             tp_group = dist.new_group(ranks=[
                 pp_rank * inner + ep_rank * tp_size * cp_size + t * cp_size + cp_rank
                 for t in range(tp_size)])
+            if debug:
+                print(f"[worker-group-after] rank={rank} tp", flush=True)
         if ep_size > 1:
             ep_group = dist.new_group(ranks=[
                 pp_rank * inner + e * tp_size * cp_size + tp_rank * cp_size + cp_rank
@@ -93,8 +101,12 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         # 组预热（惰性 wire-up 竞态——v8.2 的 25 分钟死锁）
         for g in (tp_group, ep_group, moe_group, cp_group):
             if g is not None:
+                if debug:
+                    print(f"[worker-warmup-before] rank={rank}", flush=True)
                 t = torch.zeros(1, device="cuda")
                 dist.all_reduce(t, group=g)
+                if debug:
+                    print(f"[worker-warmup-after] rank={rank}", flush=True)
         torch.cuda.synchronize()
     configure_parallel(tp_size=tp_size, tp_rank=tp_rank,
                        ep_size=ep_size, ep_rank=ep_rank,
