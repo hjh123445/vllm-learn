@@ -98,52 +98,35 @@ class PipelineTransport:
         header = torch.tensor([hidden.shape[0], hidden.shape[1], microbatch_id, lane],
                               dtype=torch.int64, device=hidden.device)
         started = time.perf_counter()
-        if self.comm_stream is not None:
-            ready = torch.cuda.Event()
-            ready.record(torch.cuda.current_stream(hidden.device))
-            with torch.cuda.stream(self.comm_stream):
-                self.comm_stream.wait_event(ready)
-                reqs = [dist.isend(header, dst=self.dst),
-                        dist.isend(hidden, dst=self.dst),
-                        dist.isend(residual, dst=self.dst)]
-        else:
-            reqs = [dist.isend(header, dst=self.dst),
-                    dist.isend(hidden, dst=self.dst),
-                    dist.isend(residual, dst=self.dst)]
-        self._sends[lane].append(_SendRecord(reqs, (header, hidden, residual),
-                                             lane, microbatch_id, started))
-        if len(self._sends[lane]) >= self.credit:
-            self._wait_oldest(lane)
+        # A blocking first hop is the correctness baseline.  NCCL creates a
+        # point-to-point communicator lazily; launching an async send from a
+        # separate stream while the receiver is still constructing its first
+        # ``irecv`` can leave the communicator in a spin wait.  Once this path
+        # is validated, a fused batch_isend_irecv implementation can restore
+        # overlap without changing the wire format.
+        dist.send(header, dst=self.dst)
+        dist.send(hidden, dst=self.dst)
+        dist.send(residual, dst=self.dst)
+        self.trace.append({"kind": "send", "lane": lane,
+                           "microbatch_id": microbatch_id,
+                           "start": started, "end": time.perf_counter()})
 
     def recv_forward(self, lane: int = 0):
         if self.src is None:
             raise RuntimeError("stage 0 cannot recv_forward")
         lane %= self.lanes
-        slot = self._recv[lane]
-        if slot is None:
-            self._post_shape(lane)
-            slot = self._recv[lane]
-        assert slot is not None
-        slot.request.wait()
-        tokens, hidden_size, microbatch_id, msg_lane = map(int, slot.shape.cpu().tolist())
-        # Arm the next receive before waiting for this payload.  This is the
-        # key difference from the old one-message blocking mailbox.
-        self._post_shape(lane)
+        # Match the sender's blocking first hop.  Keeping shape and payload in
+        # one explicit sequence avoids NCCL communicator setup races during PP
+        # startup and gives a deterministic reference for later async tuning.
+        shape = torch.empty(4, dtype=torch.int64, device=self.device)
+        dist.recv(shape, src=self.src)
+        tokens, hidden_size, microbatch_id, msg_lane = map(int, shape.cpu().tolist())
         hidden = torch.empty((tokens, hidden_size), dtype=torch.bfloat16,
                              device=self.device)
         residual = torch.empty_like(hidden)
         started = time.perf_counter()
-        if self.comm_stream is not None:
-            with torch.cuda.stream(self.comm_stream):
-                reqs = [dist.irecv(hidden, src=self.src),
-                        dist.irecv(residual, src=self.src)]
-        else:
-            reqs = [dist.irecv(hidden, src=self.src),
-                    dist.irecv(residual, src=self.src)]
-        for req in reqs:
-            req.wait()
-        if self.comm_stream is not None:
-            torch.cuda.current_stream(hidden.device).wait_stream(self.comm_stream)
+        dist.recv(hidden, src=self.src)
+        dist.recv(residual, src=self.src)
         self.trace.append({"kind": "recv", "lane": msg_lane,
                            "microbatch_id": microbatch_id,
                            "start": started, "end": time.perf_counter()})
