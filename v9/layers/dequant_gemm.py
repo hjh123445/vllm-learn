@@ -86,8 +86,9 @@ def dequant_gemm(x: torch.Tensor, w_packed: torch.Tensor, w_scales: torch.Tensor
     assert K % 2 == 0 and K % group == 0
     assert group % 64 == 0, f"G={group} 需 64 的倍数（BK tile 不跨组）"
     y = torch.empty(M, N, dtype=x.dtype, device=x.device)
-    # decode 形状实测最优（A800 扫描 BM×BN×BK×warps）: 0.042ms @ M=8
-    BM, BN, BK = 8, 32, 128
+    # Triton dot 的矩阵 M 维至少为 16；BM=16 配合行 mask 覆盖 M=1
+    # 的 decode，同时保留小 batch 的融合反量化路径。
+    BM, BN, BK = 16, 32, 128
     grid = (triton.cdiv(M, BM), triton.cdiv(N, BN))
     _dequant_gemm_kernel[grid](
         x, w_packed, w_scales, y,
