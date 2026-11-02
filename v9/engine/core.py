@@ -33,10 +33,11 @@ def _spawn_with_env(env, fn, args):
 
 from engine.mq import SHUTDOWN, make_channels
 from engine.sequence import Sequence
+from engine.pipeline import PipelinePlan, VirtualEngineState
 from samplingParams import SamplingParams
 
 
-def _spec_msg(seqs, is_prefill):
+def _spec_msg(seqs, is_prefill, microbatch_id=0, virtual_engine=0):
     """scheduler 的输出 → 可 pickle 的结构化消息。
 
     对齐 vLLM 的 SchedulerOutput：scheduled（要 forward 的序列描述）+
@@ -57,7 +58,41 @@ def _spec_msg(seqs, is_prefill):
             "seq_len": len(s),
             "temperature": s.temperature,
         })
-    return {"type": "schedule", "scheduled": scheduled, "is_prefill": is_prefill}
+    return {"type": "schedule", "scheduled": scheduled,
+            "is_prefill": is_prefill, "microbatch_id": microbatch_id,
+            "virtual_engine": virtual_engine}
+
+
+def _partition_microbatches(seqs, count):
+    """Split one allocated scheduler batch into ordered microbatches.
+
+    Allocation happens before splitting, so every sequence belongs to exactly
+    one plan and scheduler/KV state is retired exactly once per response.
+    """
+    if not seqs:
+        return []
+    count = max(1, min(int(count), len(seqs)))
+    if count == 1:
+        return [list(seqs)]
+    total = sum(max(1, s.num_scheduled_tokens) for s in seqs)
+    target = max(1, (total + count - 1) // count)
+    chunks, current, current_tokens = [], [], 0
+    remaining = count
+    consumed = 0
+    for index, seq in enumerate(seqs):
+        tokens = max(1, seq.num_scheduled_tokens)
+        current.append(seq)
+        current_tokens += tokens
+        consumed += tokens
+        left = len(seqs) - index - 1
+        if remaining > 1 and (current_tokens >= target or left < remaining - 1):
+            chunks.append(current)
+            current, current_tokens = [], 0
+            remaining -= 1
+            target = max(1, (total - consumed + remaining - 1) // remaining)
+    if current:
+        chunks.append(current)
+    return chunks
 
 
 class _Spec:
@@ -169,33 +204,62 @@ class EngineCore:
             self.scheduler = Scheduler(config)          # 用 worker 的真实块数
             self.inproc_runner = None
 
-        # PP 微批流水（VirtualEngine 语义）: in-flight 微批队列。
-        # 深度 = pp_size（1F1B 的最小填管道数）; 非 PP 时无流水
-        self._pending_pp = []
+        # One slot is the ownership boundary of a virtual pipeline engine.
+        # The scheduler remains single-owner, while slots track in-flight plans.
+        requested = getattr(config, "pipeline_microbatches", 1)
+        self.num_microbatches = max(1, requested) if pp_size > 1 else 1
+        self.virtual_engines = [VirtualEngineState(i)
+                                for i in range(self.num_microbatches)]
 
     # ---------------- busy loop ----------------
 
     def step(self):
         seqs, is_prefill = self.scheduler.schedule()
-        msg = _spec_msg(seqs, is_prefill)
 
         if self.world_size == 1:
+            msg = _spec_msg(seqs, is_prefill)
             specs = rebuild_specs(msg)
             token_ids = self.inproc_runner.run(specs, is_prefill)
-        else:
-            from engine.mq import broadcast
-            broadcast(msg, self.broadcast_q)
-            # PP 同步收口（response 从 last stage 的 inner-rank0）——
-            # ⚠ 微批流水（VirtualEngine）的已知限制：完整实现需要
-            # per-slot scheduler 状态（vLLM async_scheduler + virtual_engine
-            # 配套），本版正确性优先保持 lockstep（bubble=(p-1)/(m+p-1) 的 m=1）
-            inner = self.tp_size * self.ep_size * self.dcp_size
-            resp_rank = (self.pp_size - 1) * inner if self.pp_size > 1 else 0
-            out = self.response_q[resp_rank].recv()
-            token_ids = out["tokens"]
+            self.scheduler.postprocess(seqs, token_ids, is_prefill)
+            return [(s.seq_id, s.completion_token_ids) for s in seqs
+                    if s.is_finished]
 
-        self.scheduler.postprocess(seqs, token_ids, is_prefill)
-        return [(s.seq_id, s.completion_token_ids) for s in seqs if s.is_finished]
+        from engine.mq import broadcast
+        chunks = _partition_microbatches(seqs, self.num_microbatches)
+        plans = []
+        for mb_id, chunk in enumerate(chunks):
+            # A decode-only chunk must use the decode kernel even when another
+            # chunk in the scheduler step contains a prefill segment.
+            mb_prefill = any(s.num_cached_tokens < s.num_prompt_tokens
+                             for s in chunk)
+            slot = self.virtual_engines[mb_id % len(self.virtual_engines)]
+            if slot.in_flight:
+                raise RuntimeError(f"virtual engine slot {slot.slot_id} is busy")
+            slot.in_flight += 1
+            msg = _spec_msg(chunk, mb_prefill, mb_id, slot.slot_id)
+            plans.append(PipelinePlan(mb_id, slot.slot_id, mb_prefill, msg))
+            # Sending all plans before receiving the first output fills the PP
+            # pipeline and removes the old m=1 bubble.
+            broadcast(msg, self.broadcast_q)
+
+        inner = self.tp_size * self.ep_size * self.dcp_size
+        resp_rank = (self.pp_size - 1) * inner if self.pp_size > 1 else 0
+        by_id = {p.microbatch_id: p for p in plans}
+        finished = []
+        for _ in plans:
+            out = self.response_q[resp_rank].recv()
+            if out.get("type") != "output":
+                raise RuntimeError(f"unexpected PP response: {out}")
+            plan = by_id.pop(out.get("microbatch_id"), None)
+            if plan is None:
+                raise RuntimeError(f"unknown microbatch response: {out}")
+            original = chunks[plan.microbatch_id]
+            self.scheduler.postprocess(original, out["tokens"],
+                                       plan.is_prefill)
+            self.virtual_engines[plan.virtual_engine].in_flight -= 1
+            finished.extend((s.seq_id, s.completion_token_ids)
+                            for s in original if s.is_finished)
+        return finished
 
     def add_request(self, prompt_ids, sampling_params=None):
         sp = sampling_params or SamplingParams(temperature=0.0)

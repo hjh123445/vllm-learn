@@ -236,6 +236,13 @@ class ModelRunner:
 
     # ================= 前向 + 采样 =================
 
+    def flush_pipeline(self):
+        """Drain asynchronous PP sends before the process exits."""
+        transport = getattr(getattr(self.model, "model", None),
+                            "pipeline_transport", None)
+        if transport is not None:
+            transport.flush()
+
     @torch.inference_mode()
     def run(self, seqs: list[Sequence], is_prefill: bool) -> list[int]:
         if is_prefill:

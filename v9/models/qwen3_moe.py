@@ -106,9 +106,13 @@ class Qwen3MoeModel(nn.Module):
         # PP 层区间（对齐 vLLM make_layers + get_pp_indices）：区间外
         # PPMissingLayer 占位，层索引全局对齐（checkpoint 名不变，loader 跳过）
         from layers.parallel import STATE, get_pp_indices
+        from engine.pipeline import PipelineTransport
         start, end = get_pp_indices(config.num_hidden_layers,
                                     STATE.pp_rank, STATE.pp_size)
         self.pp_start, self.pp_end = start, end
+        self.pipeline_transport = PipelineTransport(
+            STATE.pp_size, STATE.pp_rank,
+            STATE.tp_size * STATE.cp_size * STATE.ep_size)
         self.layers = nn.ModuleList(
             [PPMissingLayer() for _ in range(start)] +
             [Qwen3MoeDecoderLayer(config, i) for i in range(start, end)] +
@@ -122,44 +126,24 @@ class Qwen3MoeModel(nn.Module):
                 layer.self_attn.rope = rope
 
     def forward(self, input_ids, positions):
-        """PP（v9.4c，对齐 vLLM）：stage>0 从上游 recv (x, residual) 替代
-        embed；stage<last 把 (x, residual) send 给下游、跳过 norm。
-        p2p = NCCL send/recv（先传 shape 再传数据，T 每步可变）。"""
+        """Run this stage and exchange activations through PipelineTransport."""
         from layers.parallel import STATE
-        if STATE.pp_size > 1:
-            import torch.distributed as dist
-            my = dist.get_rank() if dist.is_initialized() else 0
-            inner = STATE.tp_size * STATE.cp_size * STATE.ep_size
-            if STATE.pp_rank > 0:
-                src = (STATE.pp_rank - 1) * inner + my % inner
-                shp = torch.zeros(2, dtype=torch.int64, device="cuda")
-                dist.recv(shp, src=src)
-                Tn, H = int(shp[0]), int(shp[1])
-                dev = next(self.parameters()).device
-                x = torch.empty(Tn, H, dtype=torch.bfloat16, device=dev)
-                residual = torch.empty_like(x)
-                dist.recv(x, src=src)
-                dist.recv(residual, src=src)
-            else:
-                x = self.embed_tokens(input_ids)
-                residual = torch.zeros_like(x)
+        transport = self.pipeline_transport
+
+        if STATE.pp_size > 1 and STATE.pp_rank > 0:
+            dev = next(self.parameters()).device
+            x, residual = transport.recv_forward(
+                device=dev, dtype=next(self.parameters()).dtype)
         else:
             x = self.embed_tokens(input_ids)
             residual = torch.zeros_like(x)
+
         for layer in self.layers:
             x, residual = layer(x, residual, positions)
+
         if STATE.pp_size > 1 and STATE.pp_rank < STATE.pp_size - 1:
-            # 中间 stage：把 hidden 传给下游，不进 norm（EngineCore 只收
-            # last stage 的采样结果——中间 stage 的 forward 返回值被忽略）
-            import torch.distributed as dist
-            my = dist.get_rank() if dist.is_initialized() else 0
-            inner = STATE.tp_size * STATE.cp_size * STATE.ep_size
-            dst = (STATE.pp_rank + 1) * inner + my % inner
-            shp = torch.tensor([x.shape[0], x.shape[1]], dtype=torch.int64, device=x.device)
-            dist.send(shp, dst=dst)
-            dist.send(x.contiguous(), dst=dst)
-            dist.send(residual.contiguous(), dst=dst)
-            return x          # 占位（中间 stage 的返回不被使用）
+            transport.send_forward(x, residual)
+            return x
         out, _ = fused_add_rmsnorm(x, residual, self.norm.weight, self.norm.eps)
         return out
 

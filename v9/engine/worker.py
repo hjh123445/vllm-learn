@@ -98,7 +98,7 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     # PP response 路由：采样在 last stage——只有 last stage 的 inner-rank0
     # 发 response（EngineCore 从它读），其余 worker 静默
     is_resp_rank = (pp_rank == pp_size - 1 and rank % inner == 0) \
-        if pp_size > 1 else True
+        if pp_size > 1 else rank == 0
     # PP 时 ready 只由 stage0 发（core 的 ready 循环只收 stage0 的 rank0——
     # last stage 若也发，其 ready 会残留在 response 管道里，step 的第一次
     # recv 收到的是它而不是 output → KeyError 'tokens'）
@@ -124,7 +124,13 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
             token_ids = runner.run(specs, is_prefill)
         if is_resp_rank:
             response_conn.send({"type": "output", "tokens": token_ids,
-                                "n": len(specs)})
+                                "n": len(specs),
+                                "microbatch_id": msg.get("microbatch_id", 0),
+                                "virtual_engine": msg.get("virtual_engine", 0)})
 
+    # Complete nonblocking stage sends before tearing down NCCL.  The final
+    # stage may already have produced its response, but intermediate stages
+    # still own Work handles and their CUDA buffers.
+    runner.flush_pipeline()
     if world_size > 1:
         dist.destroy_process_group()
