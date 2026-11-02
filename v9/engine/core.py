@@ -38,7 +38,7 @@ from samplingParams import SamplingParams
 
 
 def _spec_msg(seqs, is_prefill, microbatch_id=0, virtual_engine=0,
-              data_parallel_rank=0):
+              data_parallel_rank=0, block_size=256):
     """scheduler 的输出 → 可 pickle 的结构化消息。
 
     对齐 vLLM 的 SchedulerOutput：scheduled（要 forward 的序列描述）+
@@ -62,7 +62,8 @@ def _spec_msg(seqs, is_prefill, microbatch_id=0, virtual_engine=0,
     return {"type": "schedule", "scheduled": scheduled,
             "is_prefill": is_prefill, "microbatch_id": microbatch_id,
             "virtual_engine": virtual_engine,
-            "data_parallel_rank": data_parallel_rank}
+            "data_parallel_rank": data_parallel_rank,
+            "block_size": block_size}
 
 
 def _partition_microbatches(seqs, count):
@@ -112,7 +113,7 @@ class _Spec:
         self._tokens = m["tokens"]
         self.last_token = m["last_token"]
         self.temperature = m["temperature"]
-        bs = 256
+        bs = int(m.get("block_size", 256))
         n = m["seq_len"]
         self.num_tokens = n
         self.num_prompt_tokens = n          # 哑视角够用（run 只读下列字段）
@@ -135,6 +136,12 @@ class EngineCore:
 
     def __init__(self, model_path, tp_size=1, ep_size=1, dcp_size=1, pp_size=1,
                  master_port=29600, config_kwargs=None, gpus=None):
+        self._shutdown = False
+        self.last_step_had_work = False
+        for name, value in (("tp_size", tp_size), ("ep_size", ep_size),
+                            ("dcp_size", dcp_size), ("pp_size", pp_size)):
+            if int(value) < 1:
+                raise ValueError(f"{name} must be >= 1, got {value}")
         self.world_size = tp_size * ep_size * dcp_size * pp_size
         self.tp_size, self.ep_size = tp_size, ep_size
 
@@ -146,6 +153,18 @@ class EngineCore:
         from config import Config
         config_kwargs = dict(config_kwargs or {})
         config = Config(model_path, **config_kwargs)
+        Sequence.block_size = config.kvcache_block_size
+        config.tensor_parallel_size = tp_size
+        config.expert_parallel_size = ep_size
+        model_type = getattr(config.hf_config, "model_type", "")
+        is_dsv4 = model_type == "deepseek_v4" or \
+            "DeepSeek-V4" in os.path.basename(os.path.normpath(model_path))
+        if is_dsv4 and self.world_size > 1:
+            raise ValueError(
+                "DeepSeek-V4 is not wired into the v9 EngineCore worker "
+                "parallel path yet; use the dsv41_a100_runtime launcher or "
+                "run EngineCore with tp_size=ep_size=pp_size=1.  Refusing "
+                "multi-worker startup avoids loading a full model per GPU.")
         self.config = config
         from transformers import AutoTokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True)
@@ -216,10 +235,15 @@ class EngineCore:
     # ---------------- busy loop ----------------
 
     def step(self):
+        self.last_step_had_work = False
         seqs, is_prefill = self.scheduler.schedule()
+        if not seqs:
+            return []
+        self.last_step_had_work = True
 
         if self.world_size == 1:
-            msg = _spec_msg(seqs, is_prefill)
+            msg = _spec_msg(seqs, is_prefill,
+                            block_size=self.config.kvcache_block_size)
             specs = rebuild_specs(msg)
             token_ids = self.inproc_runner.run(specs, is_prefill)
             self.scheduler.postprocess(seqs, token_ids, is_prefill)
@@ -238,7 +262,8 @@ class EngineCore:
             if slot.in_flight:
                 raise RuntimeError(f"virtual engine slot {slot.slot_id} is busy")
             slot.in_flight += 1
-            msg = _spec_msg(chunk, mb_prefill, mb_id, slot.slot_id)
+            msg = _spec_msg(chunk, mb_prefill, mb_id, slot.slot_id,
+                            block_size=self.config.kvcache_block_size)
             plans.append(PipelinePlan(mb_id, slot.slot_id, 0,
                                        mb_prefill, msg, tuple(chunk)))
             # Sending all plans before receiving the first output fills the PP
@@ -277,19 +302,32 @@ class EngineCore:
         """批推理便捷入口（与 LLMEngine.generate 对齐）。"""
         if not isinstance(prompts_ids, list):
             prompts_ids = [prompts_ids]
+        elif prompts_ids and isinstance(prompts_ids[0], int):
+            prompts_ids = [prompts_ids]
         if sampling_params is None:
             from samplingParams import SamplingParams
             sampling_params = SamplingParams(temperature=0.0)
         sps = sampling_params if isinstance(sampling_params, list) \
             else [sampling_params] * len(prompts_ids)
-        for p, sp in zip(prompts_ids, sps):
-            self.add_request(p, sp)
+        if len(sps) != len(prompts_ids):
+            raise ValueError("sampling_params and prompts_ids must have equal length")
+        seqs = [self.add_request(p, sp)
+                for p, sp in zip(prompts_ids, sps)]
         while not self.is_finished():
             self.step()
-        outs = []
-        return outs
+        eos = self.config.eos
+        return [{"text": self.tokenizer.decode(seq.completion_token_ids,
+                                                skip_special_tokens=True),
+                 "token_ids": list(seq.completion_token_ids),
+                 "finish_reason": ("stop" if (not seq.ignore_eos and
+                                                 eos in seq.completion_token_ids)
+                                   else "length")}
+                for seq in seqs]
 
     def shutdown(self):
+        if self._shutdown:
+            return
+        self._shutdown = True
         if self.broadcast_q is not None:
             from engine.mq import broadcast
             broadcast(SHUTDOWN, self.broadcast_q)

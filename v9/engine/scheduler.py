@@ -81,7 +81,13 @@ class Scheduler:
             if not _try_schedule(self.waiting[0], in_waiting=True):
                 break
 
-        assert scheduled_seqs
+        # A full KV pool can temporarily make every request unschedulable.
+        # Returning an empty scheduling result lets the executor apply
+        # backpressure instead of crashing on an assertion (or dereferencing
+        # an empty batch).  vLLM's scheduler uses the same explicit empty
+        # output protocol.
+        if not scheduled_seqs:
+            return [], False
         # 混合批次标记: 只要还有任何请求没跑完 prompt 就算"含 prefill"
         # （runner 用 varlen 形态; 纯 decode 全 1-token 批走 decode 快路径）
         has_prefill = any(s.num_cached_tokens < s.num_prompt_tokens for s in scheduled_seqs)
@@ -94,6 +100,8 @@ class Scheduler:
         self.waiting.appendleft(seq)
 
     def postprocess(self, seqs: list[Sequence], token_ids: list[int], is_prefill: bool):
+        if len(token_ids) != len(seqs):
+            raise ValueError(f"scheduler/output length mismatch: {len(seqs)} != {len(token_ids)}")
         # v9.4e 混合批次: is_prefill 只是"本批含 prefill 段"的标记——
         # append_token 的判定【逐序列】做: 该序列的 prompt 已完整算完
         # (num_cached == prompt 长度) 才消费采样 token; chunk 中的序列
@@ -103,7 +111,9 @@ class Scheduler:
             seq.num_cached_tokens += seq.num_scheduled_tokens
             seq.num_scheduled_tokens = 0
             if seq.num_cached_tokens < seq.num_prompt_tokens:
+                seq.is_prefill = True
                 continue                                  # chunk 未完: 不 append
+            seq.is_prefill = False
             seq.append_token(token_id)
             if (not seq.ignore_eos and token_id == self.eos) or seq.num_completion_tokens == seq.max_tokens:
                 seq.status = SequenceStatus.FINISHED

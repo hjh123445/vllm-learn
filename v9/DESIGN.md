@@ -1,6 +1,6 @@
 # v9 设计：并行 × 量化——同一堵墙的两个攻面
 
-> 状态：设计定稿（实施未开始）。先行实验数据已实测（§II.1.5, §II.2 的 B1 陷阱）。
+> 状态：组件级 TP/EP、EngineCore、shared-memory 控制面和 PP 微批 transport 已实施；DeepEP fused kernel 与完整 1F1B scheduler 仍未实施。先行实验数据已实测（§II.1.5, §II.2 的 B1 陷阱）。
 > v9 = v8 全部 + 量化组件（版本叠加，不独立）。
 
 ---

@@ -100,11 +100,11 @@ DSV4-Flash 的特殊性（v6.3 实测显存账）：
 
 ## 5. PP 实测与三重路由 bug 复盘
 
-PP 跑通（PP2 17.6 tok/s / PP2×TP2 15.5 tok/s，5/6 一致）——比 TP2 慢：
-单微批无流水（bubble 50%：stage0 算时 stage1 等、反之），这符合理论
-bubble=(p-1)/(m+p-1) 在 m=1 时的 50%。**PP 的正确打开方式是微批流水**
-（vLLM 的 VirtualEngine：m 个 in-flight batch 填满管道）——本版未实现，
-PP 数据的意义在于"层切+跨 stage 通信链路正确"，吞吐数据不代表 PP 上限。
+PP 跑通（PP2 17.6 tok/s / PP2×TP2 15.5 tok/s，5/6 一致）——早期单微批
+版本比 TP2 慢，bubble 50% 符合理论 bubble=(p-1)/(m+p-1)。当前版本已加入
+`pipeline_microbatches`/`virtual_engine_size`、微批消息标识和 stage 间异步激活
+传输，可以填充多个 in-flight microbatch；但调度仍是 lockstep 收口，还没有 vLLM
+完整的每 virtual engine 1F1B request queue。因此这些数据仍不能代表生产级 PP 上限。
 
 三重路由 bug（全部是"谁发 response"的语义错误，逐个定位）：
 1. core 固定从 response_q[0] 收，但 PP 时采样者是 last stage（其 rank =

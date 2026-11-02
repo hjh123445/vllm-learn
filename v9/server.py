@@ -141,13 +141,27 @@ def main():
     ap.add_argument("--max-num-seqs", type=int, default=8)
     ap.add_argument("--max-model-len", type=int, default=4096)
     ap.add_argument("--gpu-mem-util", type=float, default=0.3)
+    ap.add_argument("--tensor-parallel-size", type=int, default=1)
+    ap.add_argument("--expert-parallel-size", type=int, default=1)
+    ap.add_argument("--pipeline-parallel-size", type=int, default=1)
+    ap.add_argument("--pipeline-microbatches", type=int, default=1)
+    ap.add_argument("--gpus", default=None,
+                    help="comma-separated physical GPU ids, e.g. 0,1,2,3")
     args = ap.parse_args()
 
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(args.model)
-    engine = AsyncEngine(args.model, max_num_seqs=args.max_num_seqs,
-                         max_model_len=args.max_model_len,
-                         gpu_memory_utilization=args.gpu_mem_util, enforce_eager=True)
+    gpus = ([int(x) for x in args.gpus.split(",") if x.strip()]
+            if args.gpus else None)
+    engine = AsyncEngine(
+        args.model, max_num_seqs=args.max_num_seqs,
+        max_model_len=args.max_model_len,
+        gpu_memory_utilization=args.gpu_mem_util, enforce_eager=True,
+        tensor_parallel_size=args.tensor_parallel_size,
+        expert_parallel_size=args.expert_parallel_size,
+        pipeline_parallel_size=args.pipeline_parallel_size,
+        pipeline_microbatches=args.pipeline_microbatches,
+        gpus=gpus)
     engine.start()
 
     Handler.engine = engine

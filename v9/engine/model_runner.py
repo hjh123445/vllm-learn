@@ -6,6 +6,8 @@ warmup 实测激活峰值 → 按显存预算公式算 num_kvcache_blocks → �
 每步 prepare（构造 Context）→ 前向 → 采样。
 区别：模型是 v2 的实现（平铺 + 纯 PyTorch attention），采样支持逐请求温度（含 greedy）。
 """
+import os
+
 import torch
 
 from config import Config

@@ -1,98 +1,148 @@
-# v5/engine/async_engine.py
-"""v5 在线推理引擎：LLMEngine + 后台循环线程 + 每请求的流式队列。
+"""Online adapter for the v9 EngineCore.
 
-线程模型（单卡单进程内）：
-  - HTTP 处理线程：tokenize → async_engine.add() → 拿到 queue → 从 queue 逐个取 token
-  - 引擎循环线程（唯一写者）：被 wake 唤醒 → schedule → run → postprocess →
-    把每条序列的新 token 推进它的 queue
-线程安全依据：scheduler 的 waiting 是 deque（append/popleft 在 CPython 里原子，
-见 benchmark/PERFORMANCE_NOTES §0 的讨论）；block_manager 和 Sequence 状态只有
-循环线程写；add() 只往 waiting 投放数据——单写多读无竞态。"""
+The HTTP layer owns request queues; EngineCore remains the single scheduler
+owner and is advanced by one background thread.  Keeping this adapter on the
+new EngineCore path makes the server exercise the same worker/MQ/PP code as
+offline inference instead of silently falling back to the legacy LLMEngine.
+"""
+
 import queue
 import threading
-import time
 
 
 class _StreamState:
-    """一条在线请求的流式状态（引擎循环线程写，HTTP 线程读）。"""
+    """A request-local token stream (engine thread writes, client reads)."""
+
     __slots__ = ("q", "sent", "finished", "finish_reason", "error")
 
     def __init__(self):
         self.q = queue.Queue()
-        self.sent = 0              # 已推送的 token 数
+        self.sent = 0
         self.finished = False
         self.finish_reason = None
         self.error = None
 
     def close(self):
-        self.q.put(None)            # 结束哨兵
+        self.q.put(None)
 
 
 class AsyncEngine:
+    """Background-thread facade over :class:`engine.core.EngineCore`.
+
+    ``tensor_parallel_size`` and ``expert_parallel_size`` are translated to
+    EngineCore's ``tp_size``/``ep_size`` names for compatibility with the
+    existing server command line and examples.
+    """
 
     def __init__(self, model: str, **kwargs):
-        from engine.llm_engine import LLMEngine
-        self.engine = LLMEngine(model, **kwargs)
-        self.states: dict[int, _StreamState] = {}
+        from transformers import AutoTokenizer
+        from engine.core import EngineCore
+
+        tp_size = kwargs.pop("tp_size", kwargs.pop("tensor_parallel_size", 1))
+        ep_size = kwargs.pop("ep_size", kwargs.pop("expert_parallel_size", 1))
+        pp_size = kwargs.pop("pp_size", kwargs.pop("pipeline_parallel_size", 1))
+        dcp_size = kwargs.pop("dcp_size", 1)
+        dp_size = kwargs.pop("data_parallel_size", 1)
+        gpus = kwargs.pop("gpus", None)
+        master_port = kwargs.pop("master_port", 29600)
+        config_fields = {
+            "max_num_batched_tokens", "max_num_seqs", "max_model_len",
+            "gpu_memory_utilization", "enforce_eager", "kvcache_block_size",
+            "pipeline_microbatches", "virtual_engine_size",
+        }
+        config_kwargs = {k: v for k, v in kwargs.items()
+                         if k in config_fields}
+        self.tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
+        if dp_size > 1:
+            raise ValueError(
+                "AsyncEngine serves one EngineCore; use DPFrontend for "
+                "data_parallel_size>1")
+        self.engine = EngineCore(
+            model, tp_size=tp_size, ep_size=ep_size, dcp_size=dcp_size,
+            pp_size=pp_size, master_port=master_port,
+            config_kwargs=config_kwargs, gpus=gpus)
+        self.states = {}
+        self._seqs = {}
+        self._lock = threading.RLock()
         self._wake = threading.Event()
         self._stop = threading.Event()
         self._thread = None
 
-    # ============ HTTP 线程调用 ============
-
-    def add(self, prompt: str | list[int], sampling_params) -> tuple[int, _StreamState]:
-        """提交一条请求，立刻返回 (请求 id, 流队列)。queue 里逐个出 token，None 表示结束。"""
-        seq = self.engine.add_request(prompt, sampling_params)
-        st = _StreamState()
-        self.states[seq.seq_id] = st
-        self._wake.set()                     # 唤醒引擎循环
-        return seq.seq_id, st
+    def add(self, prompt: str | list[int], sampling_params):
+        """Submit a request and return ``(seq_id, stream_state)``."""
+        if isinstance(prompt, str):
+            prompt = self.tokenizer.encode(prompt, add_special_tokens=False)
+        with self._lock:
+            seq = self.engine.add_request(prompt, sampling_params)
+            state = _StreamState()
+            self.states[seq.seq_id] = state
+            self._seqs[seq.seq_id] = seq
+        self._wake.set()
+        return seq.seq_id, state
 
     def start(self):
-        assert self._thread is None
-        self._thread = threading.Thread(target=self._loop, daemon=True)
+        if self._thread is not None:
+            raise RuntimeError("AsyncEngine has already been started")
+        self._thread = threading.Thread(target=self._loop,
+                                         name="vllm-learn-engine",
+                                         daemon=True)
         self._thread.start()
 
     def stop(self):
         self._stop.set()
         self._wake.set()
-        if self._thread:
-            self._thread.join(timeout=5)
+        if self._thread is not None:
+            self._thread.join(timeout=10)
+        with self._lock:
+            self.engine.shutdown()
+            self._thread = None
 
-    # ============ 引擎循环线程 ============
+    def _publish(self):
+        """Publish all newly generated tokens and close finished streams."""
+        for seq_id, seq in list(self._seqs.items()):
+            state = self.states.get(seq_id)
+            if state is None:
+                continue
+            tokens = seq.completion_token_ids
+            while state.sent < len(tokens):
+                state.q.put(tokens[state.sent])
+                state.sent += 1
+            if seq.is_finished and not state.finished:
+                state.finished = True
+                state.finish_reason = (
+                    "stop" if not seq.ignore_eos and
+                    seq.completion_token_ids and
+                    seq.completion_token_ids[-1] == self.engine.config.eos
+                    else "length")
+                state.close()
 
     def _loop(self):
         while not self._stop.is_set():
-            if self.engine.is_finished():
-                self._wake.wait(timeout=0.005)    # 空转时让出 CPU，add() 会唤醒
+            try:
+                with self._lock:
+                    if self.engine.is_finished():
+                        has_work = False
+                    else:
+                        self.engine.step()
+                        self._publish()
+                        has_work = self.engine.last_step_had_work
+            except Exception as exc:
+                for state in self.states.values():
+                    if not state.finished:
+                        state.error = exc
+                        state.finished = True
+                        state.finish_reason = "error"
+                        state.close()
+                self._stop.set()
+                break
+            if not has_work:
+                self._wake.wait(timeout=0.01)
                 self._wake.clear()
-                continue
-            seqs, is_prefill = self.engine.scheduler.schedule()
-            if not seqs:
-                continue
-            tokens = self.engine.model_runner.run(seqs, is_prefill)
-            self.engine.scheduler.postprocess(seqs, tokens, is_prefill)
-            # 流式推送：本步每条序列新产生的 token
-            for seq in seqs:
-                st = self.states.get(seq.seq_id)
-                if st is None:
-                    continue
-                comp = seq.completion_token_ids
-                while st.sent < len(comp):
-                    st.q.put(comp[st.sent])
-                    st.sent += 1
-                if seq.is_finished and not st.finished:
-                    st.finished = True
-                    st.finish_reason = seq.status.name.lower()
-                    st.close()
-
-    # ============ 便捷：一次性非流式 ============
 
     def generate(self, prompt, sampling_params):
-        _, st = self.add(prompt, sampling_params)
-        toks = []
+        _, state = self.add(prompt, sampling_params)
+        tokens = []
         while True:
-            t = st.q.get()
-            if t is None:
-                return toks, st.finish_reason
-            toks.append(t)
+            token = state.q.get()
+            if token is None:
+                return tokens, state.finish_reason
