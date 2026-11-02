@@ -133,8 +133,14 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     # ---- 模型（v9.3 组件: 构造即本 rank 切片）----
     from config import Config
     from engine.model_runner import ModelRunner
+    if debug:
+        print(f"[worker-config-before] rank={rank} pp={pp_rank} tp={tp_rank} ep={ep_rank}", flush=True)
     config = Config(model_path, **engine_kwargs.get("config_kwargs", {}))
+    if debug:
+        print(f"[worker-config-after] rank={rank}", flush=True)
     runner = ModelRunner(config, dtype=None)
+    if debug:
+        print(f"[worker-runner-after] rank={rank} blocks={config.num_kvcache_blocks}", flush=True)
 
     from engine.mq import SHUTDOWN
     # PP response 路由：采样在 last stage——只有 last stage 的 inner-rank0
