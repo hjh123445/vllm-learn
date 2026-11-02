@@ -150,19 +150,18 @@ class EngineCore:
             self.response_q = [c[0] for c in rc]
             bc_children = [c[1] for c in bc]          # child 端随 worker 传递
             rc_children = [c[1] for c in rc]
-            # On Linux, fork after importing torch but before any CUDA context
-            # is created preserves the parent's Python state while allowing
-            # each child to apply its CUDA_VISIBLE_DEVICES before the first
-            # CUDA call.  spawn re-executes the benchmark module first; if that
-            # module imports torch, changing visibility in the target wrapper
-            # is already too late and NCCL maps every rank to one GPU.
-            ctx = mp.get_context("fork" if os.name != "nt" else "spawn")
+            ctx = mp.get_context("spawn")
             self.procs = []
             gpus = engine_kwargs.get("gpus") or list(range(self.world_size))
             assert len(gpus) >= self.world_size, f"GPUs {gpus} < world_size {self.world_size}"
             for r in range(self.world_size):
                 # spawn 子进程 env: 只见自己的卡（worker 内 set_device(0) 即本卡）
-                env = dict(os.environ, CUDA_VISIBLE_DEVICES=str(gpus[r]))
+                # Do not rewrite CUDA_VISIBLE_DEVICES in the target wrapper:
+                # spawn may import the benchmark module (and torch) before the
+                # wrapper executes, which would remap every one-visible device
+                # to physical GPU 0.  Keep the inherited device list and bind
+                # the requested physical ordinal explicitly in worker_main.
+                env = dict(os.environ)
                 p = ctx.Process(target=_spawn_with_env,
                                 args=(env, worker_main,
                                       (r, self.world_size, tp_size, ep_size,
