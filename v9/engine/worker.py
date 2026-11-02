@@ -21,7 +21,7 @@ import os
 
 
 def worker_main(rank, world_size, tp_size, ep_size, model_path,
-                broadcast_conn, response_conn, engine_kwargs):
+                broadcast_conn, response_conn, engine_kwargs, gpu_id=None):
     """WorkerProc 入口（multiprocessing.Process 的 target）。
 
     rank:      全局 worker 序号（0..world_size-1）
@@ -36,7 +36,15 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     os.environ["MASTER_PORT"] = str(engine_kwargs.get("master_port", 29600))
 
     import torch
-    torch.cuda.set_device(0)   # CUDA_VISIBLE_DEVICES 已隔离 → 逻辑 0 即本卡
+    # Normally the wrapper restricts CUDA_VISIBLE_DEVICES to one card.  The
+    # explicit physical id is a fallback for spawn implementations that import
+    # the parent environment before the wrapper runs; this prevents two ranks
+    # silently binding the same default device.
+    requested = int(gpu_id) if gpu_id is not None else 0
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+    if "," not in visible and visible.strip() and requested >= torch.cuda.device_count():
+        requested = 0
+    torch.cuda.set_device(requested if requested < torch.cuda.device_count() else 0)
     import torch.distributed as dist
 
     # v8.2 教训三件套：device_id 显式绑定 + 组预热 + 对称收发

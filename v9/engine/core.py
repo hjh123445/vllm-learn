@@ -164,7 +164,8 @@ class EngineCore:
                                 args=(env, worker_main,
                                       (r, self.world_size, tp_size, ep_size,
                                        model_path, bc_children[r],
-                                       rc_children[r], engine_kwargs)),
+                                       rc_children[r], engine_kwargs,
+                                       gpus[r])),
                                 daemon=True)
                 p.start()
                 self.procs.append(p)
