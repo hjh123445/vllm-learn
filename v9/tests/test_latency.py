@@ -28,6 +28,8 @@ def main():
     ap.add_argument("--config", choices=SPECS, required=True)
     ap.add_argument("--concurrency", default="1,4,8,16,32")
     ap.add_argument("--max-tokens", type=int, default=16)
+    ap.add_argument("--heterogeneous", action="store_true",
+                    help="alternate 4/8/16/32-token budgets to expose tail latency")
     ap.add_argument("--output", default="/tmp/qwen_latency.json")
     a = ap.parse_args()
     tok = AutoTokenizer.from_pretrained(MODEL, use_fast=True)
@@ -51,7 +53,10 @@ def main():
     for n in [int(x) for x in a.concurrency.split(",")]:
         sid2i={};
         for i in range(n):
-            seq=core.add_request(prompts[i % len(prompts)], sp); sid2i[seq.seq_id]=i
+            req_sp = (SamplingParams(temperature=0.0,
+                                     max_tokens=[4, 8, 16, 32][i % 4])
+                      if a.heterogeneous else sp)
+            seq=core.add_request(prompts[i % len(prompts)], req_sp); sid2i[seq.seq_id]=i
         start=time.perf_counter(); done={}
         while not core.is_finished():
             for sid, toks in core.step():
@@ -68,6 +73,7 @@ def main():
         print(json.dumps(rows[-1], ensure_ascii=False), flush=True)
     result={"model":MODEL,"config":a.config,"tp":tp,"ep":ep,"pp":pp,"gpus":len(gpus),
             "init_s":round(init_s,3),"max_tokens":a.max_tokens,
+            "heterogeneous":a.heterogeneous,
             "prompt_lengths": [len(p) for p in prompts], "rows":rows}
     with open(a.output,"w",encoding="utf-8") as f: json.dump(result,f,ensure_ascii=False,indent=2)
     print(json.dumps(result,ensure_ascii=False), flush=True)
