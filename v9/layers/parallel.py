@@ -111,13 +111,4 @@ def shard_bounds(out_dim: int, tp_size: int, tp_rank: int, min_out: int = 1):
     shard = tp_rank * n_shards // tp_size
     return shard * per, per
 
-# 注意：ColumnParallelLinear / RowParallelLinear 组件在 layers/linear.py
-# （与 BaseLinear 同文件——它们是 Linear）。用模块级 __getattr__ 惰性
-# re-export 保持旧 import 兼容（直接 import 会循环：linear → parallel → linear）
-def __getattr__(name):
-    if name in ("ColumnParallelLinear", "RowParallelLinear"):
-        import layers.linear as _lin
-        return getattr(_lin, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
 

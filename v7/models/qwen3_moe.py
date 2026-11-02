@@ -15,7 +15,7 @@ from layers.norm import RmsNorm
 from layers.attention import Attention
 from layers.kernels import fused_add_rmsnorm
 from layers.moe import MoEMLP
-from engine.parallel import tp_allreduce
+from engine._legacy_tp import tp_allreduce
 
 
 class Qwen3MoeAttention(nn.Module):

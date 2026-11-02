@@ -110,17 +110,6 @@ class ModelRunner:
             n_local = e - s
         assert layer_id == n_local, f"{layer_id} != 本 stage 层数 {n_local}"
 
-    def _shard_kv_heads_for_tp(self, tp_rank: int, tp_size: int):
-        """TP 切分后 attention 的 kv 头数变 kv/TP——池子和 Attention 模块同步缩。
-        在 shard_model_for_tp 之后、allocate_kv_cache 之前调用。"""
-        hf = self.config.hf_config
-        # kv 头数 < TP 时复制（parallel.py 同语义）：per_kv = max(1, kv/TP)
-        per_kv = max(1, hf.num_key_value_heads // tp_size)
-        for m in self.model.modules():
-            if hasattr(m, "num_kv_head"):
-                m.num_kv_head = per_kv
-        self._tp_kv_heads = per_kv
-
     def _per_rank_kv_heads(self):
         """per-rank kv 头数：从模型第一层 attention 组件读（v9.3 组件构造时
         已按 ParallelState 切——TP2 下 kv=4 → 每 rank 2；kv 复制时 ≥1）。

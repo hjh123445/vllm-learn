@@ -38,7 +38,7 @@ coords = init_coords(dp=1, tp=tp, cp=dcp, ep=1, pp=1)
 print(f"[r{rank}] {coords}", flush=True)
 warmup_groups(coords)
 
-from engine.parallel import shard_model_for_tp, set_tp_enabled, set_tp_group
+from engine._legacy_tp import shard_model_for_tp, set_tp_enabled, set_tp_group
 from layers.dcp import set_dcp
 if tp > 1:
     set_tp_enabled(True)

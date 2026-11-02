@@ -48,10 +48,12 @@ TP/EP/PP 三种并行及组合，产出了通信量公式、单机矩阵、跨�
 ```
 models/qwen3.py            dense Qwen3（与 qwen3_moe 并存——模型互不排斥）
 models/qwen3_moe.py        MoE 版 thinker
-engine/parallel.py         TP/EP 切分 + 通信原语（kv 复制 / clone 教训 / 组管理）
+engine/_legacy_tp.py       TP 就地切分 + 通信原语的最小垫片（deprecated：
+                           原 engine/parallel.py 已删除——v9.3 组件架构取代，
+                           本文件仅为旧快照的模型 forward/run_dcp_tp 服务）
 layers/moe.py              MoE 组件（weight_loader 协议：融合逻辑在组件内）
-tests/                     全部实验/启动脚本：
-  run_tp.py / run_ep.py / run_pp.py / run_parallel.py / run_tp_crossnode.py   启动器
-  tp_worker.py / ep_worker.py / pp_worker.py / parallel_worker.py             worker
-  test_dsv4_stage1.py / verify_hf.py / comm_bench.py                          测试与微基准
+tests/                     测试与微基准：
+  test_dsv4_stage1.py / verify_hf.py / comm_bench.py
+（v6 时代的 TP/EP/PP worker 与启动器已删除——历史数据见 PARALLEL_ANALYSIS.md
+ 与 v9 的 tests/results/；新并行实验入口在 v9：tests/run_experiments.py）
 ```
