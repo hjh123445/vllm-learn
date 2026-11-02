@@ -65,6 +65,7 @@ def run_one(cfg):
     core = EngineCore(PATH, tp_size=tp, ep_size=ep, dcp_size=dcp, pp_size=pp,
                       master_port=29711, gpus=gpus,
                       config_kwargs={"max_num_seqs": 8, "max_model_len": 2048,
+                                     "max_num_batched_tokens": 512,
                                      "gpu_memory_utilization": 0.85,
                                      "enforce_eager": True})
     t_init = time.time() - t0
