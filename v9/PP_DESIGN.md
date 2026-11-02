@@ -45,6 +45,9 @@ batch to expose more pipeline parallelism.
 ## Validation
 
 `tests/test_pipeline_schedule.py` checks ordering, ownership, and message
-identity without loading a model. `tests/run_pp.py` remains the NCCL end-to-end
-entry point; compare `pipeline_microbatches=1` and `4` with identical prompts
-and verify token equality before comparing throughput.
+identity without loading a model. Use an EngineCore smoke script with
+`pp_size=2` and compare `pipeline_microbatches=1` and `4` with identical
+prompts. Verify token equality before comparing TTFT, TPOT, and throughput.
+The older `tests/run_pp.py` is a legacy standalone stage test and does not
+exercise EngineCore microbatching.
+
