@@ -24,7 +24,8 @@ from layers.parallel import shard_bounds, configure_parallel
 
 def set_tp(tp_size, tp_rank):
     """单进程模拟某个 tp rank（不初始化 dist——group 全 None, allreduce 直通）。"""
-    configure_parallel(tp_size=tp_size, tp_rank=tp_rank, tp_group=None)
+    configure_parallel(tp_size=tp_size, tp_rank=tp_rank, tp_group=None,
+                           reconfigure=True)
 
 
 def test_shard_bounds():
@@ -111,7 +112,8 @@ def test_grouped_experts():
     # EP=2: rank0 持专家 0-3, rank1 持 4-7
     experts_per_rank = {}
     for r in range(2):
-        configure_parallel(tp_size=1, tp_rank=0, ep_size=2, ep_rank=r)
+        configure_parallel(tp_size=1, tp_rank=0, ep_size=2, ep_rank=r,
+                               reconfigure=True)
         ge = GroupedExperts(E, H, I)
         assert ge.num_experts == 4 and ge.e_start == r * 4
         assert ge.w13.shape == (4, 2 * I, H)
@@ -131,7 +133,8 @@ def test_grouped_experts():
     quarter = {}
     for er in range(2):
         for tr in range(2):
-            configure_parallel(tp_size=2, tp_rank=tr, ep_size=2, ep_rank=er)
+            configure_parallel(tp_size=2, tp_rank=tr, ep_size=2, ep_rank=er,
+                                   reconfigure=True)
             ge = GroupedExperts(E, H, I)
             assert ge.num_experts == 4 and ge.inter == 16
             assert ge.w13.shape == (4, 32, H)

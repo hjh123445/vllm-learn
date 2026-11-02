@@ -30,7 +30,15 @@ from torch import nn
 
 class ParallelState:
     """进程的并行坐标 + 通信组。组件在 __init__ 时读取（构造即定型），
-    launcher 必须在构造模型之前 configure。默认 tp=ep=cp=pp=1（单卡路径）。"""
+    launcher 必须在构造模型之前 configure。默认 tp=ep=cp=pp=1（单卡路径）。
+
+    已知边界（模块级单例的代价，与 vLLM 的 parallel_state 同类取舍）：
+    - 一个进程只支持一套并行配置下的【一个】模型——同进程构造第二个不同
+      配置的模型会读到混合状态（组件在各自 __init__ 时刻快照坐标）；
+    - 测试切换配置必须显式 configure_parallel(..., reconfigure=True)，
+      让"我在改全局"这件事可见（防静默状态泄漏）；
+    - 升级方向（v10）：ParallelConfig 显式传参给模型构造函数，
+      STATE 退化为 engine 层装配的便利层。"""
 
     def __init__(self):
         self.tp_size, self.tp_rank = 1, 0
@@ -39,6 +47,7 @@ class ParallelState:
         self.pp_size, self.pp_rank = 1, 0       # PP（层切 stage）
         self.tp_group = None       # o_proj/w2 的 allreduce 域（tp 维）
         self.moe_group = None      # MoE 部分和的聚合域（tp×ep 张成的组）
+        self._configured = False   # configure_parallel 注入过（防静默重配）
 
     @property
     def tp_enabled(self):
@@ -54,14 +63,25 @@ STATE = ParallelState()
 
 def configure_parallel(tp_size=1, tp_rank=0, ep_size=1, ep_rank=0,
                        tp_group=None, moe_group=None,
-                       cp_size=1, cp_rank=0, pp_size=1, pp_rank=0):
+                       cp_size=1, cp_rank=0, pp_size=1, pp_rank=0,
+                       reconfigure=False):
     """launcher 注入（构造模型前调用）。通信组由引擎侧建好传入——
-    组件不建组（v8.2 教训：new_group 必须全 rank 对称 + device_id + 预热）。"""
+    组件不建组（v8.2 教训：new_group 必须全 rank 对称 + device_id + 预热）。
+
+    二次注入需要显式 reconfigure=True：全局单例被静默改写是"同进程多配置"
+    事故的第一现场（组件在不同时刻快照到不同坐标）——把重配变成显式动作，
+    让调用方在栈里留下痕迹（测试切换配置的合法用法）。"""
+    if STATE._configured and not reconfigure:
+        raise RuntimeError(
+            "ParallelState 已注入过配置——同进程静默改写全局并行状态是事故源"
+            "（组件构造期快照坐标，中途换配置会得到混合状态）。"
+            "测试切换配置请显式 configure_parallel(..., reconfigure=True)。")
     STATE.tp_size, STATE.tp_rank = tp_size, tp_rank
     STATE.ep_size, STATE.ep_rank = ep_size, ep_rank
     STATE.cp_size, STATE.cp_rank = cp_size, cp_rank
     STATE.pp_size, STATE.pp_rank = pp_size, pp_rank
     STATE.tp_group, STATE.moe_group = tp_group, moe_group
+    STATE._configured = True
     return STATE
 
 
