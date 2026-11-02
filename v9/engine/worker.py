@@ -193,6 +193,14 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
 
     if pp_size > 1 and STATE.pipeline_transport is not None:
         STATE.pipeline_transport.drain()
+    if os.getenv("VLLM_LEARN_PROFILE_EXPERTS", "0") == "1":
+        import json
+        path = os.getenv("VLLM_LEARN_PROFILE_DIR", "/tmp")
+        os.makedirs(path, exist_ok=True)
+        with open(os.path.join(path, f"qwen_expert_profile_rank{rank}.json"), "w", encoding="utf-8") as f:
+            json.dump({"rank": rank, "tp_rank": tp_rank, "ep_rank": ep_rank,
+                       "pp_rank": pp_rank, "profile": runner.model.expert_profile()},
+                      f, ensure_ascii=False)
     if world_size > 1:
         dist.destroy_process_group()
     # Release the child-side pipes and shared-memory handles.  The parent

@@ -65,6 +65,13 @@ class GroupedExperts(nn.Module):
         self.inter = intermediate // STATE.tp_size       # I_local
         self.i_start = STATE.tp_rank * self.inter
         self.quantized = False
+        # Optional experiment-only counters.  They stay disabled in normal
+        # inference; enabling VLLM_LEARN_PROFILE_EXPERTS records token routing
+        # and all-to-all volume for long-tail/hot-expert analysis.
+        self._profile_enabled = os.getenv("VLLM_LEARN_PROFILE_EXPERTS", "0") == "1"
+        self._profile_token_counts = None
+        self._profile_send_counts = None
+        self._profile_recv_counts = None
         self.w13 = nn.Parameter(torch.empty(self.num_experts, 2 * self.inter, hidden_size))
         self.w2 = nn.Parameter(torch.empty(self.num_experts, hidden_size, self.inter))
 
@@ -124,6 +131,9 @@ class GroupedExperts(nn.Module):
 
         final = torch.zeros_like(x)
         counts = torch.bincount(flat_expert, minlength=E)
+        if self._profile_enabled:
+            c = counts.detach().cpu()
+            self._profile_token_counts = c if self._profile_token_counts is None else self._profile_token_counts + c
         offsets = counts.cumsum(0)                     # 每个专家在排序后序列的终点
         # 稳定排序：同一专家的 token 连续排布
         order = torch.argsort(flat_expert, stable=True)
@@ -194,6 +204,11 @@ class MoEMLP(nn.Module):
         E = self.experts.num_experts
         final = torch.zeros_like(xs)
         counts = torch.bincount(eids, minlength=E)
+        if self.experts._profile_enabled:
+            c = counts.detach().cpu()
+            self.experts._profile_token_counts = (
+                c if self.experts._profile_token_counts is None
+                else self.experts._profile_token_counts + c)
         offsets = counts.cumsum(0)
         order = torch.argsort(eids, stable=True)
         xs_s, ws_s = xs[order], ws[order]
@@ -265,6 +280,10 @@ class MoEMLP(nn.Module):
         send_counts = torch.bincount(dest, minlength=world).to(torch.int64)
         recv_counts = torch.empty_like(send_counts)
         dist.all_to_all_single(recv_counts, send_counts, group=STATE.ep_group)
+        if self.experts._profile_enabled:
+            sc, rc = send_counts.detach().cpu(), recv_counts.detach().cpu()
+            self.experts._profile_send_counts = sc if self.experts._profile_send_counts is None else self.experts._profile_send_counts + sc
+            self.experts._profile_recv_counts = rc if self.experts._profile_recv_counts is None else self.experts._profile_recv_counts + rc
         ss = [int(v) for v in send_counts.tolist()]
         rs = [int(v) for v in recv_counts.tolist()]
 

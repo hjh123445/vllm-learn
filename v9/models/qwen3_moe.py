@@ -212,3 +212,25 @@ class Qwen3MoeForCausalLM(nn.Module):
                     del lin
         _t.cuda.empty_cache()
         return n_replaced
+
+    def expert_profile(self):
+        """Return optional routing counters for one worker.
+
+        The counters are intentionally collected at shutdown rather than sent
+        through the inference response path.  This keeps normal EngineCore
+        messages unchanged while allowing an experiment to merge one JSON
+        record per TP/EP rank.
+        """
+        rows = []
+        for layer_idx, layer in enumerate(self.model.layers):
+            experts = getattr(getattr(layer, "mlp", None), "experts", None)
+            if experts is None or not getattr(experts, "_profile_enabled", False):
+                continue
+            def vals(x):
+                return x.tolist() if x is not None else None
+            rows.append({"layer": layer_idx,
+                         "local_experts": int(experts.num_experts),
+                         "token_counts": vals(experts._profile_token_counts),
+                         "send_counts": vals(experts._profile_send_counts),
+                         "recv_counts": vals(experts._profile_recv_counts)})
+        return rows
