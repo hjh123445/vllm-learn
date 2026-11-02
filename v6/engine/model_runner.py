@@ -104,16 +104,7 @@ class ModelRunner:
         num_kv_heads = getattr(self, "_tp_kv_heads", None) or hf.num_key_value_heads
         head_dim = getattr(hf, "head_dim", hf.hidden_size // hf.num_attention_heads)
         block_bytes = 2 * hf.num_hidden_layers * self.block_size * num_kv_heads * head_dim * self.dtype.itemsize
-        if getattr(self, "_activation_peak", None) is not None:
-            # warmup 路径（tmp 已在 warmup 末尾释放）：used 只含 权重+context+其他进程，
-            # A 用实测峰值——预算 = util×total − 常驻 − 激活峰值
-            budget = int(total * config.gpu_memory_utilization) - used - self._activation_peak
-        elif self.kv_cache is None:
-            # TP 手动路径（无 warmup）：激活余量用 6GB 启发式
-            budget = int(total * config.gpu_memory_utilization) - (used - current) - current - 6 * 10**9
-        else:
-            peak = torch.cuda.memory_stats()["allocated_bytes.all.peak"]
-            budget = int(total * config.gpu_memory_utilization) - used - peak + current
+        budget = int(total * config.gpu_memory_utilization) - used - self._activation_peak
         config.num_kvcache_blocks = budget // block_bytes
         if config.num_kvcache_blocks <= 0:
             print(f"[池诊断] total={total/1e9:.1f} used={used/1e9:.1f} current={current/1e9:.1f} "

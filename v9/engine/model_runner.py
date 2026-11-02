@@ -169,27 +169,23 @@ class ModelRunner:
         torch.cuda.empty_cache()
 
     def allocate_kv_cache(self):
-        """池子预算。单卡路径 = nano 公式（warmup 量激活峰值）；
-        TP 手动路径（无 warmup）= util×total − 其他进程 − 本进程权重 − 激活余量(6GB)。"""
+        """池子预算 = util×总显存 − 常驻(权重+context+其他进程) − warmup 实测激活峰值。
+
+        v9 组件化后唯一路径（组件构造即分片，warmup 在任何 TP/EP 配置下都能
+        直接跑，_activation_peak 必然已设置）——v6 的"TP 手动路径（无 warmup，
+        6GB 启发式）"与"重分配（陈旧 peak）"两个分支已删：它们服务的手动
+        allocate 入口（run_tp/切分后重分池）在并行架构清理时一并移除。"""
         config = self.config
         hf = config.hf_config
         free, total = torch.cuda.mem_get_info()
         used = total - free
-        current = torch.cuda.memory_stats()["allocated_bytes.all.current"]
         num_kv_heads = self._per_rank_kv_heads()
         head_dim = getattr(hf, "head_dim", hf.hidden_size // hf.num_attention_heads)
         _n = self._n_layers_local
         block_bytes = 2 * _n * self.block_size * num_kv_heads * head_dim * self.dtype.itemsize
-        if getattr(self, "_activation_peak", None) is not None:
-            # warmup 路径（tmp 已在 warmup 末尾释放）：used 只含 权重+context+其他进程，
-            # A 用实测峰值——预算 = util×total − 常驻 − 激活峰值
-            budget = int(total * config.gpu_memory_utilization) - used - self._activation_peak
-        elif self.kv_cache is None:
-            # TP 手动路径（无 warmup）：激活余量用 6GB 启发式
-            budget = int(total * config.gpu_memory_utilization) - (used - current) - current - 6 * 10**9
-        else:
-            peak = torch.cuda.memory_stats()["allocated_bytes.all.peak"]
-            budget = int(total * config.gpu_memory_utilization) - used - peak + current
+        # tmp 已在 warmup 末尾释放：used 只含 权重+context+其他进程，
+        # A 用实测峰值——预算 = util×total − 常驻 − 激活峰值
+        budget = int(total * config.gpu_memory_utilization) - used - self._activation_peak
         config.num_kvcache_blocks = budget // block_bytes
         if config.num_kvcache_blocks <= 0:
             print(f"[池诊断] total={total/1e9:.1f} used={used/1e9:.1f} current={current/1e9:.1f} "
@@ -200,11 +196,10 @@ class ModelRunner:
                                     dtype=self.dtype, device=self.device)
         self._assign_layer_caches(self.kv_cache)
         print(f"[v3 显存预算] 总显存 {total/1e9:.1f} GB × 利用率 {config.gpu_memory_utilization}")
-        act = getattr(self, "_activation_peak", None)
         print(f"  → KV 池 {config.num_kvcache_blocks} blocks × {self.block_size} tok "
               f"({self.kv_cache.numel() * self.dtype.itemsize / 1e9:.2f} GB, "
               f"每 block {block_bytes/1e6:.2f} MB, "
-              f"激活预算 {'实测 ' + f'{act/1e9:.2f}' + ' GB' if act is not None else '启发式 6 GB'})")
+              f"激活预算 实测 {self._activation_peak/1e9:.2f} GB")
 
     # ================= 每步的 prepare（构造 Context）=================
 
