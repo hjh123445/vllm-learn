@@ -248,7 +248,10 @@ class ModelRunner:
         from layers.parallel import STATE
         STATE.pipeline_lane = pipeline_lane
         STATE.microbatch_id = microbatch_id
-        hidden = self.model(input_ids, positions)                 # [total_q, hidden]
+        with torch.autograd.profiler.record_function(
+                f"stage{STATE.pp_rank}.microbatch{microbatch_id}.lane{pipeline_lane}."
+                f"{'prefill' if is_prefill else 'decode'}"):
+            hidden = self.model(input_ids, positions)             # [total_q, hidden]
         # PP 中间 stage：hidden 已发给下游，跳过 lm_head/采样（worker 只在
         # last stage 发 response）
         if getattr(STATE, "pp_size", 1) > 1 and STATE.pp_rank < STATE.pp_size - 1:

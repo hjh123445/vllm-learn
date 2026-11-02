@@ -73,6 +73,7 @@ class Qwen3MoeAttention(nn.Module):
 class Qwen3MoeDecoderLayer(nn.Module):
     def __init__(self, config, layer_idx: int):
         super().__init__()
+        self.layer_idx = layer_idx
         self.self_attn = Qwen3MoeAttention(config, layer_idx)
         self.mlp = MoEMLP(config)                       # 全部 48 层都是 MoE（sparse_step=1）
         self.input_layernorm = RmsNorm(config.hidden_size, eps=config.rms_norm_eps)
@@ -81,11 +82,13 @@ class Qwen3MoeDecoderLayer(nn.Module):
     def forward(self, x, residual, positions):
         x, residual = fused_add_rmsnorm(x, residual, self.input_layernorm.weight,
                                        self.input_layernorm.eps)
-        with torch.autograd.profiler.record_function("attention"):
+        from layers.parallel import STATE
+        prefix = f"stage{STATE.pp_rank}.layer{self.layer_idx}"
+        with torch.autograd.profiler.record_function(f"{prefix}.attention"):
             x = self.self_attn(x, positions)     # o_proj(RowParallel) 内置 allreduce
         x, residual = fused_add_rmsnorm(x, residual, self.post_attention_layernorm.weight,
                                        self.post_attention_layernorm.eps)
-        with torch.autograd.profiler.record_function("moe"):
+        with torch.autograd.profiler.record_function(f"{prefix}.moe"):
             x = self.mlp(x)                      # MoE 部分和聚合在 MoEMLP 内
         return x, residual
 
@@ -145,7 +148,8 @@ class Qwen3MoeModel(nn.Module):
             x = self.embed_tokens(input_ids)
             residual = torch.zeros_like(x)
         for layer_id, layer in enumerate(self.layers):
-            with torch.autograd.profiler.record_function(f"layer.{layer_id}"):
+            with torch.autograd.profiler.record_function(
+                    f"stage{STATE.pp_rank}.layer.{layer_id}"):
                 x, residual = layer(x, residual, positions)
         if STATE.pp_size > 1 and STATE.pp_rank < STATE.pp_size - 1:
             # 中间 stage：异步把 hidden/residual 传给下游，不进 norm。
