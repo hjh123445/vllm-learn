@@ -127,8 +127,11 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     from engine.mq import SHUTDOWN
     # PP response 路由：采样在 last stage——只有 last stage 的 inner-rank0
     # 发 response（EngineCore 从它读），其余 worker 静默
+    # A TP/EP worker group produces one logical result.  EngineCore reads
+    # that result from rank 0 only; letting every rank send into its response
+    # slot leaves the other slots without an ACK and blocks the next step.
     is_resp_rank = (pp_rank == pp_size - 1 and rank % inner == 0) \
-        if pp_size > 1 else True
+        if pp_size > 1 else (rank == 0)
     # PP 时 ready 只由 stage0 发（core 的 ready 循环只收 stage0 的 rank0——
     # last stage 若也发，其 ready 会残留在 response 管道里，step 的第一次
     # recv 收到的是它而不是 output → KeyError 'tokens'）
