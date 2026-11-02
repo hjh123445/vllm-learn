@@ -188,8 +188,10 @@ class ModelRunner:
         budget = int(total * config.gpu_memory_utilization) - used - self._activation_peak
         config.num_kvcache_blocks = budget // block_bytes
         if config.num_kvcache_blocks <= 0:
-            print(f"[池诊断] total={total/1e9:.1f} used={used/1e9:.1f} current={current/1e9:.1f} "
-                  f"block={block_bytes/1e6:.1f}MB budget={budget/1e9:.1f}GB", flush=True)
+            act = self._activation_peak / 1e9
+            print(f"[池诊断] total={total/1e9:.1f} used={used/1e9:.1f} "
+                  f"activation_peak={act:.1f} block={block_bytes/1e6:.1f}MB "
+                  f"budget={budget/1e9:.1f}GB", flush=True)
         assert config.num_kvcache_blocks > 0
         self.kv_cache = torch.empty(2, _n, config.num_kvcache_blocks,
                                     self.block_size, num_kv_heads, head_dim,
