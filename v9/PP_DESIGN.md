@@ -6,11 +6,11 @@
 
 ## 当前代码做了什么
 
-EngineCore 把 scheduler 的多个序列按 token 预算切成微批，给每个微批分配 microbatch_id 和两个 lane 之一；它把一个调度步的消息全部下发后，再从最后 stage 收集输出。一个很长的请求仍保持在同一条消息中，chunked prefill 负责让它跨调度步推进。
+EngineCore 把 scheduler 的多个序列按 token 预算切成微批，为每个微批分配单调递增的 microbatch_id 和两个 lane 之一；每步最多允许两个 microbatch 在途，达到窗口后就从最后 stage 收集结果。单条序列不会在微批内部拆开，因此序列长度大于 token 预算时仍会单独形成超预算消息；chunked prefill 负责让它跨调度步推进。
 
-PipelineTransport 对首个 header 采用懒惰 irecv，避免 NCCL 初始化阶段的 rendezvous；收到 header 后预投递下一次 header，payload 使用异步 irecv，stage<last 使用异步 isend。发送和接收都在独立通信 stream 上，并用 CUDA event 与计算 stream 建立依赖，credit 限制每 lane 的在途 buffer。发送 buffer 在对应 Work 完成前保持引用，worker 退出前调用 shutdown 释放预投递接收并 drain 未完成发送。
+PipelineTransport 在 worker 进入 recv 消息时懒投递 header irecv，收到 header 后才分配 payload 并投递 irecv；stage<last 使用异步 isend。操作使用独立通信 stream，并用 CUDA event 与计算 stream 建立依赖，credit 限制每 lane 的未完成发送数。发送 buffer 在对应 Work 完成前保持引用，worker 退出前 drain 未完成发送。当前没有预先投递下一条 header receive。
 
-因此 stage0 的微批 1 可以在 stage1 计算微批 0 时开始传输，减少串行等待。它是推理 forward-only 的双 lane 流水线，不包含训练 DualPipe 的 backward 调度。
+因此 stage0 的后续微批可以在 stage1 计算前一个微批时开始异步发送，但 worker 仍按消息逐条处理。这是推理 forward-only 的双 lane PP prototype，不包含训练 DualPipe 的 backward 调度，也没有证明 zero-bubble。
 
 ## 仍然存在的边界
 
@@ -20,4 +20,4 @@ header 仍然需要先完成，才能按实际 token 数分配 hidden/residual�
 
 ## 面试时应如何表述
 
-可以说项目实现了“带懒启动 header、预投递下一 header、异步 P2P、双 lane、通信 stream、CUDA event 和 credit backpressure 的 forward-only pipeline prototype”，并明确还没有实现训练版 DualPipe 的 backward 优先调度，也没有 DeepEP 级别的自定义通信 kernel。这种边界比把字段名直接称为 zero-bubble 更可信。
+可以说项目实现了“动态 token-budget microbatch、双 lane 元数据、异步 P2P、通信 stream、CUDA event 和有限 send credit 的 forward-only pipeline prototype”，并明确还没有实现训练版 DualPipe 的 backward 优先调度，也没有 DeepEP 级别的自定义通信 kernel。应以实际 CUDA trace 说明是否存在有效重叠。

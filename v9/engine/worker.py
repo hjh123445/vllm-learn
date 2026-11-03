@@ -9,8 +9,8 @@ v1/worker/worker_base.py 的 WorkerWrapperBase。
       └─ spawn N 个本进程（每 GPU 一个）
            主循环: MQ.recv(scheduler_output) → model_runner.run → response MQ.send
 
-PP stage 内的 activation 由 PipelineTransport 独立管理：两个 lane 预投递
-irecv，worker 仍按 scheduler 消息顺序执行模型 forward。
+PP activation 由 PipelineTransport 管理；receive 在处理消息时懒投递，
+worker 按消息顺序执行 forward。两个 lane 不等于完整预投递或训练 DualPipe。
 
 与 v6.4 的"N 个全等进程 + NCCL broadcast"的区别：worker 进程里【没有
 scheduler】，每步的 forward 输入完全来自广播的消息（用完即弃，不镜像
@@ -36,8 +36,16 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     os.environ["WORLD_SIZE"] = str(world_size)
     os.environ["MASTER_ADDR"] = engine_kwargs.get("master_addr", "127.0.0.1")
     os.environ["MASTER_PORT"] = str(engine_kwargs.get("master_port", 29600))
+    cpu_threads = max(1, int(os.getenv("VLLM_LEARN_CPU_THREADS", "4")))
+    os.environ.setdefault("OMP_NUM_THREADS", str(cpu_threads))
+    os.environ.setdefault("MKL_NUM_THREADS", str(cpu_threads))
 
     import torch
+    torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", cpu_threads)))
+    try:
+        torch.set_num_interop_threads(1)
+    except RuntimeError:
+        pass
     # Normally the wrapper restricts CUDA_VISIBLE_DEVICES to one card.  The
     # explicit physical id is a fallback for spawn implementations that import
     # the parent environment before the wrapper runs; this prevents two ranks
@@ -51,19 +59,6 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
           f"count={torch.cuda.device_count()} current={torch.cuda.current_device()}",
           flush=True)
     import torch.distributed as dist
-
-    profiler = None
-    if os.getenv("VLLM_LEARN_CUDA_PROFILE", "0") == "1" and torch.cuda.is_available():
-        profile_dir = os.getenv("VLLM_LEARN_TRACE_DIR", "/tmp")
-        os.makedirs(profile_dir, exist_ok=True)
-        profiler = torch.profiler.profile(
-            activities=[torch.profiler.ProfilerActivity.CPU,
-                       torch.profiler.ProfilerActivity.CUDA],
-            schedule=torch.profiler.schedule(wait=1, warmup=1, active=8, repeat=1),
-            on_trace_ready=lambda p: p.export_chrome_trace(
-                os.path.join(profile_dir, f"cuda_rank{rank}.json")),
-            record_shapes=True, with_stack=False, profile_memory=True)
-        profiler.__enter__()
 
     # v8.2 教训三件套：device_id 显式绑定 + 组预热 + 对称收发
     if world_size > 1:
@@ -86,45 +81,16 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     tp_rank = r // cp_size
     cp_rank = r % cp_size
     from layers.parallel import configure_parallel, STATE
-    tp_group = ep_group = moe_group = cp_group = None
-    if world_size > 1:
-        # tp 组 = 同 (pp, ep, cp) 沿 tp 变化——v9.4a 曾写成 r%tp_size==tp_rank
-        # → 单成员组 → allreduce 变 no-op（e2e 全错的根因，勿回退）
-        if tp_size > 1:
-            if debug:
-                print(f"[worker-group-before] rank={rank} tp", flush=True)
-            tp_group = dist.new_group(ranks=[
-                pp_rank * inner + ep_rank * tp_size * cp_size + t * cp_size + cp_rank
-                for t in range(tp_size)])
-            if debug:
-                print(f"[worker-group-after] rank={rank} tp", flush=True)
-        if ep_size > 1:
-            ep_group = dist.new_group(ranks=[
-                pp_rank * inner + e * tp_size * cp_size + tp_rank * cp_size + cp_rank
-                for e in range(ep_size)])
-        # moe 组 = 同 (pp, cp) 的 tp×ep 张成（MoE 部分和聚合域）
-        if tp_size * ep_size > 1:
-            moe_group = dist.new_group(ranks=[
-                pp_rank * inner + e * tp_size * cp_size + t * cp_size + cp_rank
-                for e in range(ep_size) for t in range(tp_size)])
-        # cp 组 = 同 (pp, ep, tp) 沿 cp 变化（DCP partial/LSE 合并域）
-        if cp_size > 1:
-            cp_group = dist.new_group(ranks=[
-                pp_rank * inner + ep_rank * tp_size * cp_size + tp_rank * cp_size + c
-                for c in range(cp_size)])
-        # 组预热（惰性 wire-up 竞态——v8.2 的 25 分钟死锁）
-        for g in (tp_group, ep_group, moe_group, cp_group):
-            if g is not None:
-                if debug:
-                    print(f"[worker-warmup-before] rank={rank}", flush=True)
-                t = torch.zeros(1, device="cuda")
-                dist.all_reduce(t, group=g)
-                if debug:
-                    print(f"[worker-warmup-after] rank={rank}", flush=True)
-        torch.cuda.synchronize()
+    from engine.process_groups import create_groups
+    groups = create_groups(rank, tp_size, cp_size, ep_size, pp_size)
+    tp_group, ep_group, cp_group = (groups[k] for k in ("tp", "ep", "cp"))
+    for group in groups.values():
+        if group is not None:
+            dist.all_reduce(torch.zeros(1, device="cuda"), group=group)
+    torch.cuda.synchronize()
     configure_parallel(tp_size=tp_size, tp_rank=tp_rank,
                        ep_size=ep_size, ep_rank=ep_rank,
-                       tp_group=tp_group, ep_group=ep_group, moe_group=moe_group,
+                       tp_group=tp_group, ep_group=ep_group,
                        cp_size=cp_size, cp_rank=cp_rank,
                        pp_size=pp_size, pp_rank=pp_rank)
 
@@ -156,10 +122,29 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         print(f"[worker-config-after] rank={rank}", flush=True)
     runner = ModelRunner(config, dtype=None)
     # Warmup may have populated the optional layer timeline. Discard it so
-    # exported traces describe requests only.
+    # exported traces and routing counters describe requests only.
     STATE.trace_events = []
+    for layer in runner.model.model.layers:
+        experts = getattr(getattr(layer, "mlp", None), "experts", None)
+        if experts is not None:
+            experts._profile_token_counts = None
+            experts._profile_send_counts = None
+            experts._profile_recv_counts = None
     if debug:
         print(f"[worker-runner-after] rank={rank} blocks={config.num_kvcache_blocks}", flush=True)
+
+    profiler = None
+    if os.getenv("VLLM_LEARN_CUDA_PROFILE", "0") == "1" and torch.cuda.is_available():
+        profile_dir = os.getenv("VLLM_LEARN_TRACE_DIR", "/tmp")
+        os.makedirs(profile_dir, exist_ok=True)
+        profiler = torch.profiler.profile(
+            activities=[torch.profiler.ProfilerActivity.CPU,
+                       torch.profiler.ProfilerActivity.CUDA],
+            schedule=torch.profiler.schedule(wait=1, warmup=1, active=int(os.getenv("VLLM_LEARN_PROFILE_STEPS", "2")), repeat=1),
+            on_trace_ready=lambda p: p.export_chrome_trace(
+                os.path.join(profile_dir, f"cuda_rank{rank}.json")),
+            record_shapes=True, with_stack=False, profile_memory=False)
+        profiler.__enter__()
 
     from engine.mq import SHUTDOWN
     # PP response 路由：采样在 last stage——只有 last stage 的 inner-rank0
@@ -185,6 +170,8 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         if debug:
             print(f"[worker-ready] rank={rank} blocks={config.num_kvcache_blocks}", flush=True)
 
+    response_pending = False
+    message_index = 0
     while True:
         msg = broadcast_conn.recv()
         if msg is SHUTDOWN or msg.get("type") == "shutdown":
@@ -194,15 +181,25 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         # scheduler_output → forward 输入（用完即弃的快照）
         from engine.core import rebuild_specs
         specs = rebuild_specs(msg)
+        message_index += 1
+        if STATE.pipeline_transport is not None:
+            STATE.pipeline_transport.async_enabled = msg.get(
+                "pipeline_mode", "optimized") != "baseline"
+            STATE.pipeline_transport.trace_variant = msg.get(
+                "pipeline_mode", "optimized")
         is_prefill = msg["is_prefill"]
         token_ids = []
         forward_started = __import__("time").perf_counter()
         if specs:
             if debug:
                 print(f"[worker-run] rank={rank} mb={msg.get('microbatch_id')}", flush=True)
-            token_ids = runner.run(specs, is_prefill,
-                                   pipeline_lane=msg.get("pipeline_lane", 0),
-                                   microbatch_id=msg.get("microbatch_id", 0))
+            with torch.autograd.profiler.record_function(
+                    f"rank{rank}.stage{pp_rank}.message{message_index}."
+                    f"mb{msg.get('microbatch_id', 0)}."
+                    f"{'prefill' if is_prefill else 'decode'}"):
+                token_ids = runner.run(specs, is_prefill,
+                                       pipeline_lane=msg.get("pipeline_lane", 0),
+                                       microbatch_id=msg.get("microbatch_id", 0))
             if debug:
                 print(f"[worker-done] rank={rank} mb={msg.get('microbatch_id')}", flush=True)
         forward_finished = __import__("time").perf_counter()
@@ -213,17 +210,38 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
                 "end": forward_finished, "stage": pp_rank,
                 "microbatch_id": msg.get("microbatch_id", 0),
                 "lane": msg.get("pipeline_lane", 0),
+                "message_index": message_index, "is_prefill": is_prefill,
+                "variant": msg.get("pipeline_mode", "optimized"),
             })
         if profiler is not None:
             profiler.step()
         if is_resp_rank:
+            if response_pending:
+                response_conn.wait_ack()
             response_conn.send({"type": "output", "tokens": token_ids,
                                 "seq_ids": [s.seq_id for s in specs],
                                 "microbatch_id": msg.get("microbatch_id", 0),
                                 "virtual_engine": msg.get("virtual_engine", 0),
                                 "pipeline_lane": msg.get("pipeline_lane", 0),
-                                "n": len(specs)})
+                                "n": len(specs)}, wait_ack=False)
+            response_pending = True
 
+    if response_pending:
+        response_conn.wait_ack()
+    metrics_dir = os.getenv("VLLM_LEARN_METRICS_DIR")
+    if metrics_dir:
+        import json
+        os.makedirs(metrics_dir, exist_ok=True)
+        torch.cuda.synchronize()
+        with open(os.path.join(metrics_dir, f"memory_rank{rank}.json"), "w") as f:
+            json.dump({"rank": rank, "gpu": torch.cuda.current_device(),
+                       "pp_stage": pp_rank, "ep_rank": ep_rank, "tp_rank": tp_rank,
+                       "allocated_bytes": torch.cuda.memory_allocated(),
+                       "peak_allocated_bytes": torch.cuda.max_memory_allocated(),
+                       "reserved_bytes": torch.cuda.memory_reserved(),
+                       "kv_cache_bytes": runner.kv_cache.numel() * runner.kv_cache.element_size(),
+                       "local_parameter_bytes": sum(t.numel() * t.element_size()
+                                                    for t in runner.model.parameters())}, f)
     if profiler is not None:
         profiler.__exit__(None, None, None)
     if pp_size > 1 and STATE.pipeline_transport is not None:
@@ -233,8 +251,7 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         import json
         os.makedirs(trace_dir, exist_ok=True)
         transport_trace = list(getattr(STATE.pipeline_transport, "trace", []))
-        origin = getattr(STATE.pipeline_transport, "trace_origin",
-                         trace_events[0]["ts"] if trace_events else 0.0)
+        origin = 0.0  # perf_counter shares one monotonic clock on this host.
         layer_range = [getattr(runner.model.model, "pp_start", 0),
                        getattr(runner.model.model, "pp_end", 0)]
         events = []
@@ -245,6 +262,9 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
                 "dur": max(0.0, event["end"] - event["ts"]) * 1e6,
                 "pid": rank, "tid": "compute",
                 "args": {"stage": pp_rank,
+                         "message_index": event["message_index"],
+                         "is_prefill": event["is_prefill"],
+                         "variant": event["variant"],
                          "microbatch_id": event["microbatch_id"],
                          "lane": event["lane"], "layer_range": layer_range},
             })
@@ -276,6 +296,9 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
             json.dump({
                 "displayTimeUnit": "ms", "traceEvents": events,
                 "metadata": {"rank": rank, "pp_stage": pp_rank,
+                             "gpu": torch.cuda.current_device(),
+                             "clock": "host_monotonic_us", "measurement": "CPU submission, not GPU duration",
+                             "tp_rank": tp_rank, "ep_rank": ep_rank,
                              "pipeline_mode": engine_kwargs.get(
                                  "pipeline_mode", "optimized"),
                              "layer_range": layer_range},

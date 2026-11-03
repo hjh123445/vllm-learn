@@ -1,10 +1,8 @@
 # v5/engine/model_runner.py
-"""v3 ModelRunner（重写版，单卡单进程，无 mp/分布式）。
+"""每个 GPU worker 内的模型执行器。
 
-职责与 nano 的 model_runner 相同：载模型 → warmup 量激活峰值 →
-warmup 实测激活峰值 → 按显存预算公式算 num_kvcache_blocks → 分配池子并注入每层 attention →
-每步 prepare（构造 Context）→ 前向 → 采样。
-区别：模型是 v2 的实现（平铺 + 纯 PyTorch attention），采样支持逐请求温度（含 greedy）。
+装载本 rank 权重、测量激活峰值、分配本 stage KV cache，
+将调度结果转换为 Context，执行 forward 并在末 stage 采样。
 """
 import os
 
@@ -68,21 +66,10 @@ class ModelRunner:
             n_local = e - s
         assert layer_id == n_local, f"{layer_id} != 本 stage 层数 {n_local}"
 
-    def _shard_kv_heads_for_tp(self, tp_rank: int, tp_size: int):
-        """TP 切分后 attention 的 kv 头数变 kv/TP——池子和 Attention 模块同步缩。
-        在 shard_model_for_tp 之后、allocate_kv_cache 之前调用。"""
-        hf = self.config.hf_config
-        # kv 头数 < TP 时复制（parallel.py 同语义）：per_kv = max(1, kv/TP)
-        per_kv = max(1, hf.num_key_value_heads // tp_size)
-        for m in self.model.modules():
-            if hasattr(m, "num_kv_head"):
-                m.num_kv_head = per_kv
-        self._tp_kv_heads = per_kv
-
     def _per_rank_kv_heads(self):
         """per-rank kv 头数：从模型第一层 attention 组件读（v9.3 组件构造时
         已按 ParallelState 切——TP2 下 kv=4 → 每 rank 2；kv 复制时 ≥1）。
-        取代 v6 的 _shard_kv_heads_for_tp 事后补丁（引擎读组件，不是组件等引擎）。"""
+        引擎读取组件已经确定的头数，不在装载后再次修改模型。"""
         for m in self.model.modules():
             if hasattr(m, "num_kv_head"):
                 return m.num_kv_head

@@ -50,10 +50,18 @@ class AsyncEngine:
         pipeline_mode = kwargs.pop("pipeline_mode", "optimized")
         pipeline_microbatch_tokens = kwargs.pop("pipeline_microbatch_tokens", 2048)
         pipeline_stage_map = kwargs.pop("pipeline_stage_map", None)
+        legacy_microbatches = kwargs.pop("pipeline_microbatches", 1)
+        legacy_virtual_engine = kwargs.pop("virtual_engine_size", None)
+        legacy_schedule = kwargs.pop("pipeline_schedule", "forward")
+        if (legacy_microbatches != 1 or legacy_virtual_engine is not None
+                or legacy_schedule != "forward"):
+            raise NotImplementedError(
+                "This inference runtime dynamically splits scheduler output by "
+                "pipeline_microbatch_tokens. Fixed pipeline_microbatches, "
+                "virtual_engine_size and zero-bubble/DualPipe schedules are not implemented.")
         config_fields = {
             "max_num_batched_tokens", "max_num_seqs", "max_model_len",
             "gpu_memory_utilization", "enforce_eager", "kvcache_block_size",
-            "pipeline_microbatches", "virtual_engine_size", "pipeline_schedule",
         }
         config_kwargs = {k: v for k, v in kwargs.items()
                          if k in config_fields}

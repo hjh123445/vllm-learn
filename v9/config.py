@@ -17,22 +17,11 @@ class Config:
     eos: int = -1
     kvcache_block_size: int = 256
     num_kvcache_blocks: int = -1
-    # PP scheduling. virtual_engine_size is a compatibility alias; when set
-    # it overrides the explicit microbatch count.
-    pipeline_microbatches: int = 1
-    virtual_engine_size: int | None = None
-    pipeline_schedule: str = "forward"
 
     def __post_init__(self):
         assert os.path.isdir(self.model)
         assert self.kvcache_block_size % 256 == 0
         assert 1 <= self.tensor_parallel_size <= 8
-        assert self.pipeline_microbatches >= 1
-        if self.pipeline_schedule not in ("forward", "zero_bubble"):
-            raise ValueError("pipeline_schedule must be 'forward' or 'zero_bubble'")
-        if self.virtual_engine_size is not None:
-            assert self.virtual_engine_size >= 1
-            self.pipeline_microbatches = self.virtual_engine_size
         self.hf_config = AutoConfig.from_pretrained(self.model)
         # 多模态/Omni 模型的 max_position_embeddings 在 thinker.text_config 里
         mpe = getattr(self.hf_config, "max_position_embeddings", None)

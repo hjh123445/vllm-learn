@@ -65,20 +65,22 @@ PP。要真正启用，需要下一步实现 local-stage executor：
 EngineCore 支持 pipeline_mode=baseline 或 optimized：
 
 - baseline：header、hidden、residual 使用阻塞 P2P；
-- optimized：异步 isend/irecv、通信 stream、CUDA event、预投递下一 header、
-  per-lane credit。
+- optimized：异步 isend/irecv、通信 stream、CUDA event、按 lane 懒投递
+  header receive、per-lane send credit。worker 仍逐条处理消息，recv 阶段会等待。
 
 设置 VLLM_LEARN_TRACE_DIR=/path/to/dir 后，每个 worker 会生成
 pipeline_rank<N>.json。Chrome trace 中：
 
-- stage<N>.forward：该 stage 的完整 forward；
+- stage<N>.layer<M>.attention / .moe：带全局层编号的模型算子区间；
+- stage<N>.microbatch<M>.lane<L>.prefill/decode：一次 worker 消息；
 - pp.send / pp.recv：P2P activation；
 - args.layer_range：该 stage 的全局层范围；
 - args.microbatch_id、args.lane：微批和 virtual lane；
 - metadata 中的 pipeline_mode：baseline 或 optimized。
 
-把两种模式用相同 prompts、相同 microbatch 数和相同 GPU 运行，再合并各 rank
-JSON，即可比较通信是否覆盖在相邻 stage 的计算间隙中。
+两种模式必须使用相同输入、微批 token budget 和 GPU。Chrome trace 的 GPU
+kernel stream 可以判断采样窗口内是否出现 compute/NCCL 区间重叠；少量活跃
+step 的 profile 不能估算完整请求的 pipeline bubble ratio。
 
 
 
@@ -86,9 +88,15 @@ JSON，即可比较通信是否覆盖在相邻 stage 的计算间隙中。
 
 - EP 的变长 dispatch/combine 会把各目的卡的专家输出返回原 token 所在卡；因此 all-to-allv 路径只需要 TP 归约，不能再对 EP 维度重复 all-reduce。
 - VirtualEnginePool 现在真正参与 EngineCore 的微批提交和完成记账，并把 lane、microbatch_id、virtual_engine 回传到 worker；它是 forward-only lane ownership，不能冒充完整 vLLM scheduler virtual engine。
-- `build_forward_schedule` 提供可审计的 baseline/optimized 理想时钟计划，用来对照真实 trace。optimized 的 stage 计算按 `stage + microbatch` 形成重叠窗口；baseline 串行穿过所有 stage。
+- `build_forward_schedule` 仅提供 CPU 测试用的理想时钟计划，不是 runtime scheduler 或真实执行轨迹。
 - layer trace 现在会标出 `attention`、`moe`、全局 layer id、PP stage、microbatch 和 lane。设置 `VLLM_LEARN_TRACE_DIR` 会输出这些主机时间线；再设置 `VLLM_LEARN_CUDA_PROFILE=1` 会额外输出 `cuda_rank<N>.json`，其中包含 CUDA/NCCL 活动（profile 采用 1 个等待、1 个 warmup、8 个 active step，避免无限增长）。
 
 ## 同卡多 stage 的边界
 
 `PipelineTopology.interleaved(4, 2)` 可以准确表达 `(stage0, stage1, stage2, stage3) -> (card0, card1, card0, card1)`，并可用于规划和测试。当前执行器仍是一进程一模型 stage，因此 EngineCore 会在收到这种配置时立即抛出 `NotImplementedError`，避免把逻辑 stage 映射错误地当成普通 PP 运行。真正接通需要 worker 在同一进程中持有多个 stage model chunk，增加本地 activation mailbox，并让只有跨物理卡的边界使用 NCCL P2P；这一步不能只改一个 stage map 字段。
+
+`VirtualEnginePool` 当前只管理 forward microbatch 的 lane/in-flight 记账，没有
+vLLM virtual engine 的完整请求队列、KV block 生命周期、抢占与异步输出语义。
+旧配置中的 `pipeline_microbatches`、`virtual_engine_size` 和 `--zero-bubble`
+没有进入 runtime 调度，现已移除，避免选项看起来生效但实际无效。实际分批由
+scheduler 输出及 `pipeline_microbatch_tokens` 决定。

@@ -47,7 +47,6 @@ class ParallelState:
         self.trace_events = []
         self.tp_group = None       # o_proj/w2 的 allreduce 域（tp 维）
         self.ep_group = None       # 同一 tp/cp/pp 坐标沿 ep 变化
-        self.moe_group = None      # MoE 部分和的聚合域（tp×ep 张成的组）
 
     @property
     def tp_enabled(self):
@@ -62,7 +61,7 @@ STATE = ParallelState()
 
 
 def configure_parallel(tp_size=1, tp_rank=0, ep_size=1, ep_rank=0,
-                       tp_group=None, moe_group=None,
+                       tp_group=None,
                        ep_group=None,
                        cp_size=1, cp_rank=0, pp_size=1, pp_rank=0):
     """launcher 注入（构造模型前调用）。通信组由引擎侧建好传入——
@@ -71,7 +70,7 @@ def configure_parallel(tp_size=1, tp_rank=0, ep_size=1, ep_rank=0,
     STATE.ep_size, STATE.ep_rank = ep_size, ep_rank
     STATE.cp_size, STATE.cp_rank = cp_size, cp_rank
     STATE.pp_size, STATE.pp_rank = pp_size, pp_rank
-    STATE.tp_group, STATE.ep_group, STATE.moe_group = tp_group, ep_group, moe_group
+    STATE.tp_group, STATE.ep_group = tp_group, ep_group
     return STATE
 
 
@@ -91,14 +90,6 @@ def tp_allreduce(x: torch.Tensor) -> torch.Tensor:
     """RowParallel/MoE 的部分和聚合（tp 组内）。单卡/未初始化直通。"""
     if STATE.tp_group is not None and dist.is_available() and dist.is_initialized():
         dist.all_reduce(x, group=STATE.tp_group)
-    return x
-
-
-def moe_allreduce(x: torch.Tensor) -> torch.Tensor:
-    """MoE 部分和聚合：partial 同时张成 tp（inter 切片）× ep（本地专家）两维，
-    moe_group 是这两维张成的组。单卡直通。"""
-    if STATE.moe_group is not None and dist.is_available() and dist.is_initialized():
-        dist.all_reduce(x, group=STATE.moe_group)
     return x
 
 

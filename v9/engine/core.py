@@ -109,6 +109,9 @@ class EngineCore:
                  pipeline_lanes=2, pipeline_credit=4,
                  pipeline_microbatch_tokens=2048, pipeline_mode="optimized",
                  pipeline_stage_map=None):
+        cpu_threads = max(1, int(os.getenv("VLLM_LEARN_CPU_THREADS", "4")))
+        os.environ.setdefault("OMP_NUM_THREADS", str(cpu_threads))
+        os.environ.setdefault("MKL_NUM_THREADS", str(cpu_threads))
         self.world_size = tp_size * ep_size * dcp_size * pp_size
         self.debug = os.getenv("VLLM_LEARN_DEBUG", "0") == "1"
         self.tp_size, self.ep_size = tp_size, ep_size
@@ -215,6 +218,7 @@ class EngineCore:
             self.inproc_runner = None
 
         self.virtual_engine_pool = VirtualEnginePool(self.pipeline_lanes)
+        self._next_microbatch_id = 0
 
     # ---------------- busy loop ----------------
 
@@ -255,26 +259,36 @@ class EngineCore:
             token_ids = self.inproc_runner.run(specs, is_prefill)
         else:
             from engine.mq import broadcast
-            # 先把一个调度步的所有微批下发，再等待最后 stage 的响应。
-            # stage worker 的预投递 irecv 允许相邻微批在不同 stage 重叠。
-            for mb_id, mb in enumerate(microbatches):
+            inner = self.tp_size * self.ep_size * self.dcp_size
+            resp_rank = (self.pp_size - 1) * inner if self.pp_size > 1 else 0
+            by_id = {}
+            in_flight = 0
+
+            def collect():
+                out = self.response_q[resp_rank].recv()
+                by_id.update(zip(out.get("seq_ids", []), out["tokens"]))
+                self.virtual_engine_pool.complete(out.get("microbatch_id", 0))
+
+            # One response slot plus one worker-owned result allows a window
+            # of two. Drain before sending more: otherwise response ACK and
+            # broadcast ACK can wait for each other indefinitely.
+            window = min(2, self.pipeline_lanes)
+            for mb in microbatches:
+                mb_id = self._next_microbatch_id
+                self._next_microbatch_id += 1
                 msg = _spec_msg(
                     mb, is_prefill,
                     pipeline_lane=self.virtual_engine_pool.assign(mb_id).lane,
                     microbatch_id=mb_id,
                     virtual_engine=mb_id % self.virtual_engine_pool.size)
+                msg["pipeline_mode"] = self.pipeline_mode
                 broadcast(msg, self.broadcast_q)
-                if self.debug:
-                    print(f"[core-send] mb={mb_id} n={len(mb)}", flush=True)
-            inner = self.tp_size * self.ep_size * self.dcp_size
-            resp_rank = (self.pp_size - 1) * inner if self.pp_size > 1 else 0
-            by_id = {}
-            for _ in microbatches:
-                out = self.response_q[resp_rank].recv()
-                if self.debug:
-                    print(f"[core-output] mb={out.get('microbatch_id')} n={out.get('n')}", flush=True)
-                by_id.update(zip(out.get("seq_ids", []), out["tokens"]))
-                self.virtual_engine_pool.complete(out.get("microbatch_id", 0))
+                in_flight += 1
+                if in_flight >= window:
+                    collect()
+                    in_flight -= 1
+            for _ in range(in_flight):
+                collect()
             token_ids = [by_id[s.seq_id] for s in seqs]
 
         # Keep a lightweight timing stream for TTFT/TPOT experiments.  It is
@@ -325,7 +339,7 @@ class EngineCore:
             from engine.mq import broadcast
             broadcast(SHUTDOWN, self.broadcast_q)
             for p in self.procs:
-                p.join(timeout=10)
+                p.join(timeout=120)
                 if p.is_alive():
                     p.terminate()
             for endpoint in (*self.broadcast_q, *self.response_q):

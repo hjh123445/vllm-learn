@@ -148,9 +148,9 @@ class Qwen3MoeModel(nn.Module):
         """Qwen3-Omni thinker forward with adjacent-stage PP transport.
 
         Stage 0 embeds locally; later stages consume a lane-specific
-        activation mailbox.  The transport pre-posts the next receive and
-        sends asynchronously, so two microbatch lanes can overlap at stage
-        boundaries.  The model itself remains unaware of scheduler queues.
+        activation mailbox. The transport posts receives lazily and retains
+        outstanding sends. Actual overlap depends on NCCL process groups and
+        worker scheduling; lanes alone do not guarantee it.
         """
         from layers.parallel import STATE
         if STATE.pp_size > 1 and not STATE.pipeline_warmup:

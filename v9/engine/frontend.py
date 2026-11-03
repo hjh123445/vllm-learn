@@ -11,7 +11,8 @@ scheduler + KV cache + 完整模型副本），DP rank 之间零通信。
 
 设计约束（vLLM 同款）:
 - 请求一旦进入某个 dp rank 就不再迁移（KV cache 局部性）;
-- 各 core 独立忙循环，互不等待——慢 rank 不拖累快 rank;
+- 各 core 有独立进程、调度器和 KV cache；当前离线前端每 step 等齐结果，
+  因而仍有慢副本屏障，并非完整异步服务前端;
 - 前端只做聚合输出，不做调度决策（调度权在各 core 的 scheduler）。
 """
 
@@ -28,6 +29,9 @@ def _enginecore_process(conn, model_path, core_kwargs, physical_gpus):
     physical placement private to this replica.
     """
     os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, physical_gpus))
+    cpu_threads = max(1, int(os.getenv("VLLM_LEARN_CPU_THREADS", "4")))
+    os.environ.setdefault("OMP_NUM_THREADS", str(cpu_threads))
+    os.environ.setdefault("MKL_NUM_THREADS", str(cpu_threads))
     from engine.core import EngineCore
     kw = dict(core_kwargs)
     kw["gpus"] = list(range(len(physical_gpus)))
@@ -73,15 +77,8 @@ class DPFrontend:
         self.dp_size = dp_size
         requested_gpus = engine_kwargs.pop("gpus", None)
         # GPU 分组: dp rank i 拿 self.gpus[i*per:(i+1)*per]
-        per = None
-        if "tp_size" in engine_kwargs or "ep_size" in engine_kwargs:
-            tp = engine_kwargs.get("tp_size", 1)
-            ep = engine_kwargs.get("ep_size", 1)
-            dcp = engine_kwargs.get("dcp_size", 1)
-            pp = engine_kwargs.get("pp_size", 1)
-            per = tp * ep * dcp * pp
-        if per is None:
-            per = 1
+        per = (engine_kwargs.get("tp_size", 1) * engine_kwargs.get("ep_size", 1)
+               * engine_kwargs.get("dcp_size", 1) * engine_kwargs.get("pp_size", 1))
         self.gpus = requested_gpus or list(range(dp_size * per))
         assert len(self.gpus) >= dp_size * per, \
             f"GPUs {self.gpus} < dp{dp_size}×inner{per}"
@@ -90,11 +87,14 @@ class DPFrontend:
         self._ctx = mp.get_context("spawn")
         self._rr = 0            # round-robin 游标
         self._seq_core = {}     # seq_id → dp_rank（输出对齐用）
+        self._local_to_global = {}
+        self._next_seq_id = 0
+        base_port = engine_kwargs.get("master_port", 29750)
         for i in range(dp_size):
             g = self.gpus[i * per:(i + 1) * per]
             kw = dict(engine_kwargs)
             # 每 core 独立 rendezvous 端口（不同进程组的 TCPStore 不能撞）
-            kw.setdefault("master_port", 29750 + i)
+            kw["master_port"] = base_port + i
             parent, child = self._ctx.Pipe()
             p = self._ctx.Process(target=_enginecore_process,
                                    # EngineCore itself owns one worker process per
@@ -114,21 +114,33 @@ class DPFrontend:
         if dp_rank is None:
             dp_rank = self._rr
             self._rr = (self._rr + 1) % self.dp_size
+        if not 0 <= dp_rank < self.dp_size:
+            raise ValueError(f"invalid dp_rank {dp_rank}")
         conn = self._conns[dp_rank]
         conn.send(("add", (prompt_ids, sampling_params)))
-        _, seq_id = conn.recv()
-        seq = _DPSeq(seq_id)
+        _, local_id = conn.recv()
+        # Each spawned EngineCore starts its own Sequence counter at zero.
+        # Namespace local ids before merging outputs from different replicas.
+        seq = _DPSeq(self._next_seq_id)
+        self._next_seq_id += 1
+        self._local_to_global[dp_rank, local_id] = seq.seq_id
         self._seq_core[seq.seq_id] = dp_rank
         return seq, dp_rank
 
     # ---------------- 驱动 ----------------
 
     def step_all(self):
-        """并行驱动所有 core 一步（线程：各 core 的 step 内部 CUDA/NCCL
-        释放 GIL，可真并行；慢 core 自然背压自己的队列）。"""
+        """并发驱动各进程一步，等齐后聚合；异常传播至调用线程。"""
         results = {}
+        errors = []
 
         def _drive(i):
+            try:
+                _step(i)
+            except Exception as exc:
+                errors.append(exc)
+
+        def _step(i):
             conn = self._conns[i]
             conn.send(("finished", None))
             _, finished = conn.recv()
@@ -136,7 +148,9 @@ class DPFrontend:
                 conn.send(("step", None))
                 _, step_out = conn.recv()
                 for seq_id, toks in step_out:
-                    results[seq_id] = toks
+                    global_id = self._local_to_global.pop((i, seq_id))
+                    self._seq_core.pop(global_id, None)
+                    results[global_id] = toks
 
         threads = [threading.Thread(target=_drive, args=(i,))
                    for i in range(self.dp_size)]
@@ -144,6 +158,8 @@ class DPFrontend:
             t.start()
         for t in threads:
             t.join()
+        if errors:
+            raise RuntimeError("DP replica step failed") from errors[0]
         return results
 
     def run(self):

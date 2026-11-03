@@ -144,9 +144,11 @@ def main():
     ap.add_argument("--tensor-parallel-size", type=int, default=1)
     ap.add_argument("--expert-parallel-size", type=int, default=1)
     ap.add_argument("--pipeline-parallel-size", type=int, default=1)
-    ap.add_argument("--pipeline-microbatches", type=int, default=1)
+    ap.add_argument("--pipeline-microbatches", type=int, default=1,
+                    help="legacy fixed-count schedule is unsupported; use token budget")
     ap.add_argument("--zero-bubble", action="store_true",
-                    help="use forward-only zero-bubble-inspired PP scheduling")
+                    help="reserved; training DualPipe is not implemented by this inference runtime")
+    ap.add_argument("--pipeline-microbatch-tokens", type=int, default=2048)
     ap.add_argument("--gpus", default=None,
                     help="comma-separated physical GPU ids, e.g. 0,1,2,3")
     args = ap.parse_args()
@@ -164,6 +166,7 @@ def main():
         pipeline_parallel_size=args.pipeline_parallel_size,
         pipeline_microbatches=args.pipeline_microbatches,
         pipeline_schedule=("zero_bubble" if args.zero_bubble else "forward"),
+        pipeline_microbatch_tokens=args.pipeline_microbatch_tokens,
         gpus=gpus)
     engine.start()
 

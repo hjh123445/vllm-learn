@@ -15,9 +15,9 @@ DP2×TP4 的拓扑是两个独立进程：DP0 管 GPU 0--3，DP1 管 GPU 4--7。
 
 ## PP 与 DualPipe
 
-旧路径是一次 scheduler 输出对应一次完整 forward：stage 0 算完后发送，stage 1 阻塞接收，最后一个 stage 返回结果。现在 EngineCore 在一个调度步内按 token 预算切成微批，先下发所有微批再收集结果；`PipelineTransport` 为每个 lane 预投递 shape `irecv`，payload 用 `irecv` 接收，发送端使用 `isend` 和 credit 窗口保留 buffer。每条消息带 `microbatch_id`、`pipeline_lane` 和 shape，结果按 `seq_id` 重排。
+EngineCore 在一个调度步内按 token 预算把多条序列分成微批，每步最多让两个消息在途；`PipelineTransport` 在worker进入recv后懒投递shape `irecv`，知道shape后再分配payload，发送端用`isend`和credit保留buffer。worker每次仍处理一个scheduler消息，接收阶段仍等待；单条sequence不在microbatch内部切分，超过token预算会单独形成超预算消息。
 
-这仍是 forward-only DualPipe，没有 backward、梯度、参数更新或训练版 1F1B 反向优先级调度。单个长请求仍在一个消息中保持完整，chunked prefill 只让它跨多个调度步推进；微批不足时 fill/drain bubble 仍存在。理想 `m` 个微批、`p` 个 stage 的 bubble 约为 `(p-1)/(m+p-1)`，必须用 CUDA trace 验证真实重叠后才能谈 zero-bubble。
+当前 runtime 是带 microbatch/lane 的 forward-only PP prototype，不是 DualPipe，也不保证 zero-bubble。`build_forward_schedule` 只生成理想化测试计划，不能当作实际 worker schedule。单个长请求在消息内保持完整，chunked prefill 跨调度步推进；微批不足时仍有 fill/drain bubble。实际重叠需查看同一时间基准下的 CUDA stream trace。
 
 ## EP
 

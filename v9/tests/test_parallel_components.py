@@ -20,6 +20,7 @@ import torch
 from layers import parallel as P
 from layers.linear import ColumnParallelLinear, RowParallelLinear
 from layers.parallel import shard_bounds, configure_parallel
+from engine.process_groups import group_plan
 
 
 def set_tp(tp_size, tp_rank):
@@ -37,6 +38,23 @@ def test_shard_bounds():
     assert shard_bounds(32, 8, 2, min_out=8) == (8, 8)    # head1
     assert shard_bounds(32, 8, 7, min_out=8) == (24, 8)   # head3
     print("shard_bounds: PASS")
+
+
+def test_process_group_plan():
+    plan = list(group_plan(tp_size=2, cp_size=1, ep_size=2, pp_size=2))
+    assert plan == [
+        ("tp", [0, 1]), ("tp", [2, 3]),
+        ("tp", [4, 5]), ("tp", [6, 7]),
+        ("ep", [0, 2]), ("ep", [1, 3]),
+        ("ep", [4, 6]), ("ep", [5, 7]),
+    ], plan
+    per_rank = {rank: [] for rank in range(8)}
+    for name, members in plan:
+        for rank in members:
+            per_rank[rank].append((name, members))
+    assert all(per_rank.values())
+    assert all(len(groups) == 2 for groups in per_rank.values())
+    print("process_group_plan: PASS")
 
 
 def test_column_parallel():
@@ -246,6 +264,7 @@ def test_vocab_parallel():
 
 if __name__ == "__main__":
     test_shard_bounds()
+    test_process_group_plan()
     test_column_parallel()
     test_row_parallel()
     test_grouped_experts()

@@ -13,6 +13,7 @@ class _Seq:
         self.num_scheduled_tokens = tokens
         self.num_cached_tokens = 0
         self.num_prompt_tokens = tokens
+        self.is_prefill = True
         self.block_table = [seq_id]
         self.temperature = 0.0
         self.last_token = 7

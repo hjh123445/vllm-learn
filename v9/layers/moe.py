@@ -1,12 +1,12 @@
 # v6/layers/moe.py
-"""v6 MoE 层：router + grouped expert 计算。
+"""MoE 路由、本地专家权重与变长 EP dispatch/combine。
 
 设计（对齐我们"平铺批 + context"的架构）：
   - 输入是平铺的 [total_q, hidden]（与 attention 同一约定）；
   - router：softmax(fp32) → topk → normalize（HF Qwen3MoeTopKRouter 逐行同数学）；
-  - experts：**分组 gemm**——按 expert_idx 排序 token，同一专家的 token 连续排布后
-    一次 batched gemm（不是 HF 的逐专家循环，也不是 dense 大矩阵乘全部专家）。
-    权重布局 [num_experts, 3*I, H]（gate|up 融合在第一个 gemm，down 是第二个）。
+  - experts：按 expert_idx 排序 token，Python 循环调用各非空专家的两个 GEMM；
+    尚不是单次 fused grouped GEMM。w13 为 [E_local, 2*I_local, H]，
+    w2 为 [E_local, H, I_local]。
 
 EP 使用独立 ep_group 做变长 dispatch/combine；模型层只负责路由和本地
 grouped expert，通信协议仍由组件封装，避免 model_runner 了解专家布局。"""
@@ -18,7 +18,7 @@ import torch.nn.functional as F
 
 
 class MoERouter(nn.Module):
-    """top-k 路由。fp32 softmax 保证与 HF 逐位一致（norm_topk_prob=True）。"""
+    """FP32 logits/softmax + top-k；数学形式对齐，不承诺跨实现逐位一致。"""
 
     def __init__(self, hidden_size: int, num_experts: int, top_k: int,
                  norm_topk_prob: bool = True):
@@ -129,7 +129,7 @@ class GroupedExperts(nn.Module):
         flat_token = torch.arange(T, device=x.device).repeat_interleave(k)
         flat_w = topk_w.reshape(-1)
 
-        final = torch.zeros_like(x)
+        route_out = torch.empty((T * k, H), device=x.device, dtype=x.dtype)
         counts = torch.bincount(flat_expert, minlength=E)
         if self._profile_enabled:
             c = counts.detach().cpu()
@@ -159,9 +159,9 @@ class GroupedExperts(nn.Module):
             gate, up = h13.chunk(2, dim=-1)
             act = F.silu(gate) * up                    # [n_e, I]
             out = act @ w2[e].t()                      # [n_e, H]
-            final.index_add_(0, toks, out * sorted_w[start:end, None].to(out.dtype))
+            route_out[order[start:end]] = out * sorted_w[start:end, None].to(out.dtype)
             start = end
-        return final
+        return route_out.view(T, k, H).float().sum(dim=1).to(x.dtype)
 
 
 class MoEMLP(nn.Module):
@@ -197,10 +197,7 @@ class MoEMLP(nn.Module):
             # expert contribution to the origin rank. Only TP reduction remains
             # because each TP rank owns a slice of the expert intermediate dim.
             return tp_allreduce(out)
-        if not STATE.tp_enabled:
-            return self.experts(x, idx, w)
-        out = self._ep_forward_local(x, idx, w)
-        return tp_allreduce(out)
+        return tp_allreduce(self.experts(x, idx, w))
 
     def _experts_local(self, xs, eids, ws):
         """本地专家子集的分组计算（eids 是本地编号）。"""
@@ -227,32 +224,6 @@ class MoEMLP(nn.Module):
             final[toks] = out * ws_s[start:end, None].to(out.dtype)
             start = end
         return final
-
-    def _ep_forward_local(self, x, idx, w):
-        """本地专家部分和（DP-style EP，v6.2 设计）：
-        输入 x 组内冗余（上游 RowParallel 的 allreduce 已保证各 tp rank 一致），
-        每卡只算本地专家区间内的 (token, expert) 条目，非本地条目贡献 0，
-        由调用方 moe_allreduce 聚合（tp 切 inter 的部分和 + ep 切专家的部分和
-        在同一个组上一次 allreduce 完成）。
-        v6.4 起可换 all_to_all 省带宽（dispatch/combine），本版保留冗余计算换零
-        dispatch 通信的简单形态。"""
-        T, H = x.shape
-        k = idx.shape[1]
-        flat_expert = idx.reshape(-1)                      # [T*k] 全局 expert 号
-        flat_w = w.reshape(-1)
-        ex = self.experts
-        out = torch.zeros(T, H, device=x.device, dtype=x.dtype)
-        local_mask = (flat_expert >= ex.e_start) & \
-                     (flat_expert < ex.e_start + ex.num_experts)
-        if local_mask.any():
-            eids_local = flat_expert[local_mask] - ex.e_start
-            rows = torch.nonzero(local_mask).squeeze(1)
-            toks = rows // k
-            ws = flat_w[local_mask]
-            xs = x[toks]
-            outs = self._experts_local(xs, eids_local, ws)
-            out.index_add_(0, toks, outs)
-        return out
 
     def _ep_forward_alltoallv(self, x, idx, w):
         """Variable-length EP dispatch and combine using NCCL all-to-allv.
@@ -306,6 +277,10 @@ class MoEMLP(nn.Module):
             recv_out = self._experts_local(recv_x, local_e, recv_w)
         with torch.autograd.profiler.record_function("moe.combine"):
             returned = a2a(recv_out, (sum(ss), H), rs, ss)
-        result = torch.zeros((T, H), dtype=x.dtype, device=x.device)
-        result.index_add_(0, send_t, returned)
-        return result
+        # Each flattened route has exactly one output. Restore route order,
+        # then sum top-k in FP32 instead of BF16 atomic index_add_. Atomic
+        # accumulation order varies across launches and can change greedy
+        # tokens when scores are close (and can diverge across EP replicas).
+        route_out = torch.empty_like(returned)
+        route_out[order] = returned
+        return route_out.view(T, k, H).float().sum(dim=1).to(x.dtype)

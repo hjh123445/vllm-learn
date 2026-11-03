@@ -186,13 +186,10 @@ class PipelineAction:
 
 def build_forward_schedule(pp_size: int, microbatches: int, lanes: int = 2,
                            mode: str = "optimized") -> list[PipelineAction]:
-    """Build the deterministic forward-only schedule used by trace planning.
+    """Build an idealized forward-only schedule for tests and trace planning.
 
-    ``optimized`` emits a fill/steady/drain order where a stage can start
-    microbatch ``m`` after its predecessor has produced it. ``baseline`` keeps
-    the same dependency order but serializes each microbatch through all
-    stages, which is useful as a control trace. This is an execution plan and
-    does not pretend to implement training DualPipe backward priority.
+    This is not the worker runtime scheduler or a measured execution plan. It
+    does not implement training scheduling or DualPipe.
     """
     p, m = int(pp_size), int(microbatches)
     if p < 1 or m < 0 or lanes < 1:
