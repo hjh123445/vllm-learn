@@ -193,11 +193,10 @@ class MoEMLP(nn.Module):
             # receives exactly the token count for its local experts; no
             # [world, max_tokens] padding or full-token replication.
             out = self._ep_forward_alltoallv(x, idx, w)
-            # The combine all-to-all restores each origin rank's token order,
-            # but every EP rank has only computed its local experts. Sum the
-            # partial outputs over the full TP×EP MoE group exactly once.
-            from layers.parallel import moe_allreduce
-            return moe_allreduce(out)
+            # combine all-to-all has already returned every destination
+            # expert contribution to the origin rank. Only TP reduction remains
+            # because each TP rank owns a slice of the expert intermediate dim.
+            return tp_allreduce(out)
         if not STATE.tp_enabled:
             return self.experts(x, idx, w)
         out = self._ep_forward_local(x, idx, w)

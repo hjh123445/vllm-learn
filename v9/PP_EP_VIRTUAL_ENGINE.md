@@ -84,7 +84,7 @@ JSON，即可比较通信是否覆盖在相邻 stage 的计算间隙中。
 
 ## 本轮实现校正
 
-- EP 的变长 dispatch/combine 在 token 回收后还需要对 TP×EP 的 MoE group 做一次归约；否则每张卡只保留自己本地专家的部分和，结果会漏掉其他 EP rank 的专家贡献。当前 `MoEMLP` 已使用 `moe_allreduce` 完成这一步。
+- EP 的变长 dispatch/combine 会把各目的卡的专家输出返回原 token 所在卡；因此 all-to-allv 路径只需要 TP 归约，不能再对 EP 维度重复 all-reduce。
 - VirtualEnginePool 现在真正参与 EngineCore 的微批提交和完成记账，并把 lane、microbatch_id、virtual_engine 回传到 worker；它是 forward-only lane ownership，不能冒充完整 vLLM scheduler virtual engine。
 - `build_forward_schedule` 提供可审计的 baseline/optimized 理想时钟计划，用来对照真实 trace。optimized 的 stage 计算按 `stage + microbatch` 形成重叠窗口；baseline 串行穿过所有 stage。
 - layer trace 现在会标出 `attention`、`moe`、全局 layer id、PP stage、microbatch 和 lane。设置 `VLLM_LEARN_TRACE_DIR` 会输出这些主机时间线；再设置 `VLLM_LEARN_CUDA_PROFILE=1` 会额外输出 `cuda_rank<N>.json`，其中包含 CUDA/NCCL 活动（profile 采用 1 个等待、1 个 warmup、8 个 active step，避免无限增长）。
