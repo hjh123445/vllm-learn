@@ -221,6 +221,7 @@ class EngineCore:
         return batches
 
     def step(self):
+        step_start = __import__("time").perf_counter()
         seqs, is_prefill = self.scheduler.schedule()
         microbatches = self._microbatches(seqs)
 
@@ -250,6 +251,20 @@ class EngineCore:
                 by_id.update(zip(out.get("seq_ids", []), out["tokens"]))
             token_ids = [by_id[s.seq_id] for s in seqs]
 
+        # Keep a lightweight timing stream for TTFT/TPOT experiments.  It is
+        # populated in the EngineCore process after worker output returns, so
+        # it works for both UniProc and multiprocess TP/EP/PP paths without
+        # changing the response protocol.
+        step_end = __import__("time").perf_counter()
+        self.last_step_events = []
+        for seq, token_id in zip(seqs, token_ids):
+            valid = (seq.num_cached_tokens + seq.num_scheduled_tokens
+                     >= seq.num_prompt_tokens)
+            self.last_step_events.append({"seq_id": seq.seq_id,
+                                          "token_id": token_id,
+                                          "valid_decode_token": valid,
+                                          "step_start": step_start,
+                                          "step_end": step_end})
         self.scheduler.postprocess(seqs, token_ids, is_prefill)
         return [(s.seq_id, s.completion_token_ids) for s in seqs if s.is_finished]
 

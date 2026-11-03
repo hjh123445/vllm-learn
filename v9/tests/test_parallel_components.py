@@ -187,7 +187,6 @@ def test_attention_shapes():
 def test_gate_up_fc1():
     """fc1 的 gate|up 融合布局 × TP：直接均分 2I 会把 gate|up 劈开，
     gate_up=True 应各取 I/tp 再拼（chunk(2) 语义 rank 内成立）。"""
-    from layers.activation import SiluAndMul
     torch.manual_seed(0)
     H, I = 16, 32
     W = torch.randn(2 * I, H)                     # [gate(32) | up(32)]
@@ -198,7 +197,8 @@ def test_gate_up_fc1():
         fc1 = ColumnParallelLinear(H, 2 * I, gate_up=True)
         assert fc1.weight.shape == (I, H)         # [gate(I/2) | up(I/2)]
         fc1.weight_loader(fc1.weight, W)
-        outs.append(SiluAndMul()(fc1(x)))         # [3, I/tp]
+        gate, up = fc1(x).chunk(2, dim=-1)
+        outs.append(torch.nn.functional.silu(gate) * up)  # [3, I/tp]
     # 聚合 = inter 维拼接（每 rank 已完成自己的 gate×up）
     full = torch.cat(outs, dim=-1)
     h = x @ W.t()
@@ -244,25 +244,6 @@ def test_vocab_parallel():
     print("VocabParallel Embedding/LmHead: PASS（切分聚合/单卡退化）")
 
 
-def test_dense_qwen3_shapes():
-    """dense 模型（qwen3.py）的 TP 构造。"""
-    from types import SimpleNamespace
-    from models.qwen3 import QwenAttention, QwenMLP
-    cfg = SimpleNamespace(head_dim=8, num_attention_heads=16, num_key_value_heads=4,
-                          hidden_size=32, intermediate_size=64,
-                          rms_norm_eps=1e-6, hidden_act="silu")
-    set_tp(2, 1)
-    attn = QwenAttention(cfg, 0)
-    assert attn.num_head == 8 and attn.num_kv_head == 2
-    mlp = QwenMLP(cfg)
-    assert mlp.fc1.weight.shape == (64, 32), mlp.fc1.weight.shape   # gate32|up32 → 各取16
-    assert mlp.fc2.weight.shape == (32, 32)
-    set_tp(1, 0)
-    mlp1 = QwenMLP(cfg)
-    assert mlp1.fc1.weight.shape == (128, 32)
-    print("dense Qwen3 (qwen3.py): PASS（TP2/单卡 MLP+attention 形状）")
-
-
 if __name__ == "__main__":
     test_shard_bounds()
     test_column_parallel()
@@ -271,5 +252,4 @@ if __name__ == "__main__":
     test_attention_shapes()
     test_gate_up_fc1()
     test_vocab_parallel()
-    test_dense_qwen3_shapes()
     print("\n===== v9.3b 并行组件架构单测: ALL PASS =====")

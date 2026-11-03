@@ -76,14 +76,13 @@ python -m venv /path/to/vllm-learn-unified     # 持久路径（别放 /tmp，�
 pip install vllm                               # 会带入 torch 2.13.0+cu130 / triton 3.7 / transformers 等
 pip install xxhash                             # vllm 没带的只有这一个（其余项目依赖 vllm 都带全了）
 # 验证统一环境：全引擎回归 + vllm serve 都用它
-/path/to/venv/bin/python benchmark/accuracy.py --test 1        # 实测 5/5 PASS（torch 2.13 上）
-/path/to/venv/bin/python benchmark/speed.py --engine v4       # 实测 TPOT 16.2ms（主环境 13.8，triton 3.7 vs 3.5 的 codegen 差异）
+python -m pytest v9/tests/test_parallel_components.py       # CPU 并行组件单元测试
+python v9/tests/test_matrix.py ep8                         # 端到端并行矩阵（需要模型和 GPU）
 /path/to/venv/bin/vllm serve $VLLM_LEARN_MODEL --port 8030 \
     --gpu-memory-utilization 0.3 --max-model-len 4096 --max-num-seqs 128
 ```
 
-**例外：nano-vllm 对照（benchmark/nano.py）需要 flash-attn**，它是按主环境 torch 2.9 编译的——
-nano 对照在主环境跑（或对统一环境的 torch 2.13 重编译一遍 flash-attn，约 25 分钟，流程见 §4）。
+**例外：v9 的 FlashAttention/Triton 路径需要 flash-attn 和 Triton**，二进制必须与当前 PyTorch/CUDA 匹配；不匹配时应先关闭自定义 kernel，再定位 ABI 问题。
 
 **坑**：`kill` 父进程后 **EngineCore 子进程仍占着显存**，必须 `pkill -f "vllm serve"`
 清场，否则下次启动报 "Free memory less than desired"。

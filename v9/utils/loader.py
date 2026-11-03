@@ -79,6 +79,47 @@ def _load_into(param: torch.Tensor, loaded: torch.Tensor, shard):
     param.data.copy_(loaded)
 
 
+def _load_from_slice(param, tensor_slice, shard, owner):
+    """按 rank 需要的窗口从 safetensors slice 直接拷贝。
+
+    旧路径对每个 rank 调 ``get_tensor``，即使最后只保留一小段 TP/EP
+    权重，也会把完整 30B 张量读入 CPU 并产生峰值。``safe_open.get_slice``
+    返回惰性切片；这里把切分规则下沉到已有组件的 weight_loader 语义，
+    只 materialize 本 rank 的行/列/专家窗口。非并行参数仍走全量切片。
+    """
+    from layers.linear import ColumnParallelLinear, RowParallelLinear
+    from layers.moe import GroupedExperts
+    if isinstance(owner, ColumnParallelLinear):
+        if owner.gate_up and shard in (0, 1):
+            s, l = owner.shard_start, owner.shard_len
+            v = tensor_slice[s:s + l, :]
+            param.data[shard * l:(shard + 1) * l].copy_(v.to(param.dtype))
+        elif owner.gate_up:
+            # Legacy checkpoints may store an already fused gate|up tensor.
+            _load_into(param, tensor_slice[:], shard)
+        else:
+            v = tensor_slice[owner.shard_start:owner.shard_start + owner.shard_len, :]
+            param.data.copy_(v.to(param.dtype))
+        return
+    if isinstance(owner, RowParallelLinear):
+        v = tensor_slice[:, owner.shard_start:owner.shard_start + owner.shard_len]
+        param.data.copy_(v.to(param.dtype)); return
+    if isinstance(owner, GroupedExperts):
+        i, half = shard
+        if not (owner.e_start <= i < owner.e_start + owner.num_experts):
+            return
+        li = i - owner.e_start
+        s, e = owner.i_start, owner.i_start + owner.inter
+        if half is None:
+            v = tensor_slice[:, s:e]
+            param.data[li].copy_(v.to(param.dtype))
+        else:
+            v = tensor_slice[s:e, :]
+            param.data[li, half * owner.inter:(half + 1) * owner.inter].copy_(v.to(param.dtype))
+        return
+    _load_into(param, tensor_slice[:], shard)
+
+
 def load_model(model: nn.Module, model_dir: str, device="cuda", dtype=torch.bfloat16):
     """装载 + 对账。MoE 专家按需融合（gate/up 拼 w13）。
     装载逻辑走 weight_loader 协议（组件自持），本函数只做名字映射和调用。"""
@@ -120,7 +161,22 @@ def load_model(model: nn.Module, model_dir: str, device="cuda", dtype=torch.bflo
                     skipped.add(target)
                     continue
                 param = model.get_parameter(target)
-                _load_into(param, f.get_tensor(name), shard)
+                owner = _param_owner.get(id(param))
+                # EP expert shards which belong to another rank are skipped
+                # before touching storage; TP/EP local windows use get_slice.
+                if owner is not None:
+                    try:
+                        from layers.moe import GroupedExperts
+                        if isinstance(owner, GroupedExperts) and shard is not None:
+                            i, _ = shard
+                            if not (owner.e_start <= i < owner.e_start + owner.num_experts):
+                                continue
+                    except ImportError:
+                        pass
+                if hasattr(f, "get_slice"):
+                    _load_from_slice(param, f.get_slice(name), shard, owner)
+                else:
+                    _load_into(param, f.get_tensor(name), shard)
                 loaded.add(target)
 
     model_keys = set(model.state_dict().keys())
