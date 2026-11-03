@@ -114,9 +114,9 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
                        cp_size=cp_size, cp_rank=cp_rank,
                        pp_size=pp_size, pp_rank=pp_rank)
 
-    # Adjacent PP stages use two pre-posted activation lanes.  This object is
-    # created before the first scheduler message, so stage>0 is already
-    # listening when stage0 issues its first asynchronous send.
+    # Adjacent PP stages use two activation lanes. The transport is created
+    # before the first scheduler message; the first header receive is posted
+    # lazily to avoid a startup rendezvous before stage 0 is ready.
     if pp_size > 1:
         from engine.pipeline_transport import PipelineTransport
         STATE.pipeline_transport = PipelineTransport(
@@ -192,7 +192,7 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
                                 "n": len(specs)})
 
     if pp_size > 1 and STATE.pipeline_transport is not None:
-        STATE.pipeline_transport.drain()
+        STATE.pipeline_transport.shutdown()
     if os.getenv("VLLM_LEARN_PROFILE_EXPERTS", "0") == "1":
         import json
         path = os.getenv("VLLM_LEARN_PROFILE_DIR", "/tmp")

@@ -1,19 +1,15 @@
 """Qwen3-Omni PP activation transport.
 
-The old PP path used ``dist.recv``/``dist.send`` directly inside the model
-forward.  That made every stage a single blocking mailbox.  This transport
-keeps two lane mailboxes, pre-posts the next shape receive, and uses
-``isend``/``irecv`` with a small credit window.  It deliberately stays in
-Python/NCCL so that correctness can be checked before introducing a custom
-CUDA P2P kernel.
-
-The lane is a scheduling key, not a second copy of model state.  A lane must
-receive messages in order; different lanes may be in flight concurrently.
+The protocol is a four-int header [tokens, hidden, microbatch_id, lane]
+followed by hidden and residual. Headers are posted lazily to avoid a NCCL
+startup rendezvous before stage 0 has loaded its model. Payloads and sends are
+asynchronous and use a dedicated communication stream when CUDA is available.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections import deque
+from dataclasses import dataclass
 import time
 
 import torch
@@ -28,111 +24,213 @@ class _RecvSlot:
 
 @dataclass
 class _SendRecord:
-    requests: list
+    requests: tuple
     tensors: tuple[torch.Tensor, ...]
     lane: int
     microbatch_id: int
     started: float
+    ready_event: object = None
 
 
 class PipelineTransport:
     """Point-to-point activation transport for adjacent PP stages.
 
-    ``lanes`` defaults to two (DualPipe-style forward lanes).  The protocol is
-    shape header ``[tokens, hidden, microbatch_id, lane]`` followed by hidden
-    and residual tensors.  Only adjacent ranks communicate, so TP/EP groups
-    remain independent.
+    The Python worker still processes one model message at a time. The
+    transport itself does not block the sender: stage i can compute the next
+    microbatch while the previous activation is in flight to stage i+1.
     """
 
     def __init__(self, pp_size: int, pp_rank: int, inner_size: int,
                  lanes: int = 2, credit: int = 4, device: str = "cuda"):
-        self.pp_size = pp_size
-        self.pp_rank = pp_rank
-        self.inner_size = inner_size
+        self.pp_size = int(pp_size)
+        self.pp_rank = int(pp_rank)
+        self.inner_size = int(inner_size)
         self.lanes = max(1, int(lanes))
         self.credit = max(1, int(credit))
         self.device = torch.device(device)
         self.rank = dist.get_rank() if dist.is_initialized() else 0
-        self.local_inner_rank = self.rank % inner_size
-        self.src = ((pp_rank - 1) * inner_size + self.local_inner_rank
-                    if pp_rank > 0 else None)
-        self.dst = ((pp_rank + 1) * inner_size + self.local_inner_rank
-                    if pp_rank + 1 < pp_size else None)
+        self.local_inner_rank = self.rank % self.inner_size
+        self.src = ((self.pp_rank - 1) * self.inner_size +
+                    self.local_inner_rank if self.pp_rank > 0 else None)
+        self.dst = ((self.pp_rank + 1) * self.inner_size +
+                    self.local_inner_rank
+                    if self.pp_rank + 1 < self.pp_size else None)
+
         self._recv: list[_RecvSlot | None] = [None] * self.lanes
-        self._sends: list[list[_SendRecord]] = [[] for _ in range(self.lanes)]
+        self._sends: list[deque[_SendRecord]] = [
+            deque() for _ in range(self.lanes)]
         self.trace: list[dict] = []
-        self.comm_stream = (torch.cuda.Stream(device=self.device)
-                            if self.device.type == "cuda" and torch.cuda.is_available()
-                            else None)
-        # Do not call NCCL ``irecv`` during worker construction.  NCCL's
-        # point-to-point communicator setup is a rendezvous with the sender;
-        # stage 0 is still loading its model at this point and cannot issue an
-        # ``isend``.  Eager receives therefore deadlock PP startup.  The first
-        # receive is posted lazily from ``recv_forward`` once the matching
-        # stage-0 send is in the same forward schedule; subsequent receives are
-        # still preposted to preserve the credit-window overlap.
+        self.comm_stream = (
+            torch.cuda.Stream(device=self.device)
+            if self.device.type == "cuda" and torch.cuda.is_available()
+            else None
+        )
 
     def _post_shape(self, lane: int):
+        """Post the next header receive for a lane.
+
+        This is deliberately called from recv_forward, after the worker has
+        entered the corresponding scheduler message. Posting receives during
+        model construction can deadlock NCCL initialization.
+        """
         shape = torch.empty(4, dtype=torch.int64, device=self.device)
-        req = dist.irecv(shape, src=self.src)
-        self._recv[lane] = _RecvSlot(shape, req)
+        if self.comm_stream is None:
+            request = dist.irecv(shape, src=self.src)
+        else:
+            with torch.cuda.stream(self.comm_stream):
+                request = dist.irecv(shape, src=self.src)
+        self._recv[lane] = _RecvSlot(shape, request)
+
+    @staticmethod
+    def _wait(request):
+        request.wait()
 
     def _wait_oldest(self, lane: int):
         pending = self._sends[lane]
         if not pending:
             return
-        rec = pending.pop(0)
-        for req in rec.requests:
-            req.wait()
-        self.trace.append({"kind": "send", "lane": rec.lane,
-                           "microbatch_id": rec.microbatch_id,
-                           "start": rec.started, "end": time.perf_counter()})
+        record = pending.popleft()
+        for request in record.requests:
+            self._wait(request)
+        self.trace.append({
+            "kind": "send",
+            "lane": record.lane,
+            "microbatch_id": record.microbatch_id,
+            "start": record.started,
+            "end": time.perf_counter(),
+        })
+
+    def _wait_payload(self, requests, ready_device):
+        for request in requests:
+            self._wait(request)
+        if self.comm_stream is None:
+            return
+        ready = torch.cuda.Event()
+        with torch.cuda.stream(self.comm_stream):
+            ready.record(self.comm_stream)
+        torch.cuda.current_stream(ready_device).wait_event(ready)
 
     def send_forward(self, hidden: torch.Tensor, residual: torch.Tensor,
                      lane: int = 0, microbatch_id: int = 0):
         if self.dst is None:
             return
         lane %= self.lanes
+        pending = self._sends[lane]
+        if len(pending) >= self.credit:
+            self._wait_oldest(lane)
+
         hidden = hidden.contiguous()
         residual = residual.contiguous()
-        header = torch.tensor([hidden.shape[0], hidden.shape[1], microbatch_id, lane],
-                              dtype=torch.int64, device=hidden.device)
+        header = torch.tensor(
+            [hidden.shape[0], hidden.shape[1], microbatch_id, lane],
+            dtype=torch.int64, device=hidden.device)
         started = time.perf_counter()
-        # A blocking first hop is the correctness baseline.  NCCL creates a
-        # point-to-point communicator lazily; launching an async send from a
-        # separate stream while the receiver is still constructing its first
-        # ``irecv`` can leave the communicator in a spin wait.  Once this path
-        # is validated, a fused batch_isend_irecv implementation can restore
-        # overlap without changing the wire format.
-        dist.send(header, dst=self.dst)
-        dist.send(hidden, dst=self.dst)
-        dist.send(residual, dst=self.dst)
-        self.trace.append({"kind": "send", "lane": lane,
-                           "microbatch_id": microbatch_id,
-                           "start": started, "end": time.perf_counter()})
+        ready_event = None
+
+        if self.comm_stream is None:
+            requests = (
+                dist.isend(header, dst=self.dst),
+                dist.isend(hidden, dst=self.dst),
+                dist.isend(residual, dst=self.dst),
+            )
+        else:
+            # The model writes hidden/residual on the current compute stream.
+            # The communication stream must wait for that production event
+            # before NCCL reads either tensor.
+            ready_event = torch.cuda.Event()
+            torch.cuda.current_stream(hidden.device).record_event(ready_event)
+            with torch.cuda.stream(self.comm_stream):
+                self.comm_stream.wait_event(ready_event)
+                requests = (
+                    dist.isend(header, dst=self.dst),
+                    dist.isend(hidden, dst=self.dst),
+                    dist.isend(residual, dst=self.dst),
+                )
+
+        pending.append(_SendRecord(
+            requests=tuple(requests),
+            tensors=(header, hidden, residual),
+            lane=lane,
+            microbatch_id=int(microbatch_id),
+            started=started,
+            ready_event=ready_event,
+        ))
 
     def recv_forward(self, lane: int = 0):
         if self.src is None:
             raise RuntimeError("stage 0 cannot recv_forward")
         lane %= self.lanes
-        # Match the sender's blocking first hop.  Keeping shape and payload in
-        # one explicit sequence avoids NCCL communicator setup races during PP
-        # startup and gives a deterministic reference for later async tuning.
-        shape = torch.empty(4, dtype=torch.int64, device=self.device)
-        dist.recv(shape, src=self.src)
-        tokens, hidden_size, microbatch_id, msg_lane = map(int, shape.cpu().tolist())
+
+        # Header receives are variable-shape metadata. The first one is
+        # lazily posted; each completed receive posts the next header before
+        # returning, so header transfer can overlap the current stage compute.
+        slot = self._recv[lane]
+        if slot is None:
+            self._post_shape(lane)
+            slot = self._recv[lane]
+        self._wait(slot.request)
+        self._recv[lane] = None
+
+        tokens, hidden_size, microbatch_id, msg_lane = map(
+            int, slot.shape.cpu().tolist())
+        if msg_lane != lane:
+            raise RuntimeError(
+                f"PP lane mismatch: expected {lane}, received {msg_lane}")
+        if tokens < 0 or hidden_size <= 0:
+            raise RuntimeError(
+                f"invalid PP activation shape {(tokens, hidden_size)}")
+
         hidden = torch.empty((tokens, hidden_size), dtype=torch.bfloat16,
                              device=self.device)
         residual = torch.empty_like(hidden)
         started = time.perf_counter()
-        dist.recv(hidden, src=self.src)
-        dist.recv(residual, src=self.src)
-        self.trace.append({"kind": "recv", "lane": msg_lane,
-                           "microbatch_id": microbatch_id,
-                           "start": started, "end": time.perf_counter()})
+        if self.comm_stream is None:
+            requests = (
+                dist.irecv(hidden, src=self.src),
+                dist.irecv(residual, src=self.src),
+            )
+        else:
+            with torch.cuda.stream(self.comm_stream):
+                requests = (
+                    dist.irecv(hidden, src=self.src),
+                    dist.irecv(residual, src=self.src),
+                )
+        # Post the next header before waiting for payload completion. This
+        # keeps a lane's metadata path in flight during current computation.
+        self._post_shape(lane)
+        self._wait_payload(requests, hidden.device)
+
+        self.trace.append({
+            "kind": "recv",
+            "lane": msg_lane,
+            "microbatch_id": microbatch_id,
+            "start": started,
+            "end": time.perf_counter(),
+        })
         return hidden, residual, microbatch_id, msg_lane
 
+    def shutdown(self):
+        """Release preposted receives and finish sends before NCCL teardown."""
+        for lane, slot in enumerate(self._recv):
+            if slot is None:
+                continue
+            abort = getattr(slot.request, "abort", None)
+            if callable(abort):
+                try:
+                    abort()
+                except Exception:
+                    pass
+            else:
+                completed = getattr(slot.request, "is_completed", None)
+                if callable(completed) and completed():
+                    try:
+                        slot.request.wait()
+                    except Exception:
+                        pass
+            self._recv[lane] = None
+        self.drain()
     def drain(self):
+        """Wait for every outstanding send before process-group teardown."""
         for lane in range(self.lanes):
             while self._sends[lane]:
                 self._wait_oldest(lane)
