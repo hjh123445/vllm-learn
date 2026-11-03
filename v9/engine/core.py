@@ -31,9 +31,11 @@ def _spawn_with_env(env, fn, args):
 from engine.mq import SHUTDOWN, make_channels
 from engine.sequence import Sequence
 from samplingParams import SamplingParams
+from engine.pipeline_schedule import PipelineTopology, VirtualEnginePool
 
 
-def _spec_msg(seqs, is_prefill, pipeline_lane=0, microbatch_id=0):
+def _spec_msg(seqs, is_prefill, pipeline_lane=0, microbatch_id=0,
+              virtual_engine=0):
     """scheduler 的输出 → 可 pickle 的结构化消息。
 
     对齐 vLLM 的 SchedulerOutput：scheduled（要 forward 的序列描述）+
@@ -55,7 +57,8 @@ def _spec_msg(seqs, is_prefill, pipeline_lane=0, microbatch_id=0):
             "temperature": s.temperature,
         })
     return {"type": "schedule", "scheduled": scheduled, "is_prefill": is_prefill,
-            "pipeline_lane": pipeline_lane, "microbatch_id": microbatch_id}
+            "pipeline_lane": pipeline_lane, "microbatch_id": microbatch_id,
+            "virtual_engine": virtual_engine}
 
 
 class _Spec:
@@ -104,7 +107,8 @@ class EngineCore:
     def __init__(self, model_path, tp_size=1, ep_size=1, dcp_size=1, pp_size=1,
                  master_port=29600, config_kwargs=None, gpus=None,
                  pipeline_lanes=2, pipeline_credit=4,
-                 pipeline_microbatch_tokens=2048):
+                 pipeline_microbatch_tokens=2048, pipeline_mode="optimized",
+                 pipeline_stage_map=None):
         self.world_size = tp_size * ep_size * dcp_size * pp_size
         self.debug = os.getenv("VLLM_LEARN_DEBUG", "0") == "1"
         self.tp_size, self.ep_size = tp_size, ep_size
@@ -120,6 +124,19 @@ class EngineCore:
         self.pipeline_lanes = max(1, int(pipeline_lanes))
         self.pipeline_credit = max(1, int(pipeline_credit))
         self.pipeline_microbatch_tokens = max(1, int(pipeline_microbatch_tokens))
+        if pipeline_mode not in ("baseline", "optimized"):
+            raise ValueError("pipeline_mode must be baseline or optimized")
+        self.pipeline_mode = pipeline_mode
+        self.pipeline_topology = PipelineTopology.one_to_one(pp_size)
+        if pipeline_stage_map is not None:
+            mapping = tuple(int(v) for v in pipeline_stage_map)
+            workers = max(mapping) + 1 if mapping else 0
+            candidate = PipelineTopology(pp_size, workers, mapping)
+            if candidate.has_local_multiple_stages:
+                raise NotImplementedError("一张卡承载多个逻辑 PP stage 需要 local-stage executor；当前 runtime 仍是一进程一 stage。")
+            if mapping != tuple(range(pp_size)):
+                raise NotImplementedError("当前单 stage worker runtime 只接受 identity stage_to_worker 映射。")
+            self.pipeline_topology = candidate
         config = Config(model_path, **config_kwargs)
         self.config = config
         from transformers import AutoTokenizer
@@ -133,6 +150,7 @@ class EngineCore:
             "pp_size": pp_size,
             "pipeline_lanes": self.pipeline_lanes,
             "pipeline_credit": self.pipeline_credit,
+            "pipeline_mode": self.pipeline_mode,
         }
         self.pp_size = pp_size
         self.dcp_size = dcp_size
@@ -196,6 +214,8 @@ class EngineCore:
             self.scheduler = Scheduler(config)          # 用 worker 的真实块数
             self.inproc_runner = None
 
+        self.virtual_engine_pool = VirtualEnginePool(self.pipeline_lanes)
+
     # ---------------- busy loop ----------------
 
     def _microbatches(self, seqs):
@@ -223,6 +243,10 @@ class EngineCore:
     def step(self):
         step_start = __import__("time").perf_counter()
         seqs, is_prefill = self.scheduler.schedule()
+        # AsyncEngine uses this explicit flag to distinguish an idle KV pool
+        # from a completed request set.  Keeping it on EngineCore also makes
+        # empty scheduling steps observable in benchmarks.
+        self.last_step_had_work = bool(seqs)
         microbatches = self._microbatches(seqs)
 
         if self.world_size == 1:
@@ -236,8 +260,9 @@ class EngineCore:
             for mb_id, mb in enumerate(microbatches):
                 msg = _spec_msg(
                     mb, is_prefill,
-                    pipeline_lane=mb_id % self.pipeline_lanes,
-                    microbatch_id=mb_id)
+                    pipeline_lane=self.virtual_engine_pool.assign(mb_id).lane,
+                    microbatch_id=mb_id,
+                    virtual_engine=mb_id % self.virtual_engine_pool.size)
                 broadcast(msg, self.broadcast_q)
                 if self.debug:
                     print(f"[core-send] mb={mb_id} n={len(mb)}", flush=True)
@@ -249,6 +274,7 @@ class EngineCore:
                 if self.debug:
                     print(f"[core-output] mb={out.get('microbatch_id')} n={out.get('n')}", flush=True)
                 by_id.update(zip(out.get("seq_ids", []), out["tokens"]))
+                self.virtual_engine_pool.complete(out.get("microbatch_id", 0))
             token_ids = [by_id[s.seq_id] for s in seqs]
 
         # Keep a lightweight timing stream for TTFT/TPOT experiments.  It is
@@ -286,12 +312,13 @@ class EngineCore:
             sampling_params = SamplingParams(temperature=0.0)
         sps = sampling_params if isinstance(sampling_params, list) \
             else [sampling_params] * len(prompts_ids)
+        requested = []
         for p, sp in zip(prompts_ids, sps):
-            self.add_request(p, sp)
+            requested.append(self.add_request(p, sp))
         while not self.is_finished():
             self.step()
-        outs = []
-        return outs
+        return [(seq.seq_id, list(seq.completion_token_ids))
+                for seq in requested]
 
     def shutdown(self):
         if self.broadcast_q is not None:

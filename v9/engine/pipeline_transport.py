@@ -41,12 +41,16 @@ class PipelineTransport:
     """
 
     def __init__(self, pp_size: int, pp_rank: int, inner_size: int,
-                 lanes: int = 2, credit: int = 4, device: str = "cuda"):
+                 lanes: int = 2, credit: int = 4,
+                 async_enabled: bool = True, trace_variant: str = "optimized",
+                 device: str = "cuda"):
         self.pp_size = int(pp_size)
         self.pp_rank = int(pp_rank)
         self.inner_size = int(inner_size)
         self.lanes = max(1, int(lanes))
         self.credit = max(1, int(credit))
+        self.async_enabled = bool(async_enabled)
+        self.trace_variant = str(trace_variant)
         self.device = torch.device(device)
         self.rank = dist.get_rank() if dist.is_initialized() else 0
         self.local_inner_rank = self.rank % self.inner_size
@@ -60,6 +64,7 @@ class PipelineTransport:
         self._sends: list[deque[_SendRecord]] = [
             deque() for _ in range(self.lanes)]
         self.trace: list[dict] = []
+        self.trace_origin = time.perf_counter()
         self.comm_stream = (
             torch.cuda.Stream(device=self.device)
             if self.device.type == "cuda" and torch.cuda.is_available()
@@ -98,6 +103,8 @@ class PipelineTransport:
             "microbatch_id": record.microbatch_id,
             "start": record.started,
             "end": time.perf_counter(),
+            "stage": self.pp_rank,
+            "variant": self.trace_variant,
         })
 
     def _wait_payload(self, requests, ready_device):
@@ -126,6 +133,16 @@ class PipelineTransport:
             dtype=torch.int64, device=hidden.device)
         started = time.perf_counter()
         ready_event = None
+
+        if not self.async_enabled:
+            dist.send(header, dst=self.dst)
+            dist.send(hidden, dst=self.dst)
+            dist.send(residual, dst=self.dst)
+            self.trace.append({"kind": "send", "lane": lane,
+                               "microbatch_id": int(microbatch_id),
+                               "start": started, "end": time.perf_counter(),
+                               "stage": self.pp_rank, "variant": self.trace_variant})
+            return
 
         if self.comm_stream is None:
             requests = (
@@ -161,51 +178,60 @@ class PipelineTransport:
             raise RuntimeError("stage 0 cannot recv_forward")
         lane %= self.lanes
 
-        # Header receives are variable-shape metadata. The first one is
-        # lazily posted; each completed receive posts the next header before
-        # returning, so header transfer can overlap the current stage compute.
+        if not self.async_enabled:
+            shape = torch.empty(4, dtype=torch.int64, device=self.device)
+            started = time.perf_counter()
+            dist.recv(shape, src=self.src)
+            tokens, hidden_size, microbatch_id, msg_lane = map(
+                int, shape.cpu().tolist())
+            hidden = torch.empty((tokens, hidden_size), dtype=torch.bfloat16,
+                                 device=self.device)
+            residual = torch.empty_like(hidden)
+            dist.recv(hidden, src=self.src)
+            dist.recv(residual, src=self.src)
+            self.trace.append({
+                "kind": "recv", "lane": msg_lane,
+                "microbatch_id": microbatch_id, "start": started,
+                "end": time.perf_counter(), "stage": self.pp_rank,
+                "variant": self.trace_variant,
+            })
+            return hidden, residual, microbatch_id, msg_lane
+
         slot = self._recv[lane]
         if slot is None:
             self._post_shape(lane)
             slot = self._recv[lane]
         self._wait(slot.request)
         self._recv[lane] = None
-
         tokens, hidden_size, microbatch_id, msg_lane = map(
             int, slot.shape.cpu().tolist())
         if msg_lane != lane:
             raise RuntimeError(
                 f"PP lane mismatch: expected {lane}, received {msg_lane}")
         if tokens < 0 or hidden_size <= 0:
-            raise RuntimeError(
-                f"invalid PP activation shape {(tokens, hidden_size)}")
+            raise RuntimeError(f"invalid PP activation shape {(tokens, hidden_size)}")
 
         hidden = torch.empty((tokens, hidden_size), dtype=torch.bfloat16,
                              device=self.device)
         residual = torch.empty_like(hidden)
         started = time.perf_counter()
         if self.comm_stream is None:
-            requests = (
-                dist.irecv(hidden, src=self.src),
-                dist.irecv(residual, src=self.src),
-            )
+            requests = (dist.irecv(hidden, src=self.src),
+                        dist.irecv(residual, src=self.src))
         else:
             with torch.cuda.stream(self.comm_stream):
-                requests = (
-                    dist.irecv(hidden, src=self.src),
-                    dist.irecv(residual, src=self.src),
-                )
-        # Post the next header before waiting for payload completion. This
-        # keeps a lane's metadata path in flight during current computation.
-        self._post_shape(lane)
+                requests = (dist.irecv(hidden, src=self.src),
+                            dist.irecv(residual, src=self.src))
+        # The worker loop is single-message-at-a-time. Posting another header
+        # here would leave an unmatched irecv after the final message and can
+        # make NCCL teardown hang. The next recv call posts its header before
+        # waiting, retaining lazy overlap without orphaned work.
         self._wait_payload(requests, hidden.device)
-
         self.trace.append({
-            "kind": "recv",
-            "lane": msg_lane,
-            "microbatch_id": microbatch_id,
-            "start": started,
-            "end": time.perf_counter(),
+            "kind": "recv", "lane": msg_lane,
+            "microbatch_id": microbatch_id, "start": started,
+            "end": time.perf_counter(), "stage": self.pp_rank,
+            "variant": self.trace_variant,
         })
         return hidden, residual, microbatch_id, msg_lane
 
@@ -234,3 +260,7 @@ class PipelineTransport:
         for lane in range(self.lanes):
             while self._sends[lane]:
                 self._wait_oldest(lane)
+
+    def flush(self):
+        """Compatibility alias used by ModelRunner shutdown/profiling hooks."""
+        self.drain()

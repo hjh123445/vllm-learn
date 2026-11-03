@@ -29,6 +29,7 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     broadcast_q/response_q: 引擎侧传来的 Queue（mp.Queue 可 pickle 跨进程）
     """
     debug = os.getenv("VLLM_LEARN_DEBUG", "0") == "1"
+    trace_events = []
     # 设备由 launcher 通过 CUDA_VISIBLE_DEVICES 控制（每 worker 只见一张卡,
     # spawn 继承父进程 env → EngineCore 在 spawn 前为每个 worker 设置子进程 env）
     os.environ["RANK"] = str(rank)
@@ -50,6 +51,19 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
           f"count={torch.cuda.device_count()} current={torch.cuda.current_device()}",
           flush=True)
     import torch.distributed as dist
+
+    profiler = None
+    if os.getenv("VLLM_LEARN_CUDA_PROFILE", "0") == "1" and torch.cuda.is_available():
+        profile_dir = os.getenv("VLLM_LEARN_TRACE_DIR", "/tmp")
+        os.makedirs(profile_dir, exist_ok=True)
+        profiler = torch.profiler.profile(
+            activities=[torch.profiler.ProfilerActivity.CPU,
+                       torch.profiler.ProfilerActivity.CUDA],
+            schedule=torch.profiler.schedule(wait=1, warmup=1, active=8, repeat=1),
+            on_trace_ready=lambda p: p.export_chrome_trace(
+                os.path.join(profile_dir, f"cuda_rank{rank}.json")),
+            record_shapes=True, with_stack=False, profile_memory=True)
+        profiler.__enter__()
 
     # v8.2 教训三件套：device_id 显式绑定 + 组预热 + 对称收发
     if world_size > 1:
@@ -123,6 +137,8 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
             pp_size=pp_size, pp_rank=pp_rank, inner_size=inner,
             lanes=int(engine_kwargs.get("pipeline_lanes", 2)),
             credit=int(engine_kwargs.get("pipeline_credit", 4)),
+            async_enabled=engine_kwargs.get("pipeline_mode", "optimized") != "baseline",
+            trace_variant=engine_kwargs.get("pipeline_mode", "optimized"),
             device="cuda")
 
     # ---- DCP 注入（v8.2 的 set_dcp，worker 内生效）----
@@ -139,6 +155,9 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     if debug:
         print(f"[worker-config-after] rank={rank}", flush=True)
     runner = ModelRunner(config, dtype=None)
+    # Warmup may have populated the optional layer timeline. Discard it so
+    # exported traces describe requests only.
+    STATE.trace_events = []
     if debug:
         print(f"[worker-runner-after] rank={rank} blocks={config.num_kvcache_blocks}", flush=True)
 
@@ -177,6 +196,7 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         specs = rebuild_specs(msg)
         is_prefill = msg["is_prefill"]
         token_ids = []
+        forward_started = __import__("time").perf_counter()
         if specs:
             if debug:
                 print(f"[worker-run] rank={rank} mb={msg.get('microbatch_id')}", flush=True)
@@ -185,14 +205,81 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
                                    microbatch_id=msg.get("microbatch_id", 0))
             if debug:
                 print(f"[worker-done] rank={rank} mb={msg.get('microbatch_id')}", flush=True)
+        forward_finished = __import__("time").perf_counter()
+        if specs:
+            trace_events.append({
+                "name": f"stage{pp_rank}.forward", "cat": "forward",
+                "ph": "X", "ts": forward_started,
+                "end": forward_finished, "stage": pp_rank,
+                "microbatch_id": msg.get("microbatch_id", 0),
+                "lane": msg.get("pipeline_lane", 0),
+            })
+        if profiler is not None:
+            profiler.step()
         if is_resp_rank:
             response_conn.send({"type": "output", "tokens": token_ids,
                                 "seq_ids": [s.seq_id for s in specs],
                                 "microbatch_id": msg.get("microbatch_id", 0),
+                                "virtual_engine": msg.get("virtual_engine", 0),
+                                "pipeline_lane": msg.get("pipeline_lane", 0),
                                 "n": len(specs)})
 
+    if profiler is not None:
+        profiler.__exit__(None, None, None)
     if pp_size > 1 and STATE.pipeline_transport is not None:
         STATE.pipeline_transport.shutdown()
+    trace_dir = os.getenv("VLLM_LEARN_TRACE_DIR")
+    if trace_dir:
+        import json
+        os.makedirs(trace_dir, exist_ok=True)
+        transport_trace = list(getattr(STATE.pipeline_transport, "trace", []))
+        origin = getattr(STATE.pipeline_transport, "trace_origin",
+                         trace_events[0]["ts"] if trace_events else 0.0)
+        layer_range = [getattr(runner.model.model, "pp_start", 0),
+                       getattr(runner.model.model, "pp_end", 0)]
+        events = []
+        for event in trace_events:
+            events.append({
+                "name": event["name"], "cat": event["cat"], "ph": "X",
+                "ts": (event["ts"] - origin) * 1e6,
+                "dur": max(0.0, event["end"] - event["ts"]) * 1e6,
+                "pid": rank, "tid": "compute",
+                "args": {"stage": pp_rank,
+                         "microbatch_id": event["microbatch_id"],
+                         "lane": event["lane"], "layer_range": layer_range},
+            })
+        for event in transport_trace:
+            events.append({
+                "name": "pp." + event["kind"], "cat": "p2p", "ph": "X",
+                "ts": (event["start"] - origin) * 1e6,
+                "dur": max(0.0, event["end"] - event["start"]) * 1e6,
+                "pid": rank, "tid": "comm",
+                "args": {"stage": event.get("stage", pp_rank),
+                         "microbatch_id": event["microbatch_id"],
+                         "lane": event["lane"],
+                         "variant": event.get("variant", "optimized")},
+            })
+        for event in getattr(STATE, "trace_events", []):
+            events.append({
+                "name": event["name"], "cat": event["cat"], "ph": "X",
+                "ts": (event["start"] - origin) * 1e6,
+                "dur": max(0.0, event["end"] - event["start"]) * 1e6,
+                "pid": rank, "tid": "layer",
+                "args": {"stage": event["stage"],
+                         "layer": event["layer"],
+                         "microbatch_id": event["microbatch_id"],
+                         "lane": event["lane"],
+                         "layer_range": layer_range},
+            })
+        with open(os.path.join(trace_dir, f"pipeline_rank{rank}.json"),
+                  "w", encoding="utf-8") as f:
+            json.dump({
+                "displayTimeUnit": "ms", "traceEvents": events,
+                "metadata": {"rank": rank, "pp_stage": pp_rank,
+                             "pipeline_mode": engine_kwargs.get(
+                                 "pipeline_mode", "optimized"),
+                             "layer_range": layer_range},
+            }, f, ensure_ascii=False)
     if os.getenv("VLLM_LEARN_PROFILE_EXPERTS", "0") == "1":
         import json
         path = os.getenv("VLLM_LEARN_PROFILE_DIR", "/tmp")

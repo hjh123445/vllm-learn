@@ -83,13 +83,31 @@ class Qwen3MoeDecoderLayer(nn.Module):
         x, residual = fused_add_rmsnorm(x, residual, self.input_layernorm.weight,
                                        self.input_layernorm.eps)
         from layers.parallel import STATE
+        import time
         prefix = f"stage{STATE.pp_rank}.layer{self.layer_idx}"
+        trace = os.getenv("VLLM_LEARN_TRACE_DIR") and getattr(STATE, "trace_events", None) is not None
+        if trace:
+            started = time.perf_counter()
         with torch.autograd.profiler.record_function(f"{prefix}.attention"):
             x = self.self_attn(x, positions)     # o_proj(RowParallel) 内置 allreduce
+        if trace:
+            STATE.trace_events.append({"name": f"{prefix}.attention", "cat": "attention",
+                                       "start": started, "end": time.perf_counter(),
+                                       "stage": STATE.pp_rank, "layer": self.layer_idx,
+                                       "microbatch_id": STATE.microbatch_id,
+                                       "lane": STATE.pipeline_lane})
         x, residual = fused_add_rmsnorm(x, residual, self.post_attention_layernorm.weight,
                                        self.post_attention_layernorm.eps)
+        if trace:
+            started = time.perf_counter()
         with torch.autograd.profiler.record_function(f"{prefix}.moe"):
             x = self.mlp(x)                      # MoE 部分和聚合在 MoEMLP 内
+        if trace:
+            STATE.trace_events.append({"name": f"{prefix}.moe", "cat": "moe",
+                                       "start": started, "end": time.perf_counter(),
+                                       "stage": STATE.pp_rank, "layer": self.layer_idx,
+                                       "microbatch_id": STATE.microbatch_id,
+                                       "lane": STATE.pipeline_lane})
         return x, residual
 
 

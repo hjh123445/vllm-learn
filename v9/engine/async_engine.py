@@ -45,6 +45,11 @@ class AsyncEngine:
         dp_size = kwargs.pop("data_parallel_size", 1)
         gpus = kwargs.pop("gpus", None)
         master_port = kwargs.pop("master_port", 29600)
+        pipeline_lanes = kwargs.pop("pipeline_lanes", 2)
+        pipeline_credit = kwargs.pop("pipeline_credit", 4)
+        pipeline_mode = kwargs.pop("pipeline_mode", "optimized")
+        pipeline_microbatch_tokens = kwargs.pop("pipeline_microbatch_tokens", 2048)
+        pipeline_stage_map = kwargs.pop("pipeline_stage_map", None)
         config_fields = {
             "max_num_batched_tokens", "max_num_seqs", "max_model_len",
             "gpu_memory_utilization", "enforce_eager", "kvcache_block_size",
@@ -60,7 +65,11 @@ class AsyncEngine:
         self.engine = EngineCore(
             model, tp_size=tp_size, ep_size=ep_size, dcp_size=dcp_size,
             pp_size=pp_size, master_port=master_port,
-            config_kwargs=config_kwargs, gpus=gpus)
+            config_kwargs=config_kwargs, gpus=gpus,
+            pipeline_lanes=pipeline_lanes, pipeline_credit=pipeline_credit,
+            pipeline_mode=pipeline_mode,
+            pipeline_microbatch_tokens=pipeline_microbatch_tokens,
+            pipeline_stage_map=pipeline_stage_map)
         self.states = {}
         self._seqs = {}
         self._lock = threading.RLock()

@@ -41,6 +41,10 @@ class ParallelState:
         self.pipeline_lane, self.microbatch_id = 0, 0
         self.pipeline_warmup = False
         self.pipeline_transport = None
+        # Optional host timeline populated by the model only when a worker
+        # requests a trace. Keeping it in ParallelState avoids coupling model
+        # code to EngineCore or a particular profiler backend.
+        self.trace_events = []
         self.tp_group = None       # o_proj/w2 的 allreduce 域（tp 维）
         self.ep_group = None       # 同一 tp/cp/pp 坐标沿 ep 变化
         self.moe_group = None      # MoE 部分和的聚合域（tp×ep 张成的组）
@@ -125,5 +129,3 @@ def __getattr__(name):
         import layers.linear as _lin
         return getattr(_lin, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
