@@ -16,20 +16,23 @@ def main():
     ap.add_argument('--model',required=True)
     ap.add_argument('--reference',required=True)
     ap.add_argument('--output',required=True)
-    ap.add_argument('--ep',type=int,default=8)
+    ap.add_argument('--enable-expert-parallel', action='store_true')
     ap.add_argument('--pp',type=int,default=1)
     ap.add_argument('--batch',action='store_true')
     ap.add_argument('--gpu-memory-utilization',type=float,default=.70)
     ap.add_argument('--token-budget',type=int,default=512)
     ap.add_argument('--microbatch-tokens',type=int,default=128)
     ap.add_argument('--max-kv-blocks',type=int,default=None)
+    ap.add_argument('--tp', type=int, default=1)
     args=ap.parse_args()
     out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
     source=json.loads(Path(args.reference).read_text())
     os.environ['VLLM_LEARN_LOGITS_DIR']=str(out/'logits')
     from engine.core import EngineCore
+    from utils.observed_runner import ObservedModelRunner
     from samplingParams import SamplingParams
-    core=EngineCore(args.model,ep_size=args.ep,pp_size=args.pp,master_port=31030,
+    core=EngineCore(args.model,tp_size=args.tp, enable_expert_parallel=args.enable_expert_parallel,pp_size=args.pp,master_port=31030,
+                    runner_cls=ObservedModelRunner,
                     pipeline_microbatch_tokens=args.microbatch_tokens,pipeline_lanes=2,
                     config_kwargs=dict(max_model_len=8192,max_num_batched_tokens=args.token_budget,
                     max_num_seqs=128,gpu_memory_utilization=args.gpu_memory_utilization,enforce_eager=True,

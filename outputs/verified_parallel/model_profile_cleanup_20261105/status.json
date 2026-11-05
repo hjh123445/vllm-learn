@@ -1,0 +1,14 @@
+{
+  "host": "172.28.30.56",
+  "remote": "/tmp/vllm-learn-model-profile-cleanup-20261105-211824",
+  "exit_code": 0,
+  "scope": "CPU/Gloo only; CUDA hidden; no full model benchmark",
+  "tests": [
+    "test_module_profiling.py",
+    "test_coupled_moe.py",
+    "test_pipeline_model_runtime.py",
+    "test_parallel_components.py",
+    "test_model_runner_batch_policy.py",
+    "test_trace_merge.py"
+  ]
+}

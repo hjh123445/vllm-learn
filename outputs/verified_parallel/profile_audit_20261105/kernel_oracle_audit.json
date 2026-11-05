@@ -1,0 +1,79 @@
+{
+  "reference": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\math_ablation_056_20261104_140005\\hf_terminal_head\\text_reference.json",
+  "reference_sha256": "98e01a13a71e7f9efabdde2de3d0c7dce761a692e3f79366f80baf2dcb4604f7",
+  "scope": "Historical 12 synthetic prompts x 4 cached teacher-forced steps, terminal-head HF raw argmax oracle. Not task accuracy; original expected tokens are a different oracle.",
+  "results": [
+    {
+      "variant": "cached_teacher_ref_both",
+      "matched": 48,
+      "total": 48,
+      "raw_file": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\math_ablation_056_20261104_140005\\cached_teacher_ref_both\\requests.json",
+      "sha256": "bd0571f0d730529e0b57dd98ae5e0cfcb8957e3c225f911b3715bc4ea675ec6c",
+      "original_expected_token_matches": 44
+    },
+    {
+      "variant": "cached_teacher_ref_qk",
+      "matched": 44,
+      "total": 48,
+      "raw_file": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\math_ablation_056_20261104_140005\\cached_teacher_ref_qk\\requests.json",
+      "sha256": "10b1e3d7df57984d23568f7ac8e406c575046bca245ff3baa4cdb752bcc1bc29",
+      "original_expected_token_matches": 46
+    },
+    {
+      "variant": "cached_teacher_ref_rms",
+      "matched": 46,
+      "total": 48,
+      "raw_file": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\math_ablation_056_20261104_140005\\cached_teacher_ref_rms\\requests.json",
+      "sha256": "705ef0607a91314232888eb51ac9873dd4bc64eaac37a62d11007c54717c3576",
+      "original_expected_token_matches": 44
+    },
+    {
+      "variant": "cached_teacher_ref_triton",
+      "matched": 40,
+      "total": 48,
+      "raw_file": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\math_ablation_056_20261104_140005\\cached_teacher_ref_triton\\requests.json",
+      "sha256": "e9d560ea341015cd05ee45768a88b99543b46732dd2045e40861a88261f59fab",
+      "original_expected_token_matches": 44
+    },
+    {
+      "variant": "cached_teacher_ep1",
+      "matched": 48,
+      "total": 48,
+      "raw_file": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\followup_056_20261104_133143\\cached_teacher_ep1\\requests.json",
+      "sha256": "7b237db14ef201ee0f86aeba28c4e62f103785ba9330d39167950c58ccd9ec91",
+      "original_expected_token_matches": 44
+    },
+    {
+      "variant": "cached_teacher_ep8",
+      "matched": 48,
+      "total": 48,
+      "raw_file": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\followup_056_20261104_133143\\cached_teacher_ep8\\requests.json",
+      "sha256": "bd0571f0d730529e0b57dd98ae5e0cfcb8957e3c225f911b3715bc4ea675ec6c",
+      "original_expected_token_matches": 44
+    },
+    {
+      "variant": "cached_teacher_fused",
+      "matched": 46,
+      "total": 48,
+      "raw_file": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\followup_056_20261104_133143\\cached_teacher_fused\\requests.json",
+      "sha256": "705ef0607a91314232888eb51ac9873dd4bc64eaac37a62d11007c54717c3576",
+      "original_expected_token_matches": 44
+    },
+    {
+      "variant": "cached_teacher_pp2ep4",
+      "matched": 48,
+      "total": 48,
+      "raw_file": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\followup_056_20261104_133143\\cached_teacher_pp2ep4\\requests.json",
+      "sha256": "bd0571f0d730529e0b57dd98ae5e0cfcb8957e3c225f911b3715bc4ea675ec6c",
+      "original_expected_token_matches": 44
+    },
+    {
+      "variant": "cached_teacher_triton",
+      "matched": 42,
+      "total": 48,
+      "raw_file": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\followup_056_20261104_133143\\cached_teacher_triton\\requests.json",
+      "sha256": "6edf73c77f5db24a1bc7fa2668e6d4fc1f07d5bef43ac7da304477387325e8f5",
+      "original_expected_token_matches": 40
+    }
+  ]
+}

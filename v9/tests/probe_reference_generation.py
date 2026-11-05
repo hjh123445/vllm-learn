@@ -17,21 +17,24 @@ def main():
     parser.add_argument('--model', required=True)
     parser.add_argument('--reference', required=True)
     parser.add_argument('--output', required=True)
-    parser.add_argument('--ep', type=int, default=8)
+    parser.add_argument('--enable-expert-parallel', action='store_true')
     parser.add_argument('--pp', type=int, default=1)
     parser.add_argument('--batch', action='store_true')
     parser.add_argument('--token-budget', type=int, default=512)
     parser.add_argument('--microbatch-tokens', type=int, default=128)
     parser.add_argument('--gpu-memory-utilization', type=float, default=.70)
     parser.add_argument('--max-kv-blocks', type=int, default=None)
+    parser.add_argument('--tp', type=int, default=1)
     args = parser.parse_args()
     from engine.core import EngineCore
+    from utils.observed_runner import ObservedModelRunner
     from samplingParams import SamplingParams
 
     reference = json.loads(Path(args.reference).read_text())
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
-    core = EngineCore(args.model, ep_size=args.ep, pp_size=args.pp, master_port=31030,
+    core = EngineCore(args.model, tp_size=args.tp, enable_expert_parallel=args.enable_expert_parallel, pp_size=args.pp, master_port=31030,
+        runner_cls=ObservedModelRunner,
         pipeline_microbatch_tokens=args.microbatch_tokens, pipeline_lanes=2, config_kwargs=dict(
             max_model_len=8192, max_num_batched_tokens=args.token_budget, max_num_seqs=128,
             gpu_memory_utilization=args.gpu_memory_utilization, max_kvcache_blocks=args.max_kv_blocks,

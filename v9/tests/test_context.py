@@ -14,7 +14,8 @@ def main():
  from engine.core import EngineCore
  specs={'ep8':(1,8,[0,1,2,3,4,5,6,7]),'ep4':(1,4,[0,1,2,3]),'tp2':(2,1,[0,1]),'pp2':(1,1,[0,1])}
  tp,ep,gpus=specs[a.config]
- t=time.perf_counter(); core=EngineCore(MODEL,tp_size=tp,ep_size=ep,pp_size=(2 if a.config=='pp2' else 1),gpus=gpus,master_port=29971+len(gpus),config_kwargs={'max_num_seqs':64,'max_model_len':2048,'max_num_batched_tokens':2048,'gpu_memory_utilization':0.85,'enforce_eager':True}); init=time.perf_counter()-t
+ if ep != 1: raise ValueError('Independent EP removed; use --dp/--tp/--enable-expert-parallel workload matrix')
+ t=time.perf_counter(); core=EngineCore(MODEL,tp_size=tp,enable_expert_parallel=False,pp_size=(2 if a.config=='pp2' else 1),gpus=gpus,master_port=29971+len(gpus),config_kwargs={'max_num_seqs':64,'max_model_len':2048,'max_num_batched_tokens':2048,'gpu_memory_utilization':0.85,'enforce_eager':True}); init=time.perf_counter()-t
  sp=SamplingParams(temperature=0.0,max_tokens=8); rows=[]
  for n,p in prompts.items():
   sids=[]

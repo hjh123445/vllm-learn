@@ -1,0 +1,17 @@
+{
+  "cpu": {
+    "tests": 43,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "source_files_verified": 78
+  },
+  "nccl": {
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "source_files_verified": 78
+  },
+  "identical_tested_python_sources": true
+}

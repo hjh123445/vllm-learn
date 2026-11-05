@@ -2,9 +2,11 @@
 import time
 
 
-def wait_for_workers(connection, processes, timeout):
+def wait_for_workers(connection, processes, timeout, stop_event=None):
     deadline = time.monotonic() + timeout
     while not connection.poll(0):
+        if stop_event is not None and stop_event.is_set():
+            raise RuntimeError("Worker IPC wait cancelled")
         failed = [(rank, p.exitcode) for rank, p in enumerate(processes)
                   if p.exitcode is not None]
         if failed:

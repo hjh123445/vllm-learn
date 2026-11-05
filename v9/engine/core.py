@@ -4,11 +4,9 @@
 对标 vLLM: v1/engine/core.py 的 EngineCore（scheduler 唯一决策者）+
 v1/executor/multiproc_executor.py 的 MultiprocExecutor（spawn WorkerProc）。
 
-busy loop（对齐 vLLM 的 step 语义）:
-    scheduler.schedule() → SchedulerOutput 广播给所有 worker
-    → 等所有 worker 的 response（TP/EP 下 forward 内部已对齐，
-      response 只从 rank0 取——它已聚合完整 logits 的采样结果）
-    → scheduler.update_from_output（完成判定/状态推进）
+PP busy loop: one scheduler -> non-blocking executor -> persistent batch queue.
+Fill the bounded queue first; settle the oldest result when full or when no
+independent requests are ready. No iteration-wide microbatch drain/barrier.
 
 单卡退化（对齐 UniProcExecutor）: world_size==1 时不 spawn 子进程，
 ModelRunner 同进程直调——同一条 EngineCore 代码路径。
@@ -20,6 +18,10 @@ forward 执行器"，通信从固定形状 NCCL 张量变成结构化 MQ 消息�
 
 import multiprocessing as mp
 import os
+from collections import deque
+from concurrent.futures import Future
+from dataclasses import dataclass
+from time import perf_counter
 
 def _spawn_with_env(env, fn, args):
     """spawn 的 env 传递：mp.Process 不支持 per-child env，包一层。
@@ -28,14 +30,14 @@ def _spawn_with_env(env, fn, args):
     os.environ.update(env)
     fn(*args)
 
-from engine.mq import SHUTDOWN, make_channels
+from engine.mq import make_channels
 from engine.sequence import Sequence
 from samplingParams import SamplingParams
-from engine.pipeline_schedule import PipelineTopology, VirtualEnginePool
+from engine.pipeline_schedule import PipelineTopology
+from engine.process_groups import ParallelTopology
 
 
-def _spec_msg(seqs, is_prefill, pipeline_lane=0, microbatch_id=0,
-              virtual_engine=0):
+def _spec_msg(seqs, is_prefill, pipeline_lane=0, microbatch_id=0):
     """scheduler 的输出 → 可 pickle 的结构化消息。
 
     对齐 vLLM 的 SchedulerOutput：scheduled（要 forward 的序列描述）+
@@ -55,10 +57,10 @@ def _spec_msg(seqs, is_prefill, pipeline_lane=0, microbatch_id=0,
             "last_token": s.last_token,
             "seq_len": len(s),
             "temperature": s.temperature,
+            "block_size": getattr(s, "block_size", 256),
         })
     return {"type": "schedule", "scheduled": scheduled, "is_prefill": is_prefill,
-            "pipeline_lane": pipeline_lane, "microbatch_id": microbatch_id,
-            "virtual_engine": virtual_engine}
+            "pipeline_lane": pipeline_lane, "microbatch_id": microbatch_id}
 
 
 class _Spec:
@@ -76,7 +78,7 @@ class _Spec:
         self._tokens = m["tokens"]
         self.last_token = m["last_token"]
         self.temperature = m["temperature"]
-        bs = 256
+        bs = self.block_size = m.get("block_size", 256)
         n = m["seq_len"]
         self.num_tokens = n
         self.num_prompt_tokens = n          # 哑视角够用（run 只读下列字段）
@@ -101,14 +103,25 @@ def rebuild_specs(msg):
     return [_Spec(m) for m in msg["scheduled"]]
 
 
+@dataclass
+class _PendingBatch:
+    batch_id: int
+    seqs: tuple
+    is_prefill: bool
+    submitted_at: float
+    future: Future
+
+
 class EngineCore:
     """v9.4 的引擎核心。对外暴露与 LLMEngine.generate 兼容的批推理入口。"""
 
-    def __init__(self, model_path, tp_size=1, ep_size=1, dcp_size=1, pp_size=1,
+    def __init__(self, model_path, tp_size=1, ep_size=None, dcp_size=1, pp_size=1,
                  master_port=29600, config_kwargs=None, gpus=None,
                  pipeline_lanes=2, pipeline_credit=4,
                  pipeline_microbatch_tokens=2048, pipeline_mode="optimized",
-                 pipeline_stage_map=None):
+                 pipeline_stage_map=None, max_concurrent_batches=None,
+                 enable_expert_parallel=False, dp_size=1, dp_rank=0,
+                 _dp_coordinated=False, runner_cls=None, transport_cls=None):
         self._closed = False
         self._worker_timeout = float(os.getenv("VLLM_LEARN_WORKER_TIMEOUT_S", "1200"))
         if self._worker_timeout <= 0:
@@ -116,7 +129,20 @@ class EngineCore:
         cpu_threads = max(1, int(os.getenv("VLLM_LEARN_CPU_THREADS", "4")))
         os.environ.setdefault("OMP_NUM_THREADS", str(cpu_threads))
         os.environ.setdefault("MKL_NUM_THREADS", str(cpu_threads))
-        self.world_size = tp_size * ep_size * dcp_size * pp_size
+        topology = ParallelTopology(tp_size, dp_size, pp_size, dcp_size,
+                                    enable_expert_parallel)
+        if ep_size is not None and ep_size != topology.ep_size:
+            raise ValueError("EP is DP x TP when enabled; replace independent ep_size with DPFrontend(dp_size=..., enable_expert_parallel=True)")
+        if not 0 <= dp_rank < dp_size:
+            raise ValueError("invalid dp_rank")
+        if dp_size > 1 and not _dp_coordinated:
+            raise ValueError("Multi-DP EP requires DPFrontend to coordinate idle replicas")
+        ep_size = topology.ep_size
+        self.world_size = topology.local_world_size
+        self.global_world_size = topology.world_size
+        self.dp_size, self.dp_rank = dp_size, dp_rank
+        self.enable_expert_parallel = enable_expert_parallel
+        self._coupled_dp = enable_expert_parallel and dp_size > 1
         self.debug = os.getenv("VLLM_LEARN_DEBUG", "0") == "1"
         self.tp_size, self.ep_size = tp_size, ep_size
 
@@ -127,10 +153,16 @@ class EngineCore:
         # scheduler 在前 → BlockManager(−1→0 块) → schedule 直接 assert）
         from config import Config
         config_kwargs = dict(config_kwargs or {})
+        if self._coupled_dp and config_kwargs.get("batch_execution_mode", "batched") != "batched":
+            raise ValueError("Coupled DP EP requires batched execution; per_request would issue unequal collective counts")
         self.config_kwargs = config_kwargs
         self.pipeline_lanes = max(1, int(pipeline_lanes))
         self.pipeline_credit = max(1, int(pipeline_credit))
         self.pipeline_microbatch_tokens = max(1, int(pipeline_microbatch_tokens))
+        self.max_concurrent_batches = (pp_size if max_concurrent_batches is None
+                                       else int(max_concurrent_batches))
+        if self.max_concurrent_batches < 1:
+            raise ValueError("max_concurrent_batches must be positive")
         if pipeline_mode not in ("baseline", "optimized"):
             raise ValueError("pipeline_mode must be baseline or optimized")
         self.pipeline_mode = pipeline_mode
@@ -155,17 +187,21 @@ class EngineCore:
             "master_addr": "127.0.0.1", "master_port": master_port,
             "config_kwargs": config_kwargs, "dcp_size": dcp_size, "gpus": gpus,
             "pp_size": pp_size,
+            "dp_size": dp_size, "dp_rank": dp_rank,
+            "enable_expert_parallel": enable_expert_parallel,
             "pipeline_lanes": self.pipeline_lanes,
             "pipeline_credit": self.pipeline_credit,
             "pipeline_mode": self.pipeline_mode,
+            # Optional importable implementations, preserved across spawn.
+            "runner_cls": runner_cls, "transport_cls": transport_cls,
         }
         self.pp_size = pp_size
         self.dcp_size = dcp_size
 
-        if self.world_size == 1:
+        if self.global_world_size == 1:
             # UniProc 路径：ModelRunner 同进程直调（分配池子 → 填 config）
             from engine.model_runner import ModelRunner
-            self.inproc_runner = ModelRunner(config, dtype=None)
+            self.inproc_runner = (runner_cls or ModelRunner)(config, dtype=None)
             self.scheduler = Scheduler(config)          # 池子已定 → 块数正确
             self.procs, self.broadcast_q, self.response_q = [], None, None
         else:
@@ -200,13 +236,12 @@ class EngineCore:
             # 等 ready（模型加载 + 池子分配完成，worker 回传块数）。
             # PP 必须等待每个 stage 的 inner-rank0；各 stage 层数不同，
             # scheduler 使用最小 block 数保证任一 stage 都不会超发。
-            inner = tp_size * ep_size * dcp_size
+            inner = tp_size * dcp_size
             # Read one ready message from every PP stage and EP replica.
             # TP/CP ranks within a replica share the same logical KV budget;
             # EP replicas may differ by routing/activation pressure, so the
             # scheduler uses the minimum of all reported block counts.
-            senders = [s * inner + e * tp_size * dcp_size
-                       for s in range(pp_size) for e in range(ep_size)]
+            senders = [s * inner for s in range(pp_size)]
             blocks = []
             for r in senders:
                 self._wait_for_worker(self.response_q[r].notify)
@@ -222,119 +257,122 @@ class EngineCore:
             self.scheduler = Scheduler(config)          # 用 worker 的真实块数
             self.inproc_runner = None
 
-        self.virtual_engine_pool = VirtualEnginePool(self.pipeline_lanes)
+        self.executor = None
+        if self.global_world_size > 1:
+            from engine.executor import MultiprocessExecutor
+            inner = tp_size * dcp_size
+            self.executor = MultiprocessExecutor(
+                self.broadcast_q, self.response_q[(pp_size - 1) * inner],
+                self.procs, self._worker_timeout, self.max_concurrent_batches)
+        self._initialize_batch_queue()
+
+    def _initialize_batch_queue(self):
+        self.batch_queue = deque()
         self._next_microbatch_id = 0
+        self.last_step_events = []
+        self.last_step_had_work = False
 
     # ---------------- busy loop ----------------
 
-    def _microbatches(self, seqs):
-        """Create bounded PP messages while preserving sequence/KV ownership.
+    def _schedule_batch(self):
+        if self.pp_size <= 1:
+            return self.scheduler.schedule()
+        # Split decode requests too: a token-only budget would put every
+        # small decode into one batch and leave the remaining PP stages idle.
+        # This is a dynamic per-batch cap, not P fixed request partitions.
+        requests = len(self.scheduler.running) + len(self.scheduler.waiting)
+        width = min(requests, self.scheduler.max_num_seqs)
+        max_seqs = max(1, (width + self.max_concurrent_batches - 1)
+                       // self.max_concurrent_batches)
+        return self.scheduler.schedule(
+            token_budget=self.pipeline_microbatch_tokens, max_seqs=max_seqs)
 
-        A sequence is kept intact inside one message.  Scheduler chunked
-        prefill handles a long request across successive steps; splitting it
-        inside one step would require a second KV transaction.
-        """
-        if self.pp_size <= 1 or len(seqs) <= 1:
-            return [seqs]
-        limit = self.pipeline_microbatch_tokens
-        batches, current, tokens = [], [], 0
-        for seq in seqs:
-            n = max(1, int(seq.num_scheduled_tokens))
-            if current and tokens + n > limit:
-                batches.append(current)
-                current, tokens = [], 0
-            current.append(seq)
-            tokens += n
-        if current:
-            batches.append(current)
-        return batches
+    def _submit_batch(self, seqs, is_prefill):
+        batch_id = self._next_microbatch_id
+        self._next_microbatch_id += 1
+        # A lane is only a legacy transport slot. Runtime concurrency is
+        # bounded by batch_queue, not a fictitious VirtualEnginePool.
+        message = _spec_msg(seqs, is_prefill, microbatch_id=batch_id)
+        message["pipeline_mode"] = self.pipeline_mode
+        submitted = perf_counter()
+        if self.executor is None:
+            future = Future()
+            try:
+                tokens = self.inproc_runner.run(rebuild_specs(message), is_prefill)
+                future.set_result({"type": "output", "tokens": tokens,
+                                   "seq_ids": [s.seq_id for s in seqs],
+                                   "microbatch_id": batch_id})
+            except Exception as error:
+                future.set_exception(error)
+        else:
+            future = self.executor.execute_model(message)
+        self.batch_queue.append(_PendingBatch(
+            batch_id, tuple(seqs), is_prefill, submitted, future))
+
+    def _complete_batch(self):
+        batch = self.batch_queue[0]
+        output = batch.future.result(timeout=self._worker_timeout)
+        seqs = batch.seqs
+        if (output.get("microbatch_id") != batch.batch_id
+                or output.get("seq_ids") != [s.seq_id for s in seqs]
+                or len(output.get("tokens", ())) != len(seqs)):
+            raise RuntimeError(f"output does not match batch {batch.batch_id}")
+        token_ids = output["tokens"]
+        completed_at = perf_counter()
+        cancelled = {s.seq_id for s in seqs if self.scheduler.is_cancelled(s.seq_id)}
+        self.last_step_events = [
+            {"seq_id": seq.seq_id, "token_id": token,
+             "valid_decode_token": (seq.num_cached_tokens + seq.num_scheduled_tokens
+                                    >= seq.num_prompt_tokens),
+             "step_start": batch.submitted_at, "step_end": completed_at,
+             "batch_id": batch.batch_id}
+            for seq, token in zip(seqs, token_ids) if seq.seq_id not in cancelled]
+        self.scheduler.postprocess(seqs, token_ids, batch.is_prefill)
+        self.batch_queue.popleft()
+        return [(s.seq_id, s.completion_token_ids) for s in seqs
+                if s.is_finished and s.seq_id not in cancelled]
 
     def step(self):
-        step_start = __import__("time").perf_counter()
-        seqs, is_prefill = self.scheduler.schedule()
-        # AsyncEngine uses this explicit flag to distinguish an idle KV pool
-        # from a completed request set.  Keeping it on EngineCore also makes
-        # empty scheduling steps observable in benchmarks.
-        self.last_step_had_work = bool(seqs)
-        microbatches = self._microbatches(seqs)
+        """Prefer submission; settle one oldest batch when full/no ready work.
 
-        if self.world_size == 1:
-            msg = _spec_msg(seqs, is_prefill)
-            specs = rebuild_specs(msg)
-            token_ids = self.inproc_runner.run(specs, is_prefill)
-        else:
-            from engine.mq import broadcast
-            inner = self.tp_size * self.ep_size * self.dcp_size
-            resp_rank = (self.pp_size - 1) * inner if self.pp_size > 1 else 0
-            by_id = {}
-            in_flight = 0
-
-            def collect():
-                self._wait_for_worker(self.response_q[resp_rank].notify)
-                out = self.response_q[resp_rank].recv()
-                by_id.update(zip(out.get("seq_ids", []), out["tokens"]))
-                self.virtual_engine_pool.complete(out.get("microbatch_id", 0))
-
-            # One response slot plus one worker-owned result allows a window
-            # of two. Drain before sending more: otherwise response ACK and
-            # broadcast ACK can wait for each other indefinitely.
-            window = min(2, self.pipeline_lanes)
-            for mb in microbatches:
-                mb_id = self._next_microbatch_id
-                self._next_microbatch_id += 1
-                msg = _spec_msg(
-                    mb, is_prefill,
-                    pipeline_lane=self.virtual_engine_pool.assign(mb_id).lane,
-                    microbatch_id=mb_id,
-                    virtual_engine=mb_id % self.virtual_engine_pool.size)
-                msg["pipeline_mode"] = self.pipeline_mode
-                broadcast(msg, self.broadcast_q, wait=self._wait_for_worker)
-                in_flight += 1
-                if in_flight >= window:
-                    collect()
-                    in_flight -= 1
-            for _ in range(in_flight):
-                collect()
-            token_ids = [by_id[s.seq_id] for s in seqs]
-
-        # Keep a lightweight timing stream for TTFT/TPOT experiments.  It is
-        # populated in the EngineCore process after worker output returns, so
-        # it works for both UniProc and multiprocess TP/EP/PP paths without
-        # changing the response protocol.
-        step_end = __import__("time").perf_counter()
+        A call may return no tokens while filling the pipeline. Outstanding
+        batches survive this call and protect their requests/KV allocations.
+        """
+        if self._closed:
+            raise RuntimeError("EngineCore is closed")
         self.last_step_events = []
-        for seq, token_id in zip(seqs, token_ids):
-            valid = (seq.num_cached_tokens + seq.num_scheduled_tokens
-                     >= seq.num_prompt_tokens)
-            self.last_step_events.append({"seq_id": seq.seq_id,
-                                          "token_id": token_id,
-                                          "valid_decode_token": valid,
-                                          "step_start": step_start,
-                                          "step_end": step_end})
-        self.scheduler.postprocess(seqs, token_ids, is_prefill)
-        return [(s.seq_id, s.completion_token_ids) for s in seqs if s.is_finished]
+        self.last_step_had_work = bool(self.batch_queue)
+        try:
+            if len(self.batch_queue) < self.max_concurrent_batches:
+                seqs, is_prefill = self._schedule_batch()
+                if seqs or getattr(self, "_coupled_dp", False):
+                    self._submit_batch(seqs, is_prefill)
+                    self.last_step_had_work = True
+                    if len(self.batch_queue) < self.max_concurrent_batches:
+                        return []
+            if self.batch_queue:
+                return self._complete_batch()
+            return []
+        except Exception:
+            self._abort_workers()
+            raise
 
     def add_request(self, prompt_ids, sampling_params=None):
         sp = sampling_params or SamplingParams(temperature=0.0)
         seq = Sequence(list(prompt_ids), sp)
+        seq.block_size = self.config.kvcache_block_size
         self.scheduler.add(seq)
         return seq
 
     def is_finished(self):
-        return self.scheduler.is_finished()
+        # Dummy EP participation can remain in flight after this replica's
+        # requests finish. The frontend stops globally, then drains all queues.
+        pending_requests = any(batch.seqs for batch in self.batch_queue)
+        return not pending_requests and self.scheduler.is_finished()
 
     def abort_request(self, seq_id):
-        """Release a cancelled request at an owner-thread step boundary."""
-        from engine.sequence import SequenceStatus
-        for pending in (self.scheduler.waiting, self.scheduler.running):
-            for seq in list(pending):
-                if seq.seq_id == seq_id:
-                    pending.remove(seq)
-                    self.scheduler.block_manager.deallocate(seq)
-                    seq.num_scheduled_tokens = 0
-                    seq.status = SequenceStatus.FINISHED
-                    return True
-        return False
+        """Cancel immediately; defer KV reclamation until in-flight work ends."""
+        return self.scheduler.abort(seq_id)
 
     def generate(self, prompts_ids, sampling_params=None):
         """批推理便捷入口（与 LLMEngine.generate 对齐）。"""
@@ -364,26 +402,40 @@ class EngineCore:
     def _abort_workers(self):
         """Release only this EngineCore's children and shared-memory slots."""
         self._closed = True
-        for p in self.procs:
-            if p.is_alive():
-                p.terminate()
-        for p in self.procs:
-            p.join(timeout=2)
-            if p.is_alive():
-                p.kill()
+        executor = getattr(self, "executor", None)
+        try:
+            if executor is not None:
+                executor.abort()
+        finally:
+            for p in self.procs:
+                if p.is_alive():
+                    p.terminate()
+            for p in self.procs:
                 p.join(timeout=2)
-        for endpoint in (*(self.broadcast_q or []), *(self.response_q or [])):
-            endpoint.close()
+                if p.is_alive():
+                    p.kill()
+                    p.join(timeout=2)
+            for endpoint in (*(self.broadcast_q or []), *(self.response_q or [])):
+                endpoint.close()
 
     def shutdown(self):
         if getattr(self, "_closed", False):
             return
-        if self.broadcast_q is not None:
-            from engine.mq import broadcast
-            try:
-                broadcast(SHUTDOWN, self.broadcast_q, wait=self._wait_for_worker)
+        try:
+            # Stop scheduling; retire/cancel the outstanding work before
+            # asking workers to exit, so no activation recv is orphaned.
+            for seq in (*self.scheduler.waiting, *self.scheduler.running):
+                self.scheduler.abort(seq.seq_id)
+            while self.batch_queue:
+                self._complete_batch()
+            if self.executor is not None:
+                self.executor.shutdown()
                 for p in self.procs:
                     p.join(timeout=5)
-            finally:
+            runner = getattr(self, "inproc_runner", None)
+            if runner is not None:
+                runner.shutdown()
+        finally:
+            if self.broadcast_q is not None:
                 self._abort_workers()
-        self._closed = True
+            self._closed = True

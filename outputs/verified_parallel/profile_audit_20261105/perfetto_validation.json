@@ -1,0 +1,142 @@
+{
+  "file": "D:\\vscode\\vllm-learn\\outputs\\verified_parallel\\profile_audit_20261105\\pp2ep4_two_stages_full_cpu_cuda.json.gz",
+  "sha256": "1592d9c238df7d00d9066117169824ae7703c207f0e359d0bf5c033b4fab3957",
+  "tracks": [
+    {
+      "process_name": "rank0 / stage0 / source0 / CPU pid -1",
+      "track_name": null,
+      "slices": 18,
+      "sum_duration_ms": 8.813
+    },
+    {
+      "process_name": "rank0 / stage0 / source0 / CPU pid 3378321",
+      "track_name": null,
+      "slices": 162,
+      "sum_duration_ms": 0.297
+    },
+    {
+      "process_name": "rank0 / stage0 / source0 / CPU pid 3378321",
+      "track_name": "thread 3378321 (python) [original tid=3378321]",
+      "slices": 311892,
+      "sum_duration_ms": 10752.802
+    },
+    {
+      "process_name": "rank0 / stage0 / source0 / CPU pid Spans",
+      "track_name": null,
+      "slices": 1,
+      "sum_duration_ms": 2821.55
+    },
+    {
+      "process_name": "rank0 / stage0 / source0 / GPU device 0",
+      "track_name": "stream 22  [original tid=22]",
+      "slices": 16,
+      "sum_duration_ms": 0.023
+    },
+    {
+      "process_name": "rank0 / stage0 / source0 / GPU device 0",
+      "track_name": "stream 23  [original tid=23]",
+      "slices": 36,
+      "sum_duration_ms": 0.667
+    },
+    {
+      "process_name": "rank0 / stage0 / source0 / GPU device 0",
+      "track_name": "stream 7  [original tid=7]",
+      "slices": 37557,
+      "sum_duration_ms": 4184.648
+    },
+    {
+      "process_name": "rank4 / stage1 / source1 / CPU pid -1",
+      "track_name": null,
+      "slices": 14,
+      "sum_duration_ms": 9.164
+    },
+    {
+      "process_name": "rank4 / stage1 / source1 / CPU pid 3378325",
+      "track_name": null,
+      "slices": 162,
+      "sum_duration_ms": 0.331
+    },
+    {
+      "process_name": "rank4 / stage1 / source1 / CPU pid 3378325",
+      "track_name": "thread 3378325 (python) [original tid=3378325]",
+      "slices": 304750,
+      "sum_duration_ms": 16621.256
+    },
+    {
+      "process_name": "rank4 / stage1 / source1 / CPU pid Spans",
+      "track_name": null,
+      "slices": 1,
+      "sum_duration_ms": 2822.21
+    },
+    {
+      "process_name": "rank4 / stage1 / source1 / GPU device 4",
+      "track_name": "stream 22  [original tid=22]",
+      "slices": 16,
+      "sum_duration_ms": 0.023
+    },
+    {
+      "process_name": "rank4 / stage1 / source1 / GPU device 4",
+      "track_name": "stream 23  [original tid=23]",
+      "slices": 42,
+      "sum_duration_ms": 1570.074
+    },
+    {
+      "process_name": "rank4 / stage1 / source1 / GPU device 4",
+      "track_name": "stream 7  [original tid=7]",
+      "slices": 37536,
+      "sum_duration_ms": 6380.808
+    }
+  ],
+  "categories": [
+    {
+      "category": "cpu_op",
+      "n": 498482
+    },
+    {
+      "category": "cuda_runtime",
+      "n": 108329
+    },
+    {
+      "category": "kernel",
+      "n": 64331
+    },
+    {
+      "category": "gpu_memcpy",
+      "n": 7621
+    },
+    {
+      "category": "cuda_driver",
+      "n": 5381
+    },
+    {
+      "category": "user_annotation",
+      "n": 4774
+    },
+    {
+      "category": "gpu_user_annotation",
+      "n": 3221
+    },
+    {
+      "category": "overhead",
+      "n": 32
+    },
+    {
+      "category": "gpu_memset",
+      "n": 30
+    },
+    {
+      "category": null,
+      "n": 4
+    },
+    {
+      "category": "Trace",
+      "n": 2
+    }
+  ],
+  "errors": [],
+  "flows": [
+    {
+      "n": 71982
+    }
+  ]
+}

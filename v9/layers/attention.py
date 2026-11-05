@@ -1,6 +1,6 @@
-# v5/layers/attention.py
-"""v4 attention：cache 写入 + 范数 + rope 融成一个 kernel（kernels.py），
-直接注意力换成手写 triton FlashAttention（flash_attn.py）。
+"""Paged attention：默认 SDPA 参考后端，可选手写 Triton 后端。
+
+Q/K norm + RoPE + cache 写入由 kernels.py 的独立开关选择；不保证使用融合。
 
 v8.2 新增 DCP 分支：KV cache 按块染色分片到 cp 维各 rank——
   1. store 门控：slot_mapping 重映射（全局块→本地槽），非本 rank 颜色置 -1，
@@ -35,7 +35,7 @@ class Attention(nn.Module):
 
     def forward(self, q, k, v, positions, q_norm_w, k_norm_w, cos_sin_cache, eps):
         """q/k/v: [total_q, heads, head_dim]（投影输出，未 norm 未 rope）。
-        这里完成 norm + rope + 写 cache + 注意力，全部 triton。"""
+        完成 norm + rope + 写 cache，再调用配置指定的注意力后端。"""
         ctx = get_context()
         dcp = get_dcp()
         slot_mapping = self._dcp_slots(ctx) if dcp.active else ctx.slot_mapping

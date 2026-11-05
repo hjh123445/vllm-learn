@@ -66,7 +66,7 @@ def main():
     ap.add_argument('--output', required=True)
     ap.add_argument('--inputs')
     ap.add_argument('--generate-only', action='store_true')
-    ap.add_argument('--ep', type=int, default=8)
+    ap.add_argument('--enable-expert-parallel', action='store_true')
     ap.add_argument('--pp', type=int, default=1)
     ap.add_argument('--tp', type=int, default=1)
     ap.add_argument('--dp', type=int, default=1)
@@ -78,7 +78,18 @@ def main():
     ap.add_argument('--repeats', type=int, default=3)
     ap.add_argument('--max-kv-blocks', type=int, default=None)
     ap.add_argument('--ablate', action='store_true')
+    ap.add_argument('--profile', action='store_true',
+                    help='capture only; reported timings are diagnostic, no benchmark percentiles/rates')
+    ap.add_argument('--profile-start-message', type=int, default=3)
+    ap.add_argument('--profile-messages', type=int, default=16)
     args = ap.parse_args()
+    selected = args.workloads.split(',')
+    if args.profile:
+        if len(selected) != 1 or args.ablate:
+            ap.error('--profile requires one --workloads name and no --ablate')
+        args.repeats = 1
+    if min(args.tp, args.dp, args.pp, args.repeats, args.budget, args.microbatch_tokens) < 1:
+        ap.error('parallel sizes, repeats and token budgets must be positive')
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     inputs = json.loads(Path(args.inputs).read_text()) if args.inputs else build_workloads(args.model)
@@ -88,15 +99,19 @@ def main():
                for name, rows in inputs.items()}, flush=True)
         return
     from samplingParams import SamplingParams
-    os.environ['VLLM_LEARN_METRICS_DIR'] = str(out)
+    from utils.observed_runner import ObservedModelRunner, ObservedPipelineTransport
+    from utils.observation_config import configure_observation
+    configure_observation(out, profile=args.profile, start_message=args.profile_start_message,
+                          messages=args.profile_messages)
     config = dict(max_num_seqs=128, max_model_len=8192, max_num_batched_tokens=args.budget,
                   max_kvcache_blocks=args.max_kv_blocks,
                   gpu_memory_utilization=.70, enforce_eager=True, enable_prefix_caching=False)
-    kw = dict(tp_size=args.tp, ep_size=args.ep, pp_size=args.pp, master_port=31030,
+    kw = dict(tp_size=args.tp, enable_expert_parallel=args.enable_expert_parallel, pp_size=args.pp, master_port=31030,
+              runner_cls=ObservedModelRunner, transport_cls=ObservedPipelineTransport,
               pipeline_microbatch_tokens=args.microbatch_tokens, pipeline_lanes=args.lanes,
               pipeline_mode=args.mode, config_kwargs=config)
     write(out / 'config.json', dict(vars(args), engine_config=config,
-          ep_shard_replicated_input=os.getenv('VLLM_LEARN_EP_SHARD_REPLICATED_INPUT', '0') == '1',
+          ep_derived_from_dp_tp=args.enable_expert_parallel,
           numerical_policy={name: os.getenv(name, default) for name, default in (
               ('VLLM_LEARN_EXPERT_BACKEND', 'loop'),
               ('VLLM_LEARN_EP_WEIGHT_AT_SOURCE', '0'),
@@ -110,7 +125,8 @@ def main():
                   Path(__file__).resolve().parents[1] / 'layers/parallel.py',
                   Path(__file__).resolve().parents[1] / 'engine/core.py',
                   Path(__file__).resolve().parents[1] / 'engine/worker.py')},
-          measurement='local engine completion timestamps, excluding initialization; no HTTP',
+          measurement=('diagnostic profile; exclude all timings from performance tables' if args.profile
+                       else 'local engine completion timestamps, excluding initialization; no HTTP'),
           inputs_sha256=hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()))
     start = time.perf_counter()
     if args.dp > 1:
@@ -164,21 +180,30 @@ def main():
                 tpot_s=(times[-1]-times[0])/(len(times)-1) if len(times)>1 else None))
         request_rows.sort(key=lambda r:r['index'])
         record = dict(workload=name, repeat=repeat, policy=dict(microbatch_tokens=policy[0],
-            lanes=policy[1], mode=policy[2]), dp=args.dp, pp=args.pp, ep=args.ep, tp=args.tp,
-            wall_s=elapsed, construction_s=construction_s, profiled=False,
+            lanes=policy[1], mode=policy[2]), dp=args.dp, pp=args.pp, ep=(args.dp * args.tp if args.enable_expert_parallel else 1), tp=args.tp,
+            wall_s=elapsed, construction_s=construction_s, profiled=args.profile,
+            benchmark_valid=not args.profile,
             output_tokens=sum(r['output_tokens'] for r in request_rows),
-            output_tok_s=sum(r['output_tokens'] for r in request_rows)/elapsed,
-            ttft_s=quantiles([r['ttft_s'] for r in request_rows]),
-            e2e_s=quantiles([r['e2e_s'] for r in request_rows]),
-            tpot_s=quantiles([r['tpot_s'] for r in request_rows if r['tpot_s'] is not None]),
+            output_tok_s=None if args.profile else sum(r['output_tokens'] for r in request_rows)/elapsed,
+            request_s=None if args.profile else len(request_rows)/elapsed,
+            ttft_s=None if args.profile else quantiles([r['ttft_s'] for r in request_rows]),
+            e2e_s=None if args.profile else quantiles([r['e2e_s'] for r in request_rows]),
+            tpot_s=None if args.profile else quantiles([r['tpot_s'] for r in request_rows if r['tpot_s'] is not None]),
+            itl_s=None if args.profile else quantiles([b-a for r in request_rows
+                for a,b in zip(r['arrival_s'], r['arrival_s'][1:])]),
+            percentile_method='nearest observed order statistic: round((n-1)*q/100); units seconds',
             step_s=step_times, requests=request_rows)
         results.append(record)
         write(out/'results.json', results)
         print(json.dumps({k:v for k,v in record.items() if k not in ('requests','step_s')}), flush=True)
 
     try:
-        run('warmup', [dict(input_ids=r['input_ids'], max_tokens=4) for r in inputs['short64'][:8]],
-            -1, (args.microbatch_tokens, args.lanes, args.mode))
+        # Profile the selected workload itself. Capturing a preceding request
+        # warmup would exhaust a bounded window before the intended input.
+        if not args.profile:
+            warmup = inputs.get('short64', inputs[selected[0]])
+            run('warmup', [dict(input_ids=r['input_ids'], max_tokens=4) for r in warmup[:8]],
+                -1, (args.microbatch_tokens, args.lanes, args.mode))
         policies = [(args.microbatch_tokens, args.lanes, args.mode)]
         if args.ablate:
             if args.pp <= 1 or args.dp != 1 or args.lanes != 2:

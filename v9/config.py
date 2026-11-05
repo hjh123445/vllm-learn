@@ -11,7 +11,6 @@ class Config:
     max_model_len: int = 4096
     gpu_memory_utilization: float = 0.9
     tensor_parallel_size: int = 1
-    expert_parallel_size: int = 1
     enforce_eager: bool = False
     enable_prefix_caching: bool = True
     # "batched" maximizes GEMM fusion; "per_request" preserves the

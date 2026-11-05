@@ -1,4 +1,4 @@
-"""Four-GPU TP2 x EP2 reference test, including an empty EP source rank.
+"""Four-GPU DP2 x TP2 -> EP4 reference test, including an empty EP source rank.
 
 torchrun --standalone --nproc-per-node=4 v9/tests/test_distributed_moe.py
 Tiny synthetic weights only; no checkpoint or private data is used.
@@ -21,9 +21,9 @@ def main():
     rank = int(os.environ['RANK'])
     torch.cuda.set_device(int(os.environ['LOCAL_RANK']))
     dist.init_process_group('nccl', device_id=torch.device('cuda', torch.cuda.current_device()))
-    tp, ep = rank % 2, rank // 2
-    groups = create_groups(rank, 2, 1, 2, 1)
-    configure_parallel(tp_size=2, tp_rank=tp, ep_size=2, ep_rank=ep,
+    tp, dp = rank % 2, rank // 2
+    groups = create_groups(rank, 2, 1, 2, 1, True)
+    configure_parallel(tp_size=2, tp_rank=tp, dp_size=2, dp_rank=dp, enable_expert_parallel=True,
                        tp_group=groups['tp'], ep_group=groups['ep'])
     cfg = SimpleNamespace(hidden_size=16, num_experts=8, num_experts_per_tok=2,
                           moe_intermediate_size=32, norm_topk_prob=True)
@@ -41,16 +41,16 @@ def main():
             model.experts.weight_loader(model.experts.w2, w2[expert], (expert, None))
         for sizes in ((0, 7), (3, 5)):
             # Different EP origins have different token counts; TP peers agree.
-            torch.manual_seed(100 + ep)
-            x = torch.randn(sizes[ep], 16, device='cuda', dtype=dtype)
-            ids = ((torch.arange(sizes[ep]*2, device='cuda').view(-1, 2)*3 + ep) % 8).long()
-            weights = torch.tensor([.3, .7], device='cuda', dtype=dtype).expand(sizes[ep], 2)
-            actual = tp_allreduce(model._ep_forward_alltoallv(x, ids, weights))
+            torch.manual_seed(100 + dp)
+            x = torch.randn(sizes[dp], 16, device='cuda', dtype=dtype)
+            ids = ((torch.arange(sizes[dp]*2, device='cuda').view(-1, 2)*3 + dp) % 8).long()
+            weights = torch.tensor([.3, .7], device='cuda', dtype=dtype).expand(sizes[dp], 2)
+            actual = model._ep_forward_alltoallv(x, ids, weights)
             # Multiplication at the source must preserve every route exactly;
             # this also covers an empty origin and unequal peer message sizes.
             original_policy = model.weight_at_source
             model.weight_at_source = not original_policy
-            alternative = tp_allreduce(model._ep_forward_alltoallv(x, ids, weights))
+            alternative = model._ep_forward_alltoallv(x, ids, weights)
             model.weight_at_source = original_policy
             assert torch.equal(actual, alternative), (rank, sizes, 'route-weight placement')
             reference = torch.zeros_like(x, dtype=torch.float32)
@@ -75,7 +75,7 @@ def main():
         print(json.dumps({'passed': True, 'backend': backend,
                           'weight_at_source': model.weight_at_source,
                           'weight_placement_bitwise_equal': True,
-                          'scope': 'Synthetic TP2 x EP2 numerical oracle; not full-model HF parity',
+                          'scope': 'Synthetic DP2 x TP2 -> EP4 numerical oracle; not full-model HF parity',
                           'records': gathered}), flush=True)
     dist.destroy_process_group()
 

@@ -14,6 +14,7 @@ from models.qwen3_moe import Qwen3MoeForCausalLM
 from utils.context import set_context, get_context, reset_context
 from utils.loader import load_model, load_thinker_config
 from engine.sampler import Sampler
+from engine.intermediate_tensors import IntermediateTensors
 
 
 class ModelRunner:
@@ -45,18 +46,9 @@ class ModelRunner:
         self.kv_cache = None
         self._warmup_model()
         self.allocate_kv_cache()
-        # Diagnostics are enabled only after memory-sizing warmup. Capturing
-        # CPU logits synchronizes the device and must never be used for speed.
-        self._logit_capture_dir = os.getenv("VLLM_LEARN_LOGITS_DIR")
-        self._logit_capture_count = 0
-        self._logit_capture_limit = int(os.getenv("VLLM_LEARN_LOGITS_LIMIT", "128"))
-        capture_dir = os.getenv("VLLM_LEARN_ACTIVATIONS_DIR")
-        if capture_dir:
-            from layers.parallel import STATE
-            if STATE.tp_rank == STATE.ep_rank == STATE.cp_rank == 0:
-                from utils.activation_capture import install_activation_capture
-                self._activation_handles = install_activation_capture(
-                    self.model, capture_dir, STATE.pp_rank)
+
+    def shutdown(self):
+        """Lifecycle boundary for runner implementations owning resources."""
 
     # ================= 显存 =================
 
@@ -112,6 +104,7 @@ class ModelRunner:
         self._assign_layer_caches(tmp)
         seqs = [Sequence([0] * seq_len) for _ in range(num_seqs)]
         for i, seq in enumerate(seqs):
+            seq.block_size = bs
             seq.block_table = [i * blocks_per_seq + j for j in range(blocks_per_seq)]
             seq.num_scheduled_tokens = seq_len
         from layers.parallel import STATE as _warmup_state
@@ -239,8 +232,8 @@ class ModelRunner:
 
     def flush_pipeline(self):
         """Drain asynchronous PP sends before the process exits."""
-        transport = getattr(getattr(self.model, "model", None),
-                            "pipeline_transport", None)
+        from layers.parallel import STATE
+        transport = STATE.pipeline_transport
         if transport is not None:
             transport.flush()
 
@@ -252,6 +245,18 @@ class ModelRunner:
         # ordered sequence list and applies the same split. This intentionally
         # sacrifices batch fusion and remains opt-in.
         from layers.parallel import STATE
+        if not seqs:
+            if not STATE.enable_expert_parallel:
+                return []
+            # Idle DP replicas must service other replicas' expert routes.
+            # TP attention and PP activations have no local tokens; skipping
+            # them is symmetric within this DP replica, but skipping MoE
+            # collectives across DP would deadlock active replicas.
+            x = torch.empty((0, self.config.hf_config.hidden_size),
+                            device=self.device, dtype=self.dtype)
+            for layer in self.model.model.layers[self.model.model.pp_start:self.model.model.pp_end]:
+                layer.mlp(x)
+            return []
         if self.config.batch_execution_mode == "per_request" and len(seqs) > 1:
             result = []
             for seq in seqs:
@@ -262,48 +267,36 @@ class ModelRunner:
             input_ids, positions = self.prepare_prefill(seqs)
         else:
             input_ids, positions = self.prepare_decode(seqs)
-        # lane/微批元数据只用于 PP transport 的调度和 trace，不改变模型数学。
+        # lane/微批元数据只用于 PP transport 的调度，不改变模型数学。
         STATE.pipeline_lane = pipeline_lane
         STATE.microbatch_id = microbatch_id
-        with torch.autograd.profiler.record_function(
-                f"stage{STATE.pp_rank}.microbatch{microbatch_id}.lane{pipeline_lane}."
-                f"{'prefill' if is_prefill else 'decode'}"):
-            hidden = self.model(input_ids, positions)             # [total_q, hidden]
-        # PP 中间 stage：hidden 已发给下游，跳过 lm_head/采样（worker 只在
-        # last stage 发 response）
+        intermediate = None
+        transport = STATE.pipeline_transport
+        if STATE.pp_size > 1 and not STATE.pipeline_warmup and STATE.pp_rank > 0:
+            if transport is None:
+                raise RuntimeError("PP transport was not initialized")
+            hidden, residual, _, _ = transport.recv_forward(
+                pipeline_lane, expected_microbatch_id=microbatch_id,
+                expected_shape=(input_ids.numel(), self.config.hf_config.hidden_size),
+                dtype=self.dtype)
+            intermediate = IntermediateTensors(hidden, residual)
+        hidden = self.model(input_ids, positions, intermediate_tensors=intermediate)
+        # Only the execution layer sends activations. Model forward has no
+        # process-group/transport side effects and returns an explicit boundary.
         if getattr(STATE, "pp_size", 1) > 1 and STATE.pp_rank < STATE.pp_size - 1:
+            if not isinstance(hidden, IntermediateTensors):
+                raise RuntimeError("non-last PP stage must return IntermediateTensors")
+            if not STATE.pipeline_warmup:
+                if transport is None:
+                    raise RuntimeError("PP transport was not initialized")
+                transport.send_forward(hidden.hidden_states, hidden.residual,
+                                       pipeline_lane, microbatch_id)
             return [0] * len(seqs)
         if is_prefill:
             last = get_context().cu_seqlens_q[1:] - 1              # 每序列最后一个 q 位置
             logits = self.model.compute_logits(hidden[last])
         else:
             logits = self.model.compute_logits(hidden)
-        if getattr(self, "_logit_capture_dir", None):
-            self._capture_logits(logits, seqs, is_prefill)
         temperatures = torch.tensor([seq.temperature for seq in seqs],
                                     dtype=torch.float32, device=self.device)
         return self.sampler(logits, temperatures).tolist()
-
-    def _capture_logits(self, logits, seqs, is_prefill):
-        """Save terminal-query rows on one final-stage replica, for oracles."""
-        from pathlib import Path
-        from layers.parallel import STATE
-        if STATE.ep_rank or STATE.tp_rank or getattr(STATE, "cp_rank", 0):
-            return
-        if self._logit_capture_count >= self._logit_capture_limit:
-            raise RuntimeError("Diagnostic logits limit exceeded; reduce probe size")
-        selected = [i for i, seq in enumerate(seqs)
-                    if seq.num_cached_tokens + seq.num_scheduled_tokens >= len(seq)]
-        if not selected:
-            return
-        path = Path(self._logit_capture_dir)
-        path.mkdir(parents=True, exist_ok=True)
-        record = dict(logits=logits[selected].float().cpu(),
-                      seq_ids=[seqs[i].seq_id for i in selected],
-                      prompt_lengths=[len(seqs[i]) for i in selected],
-                      pp_rank=STATE.pp_rank, is_prefill=is_prefill,
-                      measurement="synchronizing numerical diagnostic; no throughput")
-        filename = path / f"logits_stage{STATE.pp_rank}_{self._logit_capture_count:04d}.pt"
-        torch.save(record, filename)
-        self._logit_capture_count += 1
-

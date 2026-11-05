@@ -1,0 +1,18 @@
+{
+  "host": "172.28.30.56",
+  "remote": "/tmp/vllm-learn-pp-v1-20261105-195116",
+  "exit_code": 0,
+  "scope": "CPU/Gloo correctness only; no GPU/model checkpoint workload",
+  "tests": [
+    "test_pipeline_batch_queue.py",
+    "test_pipeline_executor.py",
+    "test_scheduler_preemption.py",
+    "test_pipeline_schedule.py",
+    "test_pipeline_schedule_topology.py",
+    "test_async_engine.py",
+    "test_worker_health.py",
+    "test_model_runner_batch_policy.py",
+    "test_parallel_components.py",
+    "test_pipeline_model_runtime.py"
+  ]
+}

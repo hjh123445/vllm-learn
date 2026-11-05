@@ -1,4 +1,4 @@
-"""DP2 x EP4 benchmark with globally unique request ids and saved outputs."""
+"""DP2 x TP4 -> EP8 benchmark with globally unique request ids and saved outputs."""
 import argparse
 import json
 from pathlib import Path
@@ -22,7 +22,7 @@ def main():
     inputs['short64'] = inputs['short8'] * 8
     (out / 'inputs.json').write_text(json.dumps(inputs))
     start = time.perf_counter()
-    fe = DPFrontend(args.model, dp_size=2, ep_size=4, tp_size=1,
+    fe = DPFrontend(args.model, dp_size=2, tp_size=4, enable_expert_parallel=True,
                     master_port=30910,
                     config_kwargs=dict(max_num_seqs=64, max_model_len=1024,
                                        max_num_batched_tokens=512,

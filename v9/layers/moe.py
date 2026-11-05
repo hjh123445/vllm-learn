@@ -8,7 +8,7 @@
     尚不是单次 fused grouped GEMM。w13 为 [E_local, 2*I_local, H]，
     w2 为 [E_local, H, I_local]。
 
-EP 使用独立 ep_group 做变长 dispatch/combine；模型层只负责路由和本地
+EP 使用 DP×TP 派生 ep_group 做变长 dispatch/combine；模型层只负责路由和本地
 grouped expert，通信协议仍由组件封装，避免 model_runner 了解专家布局。"""
 import os
 
@@ -77,11 +77,11 @@ class GroupedExperts(nn.Module):
             f"E={num_experts} 切不动 EP{STATE.ep_size}"
         self.e_start = STATE.ep_rank * per
         self.num_experts = per                    # 本地专家数（E_local）
-        # ---- TP: inter 切片（w13 的行 / w2 的列）----
-        assert intermediate % STATE.tp_size == 0, \
-            f"I={intermediate} 切不动 TP{STATE.tp_size}"
-        self.inter = intermediate // STATE.tp_size       # I_local
-        self.i_start = STATE.tp_rank * self.inter
+        # EP replaces expert tensor sharding: each owner holds WHOLE experts.
+        expert_tp = 1 if STATE.enable_expert_parallel else STATE.tp_size
+        assert intermediate % expert_tp == 0, f"I={intermediate} cannot shard over TP{expert_tp}"
+        self.inter = intermediate // expert_tp
+        self.i_start = 0 if STATE.enable_expert_parallel else STATE.tp_rank * self.inter
         self.quantized = False
         # Opt-in native grouped GEMM: two grouped API calls for local experts,
         # without copying weights per route or reading expert counts on CPU.
@@ -91,13 +91,6 @@ class GroupedExperts(nn.Module):
         self.backend = os.getenv('VLLM_LEARN_EXPERT_BACKEND', 'loop')
         if self.backend not in ('auto', 'loop', 'torch_grouped'):
             raise ValueError('expert backend must be auto, loop, or torch_grouped')
-        # Optional experiment-only counters.  They stay disabled in normal
-        # inference; enabling VLLM_LEARN_PROFILE_EXPERTS records token routing
-        # and all-to-all volume for long-tail/hot-expert analysis.
-        self._profile_enabled = os.getenv("VLLM_LEARN_PROFILE_EXPERTS", "0") == "1"
-        self._profile_token_counts = None
-        self._profile_send_counts = None
-        self._profile_recv_counts = None
         self.w13 = nn.Parameter(torch.empty(self.num_experts, 2 * self.inter, hidden_size))
         self.w2 = nn.Parameter(torch.empty(self.num_experts, hidden_size, self.inter))
 
@@ -157,9 +150,6 @@ class GroupedExperts(nn.Module):
 
         route_out = torch.empty((T * k, H), device=x.device, dtype=x.dtype)
         counts = torch.bincount(flat_expert, minlength=E)
-        if self._profile_enabled:
-            c = counts.detach().cpu()
-            self._profile_token_counts = c if self._profile_token_counts is None else self._profile_token_counts + c
         offsets = counts.cumsum(0)                     # 每个专家在排序后序列的终点
         # 稳定排序：同一专家的 token 连续排布
         order = torch.argsort(flat_expert, stable=True)
@@ -190,8 +180,7 @@ class GroupedExperts(nn.Module):
         if xs.shape[0] == 0:
             return xs.new_empty((0, self.hidden))
         backend = self.resolve_backend(xs)
-        with torch.autograd.profiler.record_function(f'moe.experts.{backend}'):
-            return self._compute_sorted_backend(xs, offsets, w13, w2, backend)
+        return self._compute_sorted_backend(xs, offsets, w13, w2, backend)
 
     def resolve_backend(self, xs):
         """Select the grouped kernel for supported CUDA BF16 inputs.
@@ -233,19 +222,13 @@ class GroupedExperts(nn.Module):
 class MoEMLP(nn.Module):
     """一层完整 MoE：router + experts。无共享专家（Qwen3-Omni 配置为 0）。
 
-    EP 模式（v6.2）：expert_parallel=True 时——
-      1. 本地 experts 只持有自己一半专家的权重（loader/shard 切）；
-      2. router 全卡跑（全专家 logits，冗余）；
-      3. dispatch: 把 (token, expert, weight) 中 expert 属于对端的条目 all-to-all 发过去；
-      4. 本地算完 partial 和，combine: all-to-all 收回对端算的结果，就地累加。
-    通信量 = 2 × tokens × h × 2B（每层），与 TP 的 b×s×h×N 倍形成对照。"""
+    EP开启时，Attention TP输出在副本内复制；先按TP分配token ownership，
+    再跨DP×TP的专家池分发。owner持完整专家，combine后仅在原TP组恢复。
+    EP关闭时保留专家intermediate TP与partial all-reduce。
+    """
 
     def __init__(self, config):
         super().__init__()
-        # EngineCore broadcasts the same attention batch to every EP rank.
-        # Opt-in token ownership avoids computing those MoE routes EP times.
-        # Keep the general all-to-allv primitive valid for distinct source batches.
-        self.shard_replicated_input = os.getenv("VLLM_LEARN_EP_SHARD_REPLICATED_INPUT", "0") == "1"
         # Routing probabilities are already known by the source. Keeping the
         # BF16 multiply there removes one metadata collective per MoE layer.
         self.weight_at_source = os.getenv('VLLM_LEARN_EP_WEIGHT_AT_SOURCE', '0') == '1'
@@ -264,53 +247,42 @@ class MoEMLP(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         from layers.parallel import STATE, tp_allreduce
-        if STATE.ep_size > 1 and self.shard_replicated_input:
-            return self._forward_replicated_input(x)
-        with torch.autograd.profiler.record_function("moe.router"):
-            idx, w = self.router(x)
-        if STATE.ep_size > 1:
-            # EP uses variable-size dispatch/combine.  Every destination
-            # receives exactly the token count for its local experts; no
-            # [world, max_tokens] padding or full-token replication.
-            out = self._ep_forward_alltoallv(x, idx, w)
-            # combine all-to-all has already returned every destination
-            # expert contribution to the origin rank. Only TP reduction remains
-            # because each TP rank owns a slice of the expert intermediate dim.
-            return tp_allreduce(out)
+        if STATE.enable_expert_parallel and STATE.ep_size > 1:
+            return self._forward_tp_replicated_input(x)
+        idx, w = self.router(x)
         return tp_allreduce(self.experts(x, idx, w))
 
-    def _forward_replicated_input(self, x):
-        """Shard routes for an identical input batch on every EP rank.
+    def _forward_tp_replicated_input(self, x):
+        """TP token ownership -> DP x TP all-to-allv -> TP output restore.
 
-        Attention remains replicated. Each EP origin owns a contiguous token
-        interval, so the distributed experts evaluate each top-k route once.
-        Gather restores the replicated output expected by the next layer.
-        This wrapper requires identical x and token order on all EP peers;
-        _ep_forward_alltoallv itself still supports arbitrary source lengths.
+        Only TP peers have identical inputs; DP batches may differ or be empty.
+        Every route is evaluated once by a whole-expert owner. No expert TP
+        partial sum exists in this mode. Restore the original TP-replicated
+        attention input layout WITHOUT mixing different DP requests.
         """
-        from layers.parallel import STATE, tp_allreduce
+        from layers.parallel import STATE
         import torch.distributed as dist
         tokens, hidden = x.shape
-        if tokens == 0:
-            return x
-        rows = (tokens + STATE.ep_size - 1) // STATE.ep_size
-        start = STATE.ep_rank * rows
+        # Attention output is replicated only WITHIN this DP replica's TP
+        # group. Other DP replicas have independent token counts and contents.
+        rows = (tokens + STATE.tp_size - 1) // STATE.tp_size
+        start = STATE.tp_rank * rows
         local_x = x[start:min(start + rows, tokens)]
-        with torch.autograd.profiler.record_function("moe.router.local_tokens"):
-            if self.local_router:
-                ids, weights = self.router(local_x)
-            else:
-                all_ids, all_weights = self.router(x)
-                ids, weights = all_ids[start:start + rows], all_weights[start:start + rows]
-        local_out = tp_allreduce(self._ep_forward_alltoallv(local_x, ids, weights))
+        if self.local_router:
+            ids, weights = self.router(local_x)
+        else:
+            all_ids, all_weights = self.router(x)
+            ids, weights = all_ids[start:start + rows], all_weights[start:start + rows]
+        local_out = self._ep_forward_alltoallv(local_x, ids, weights)
+        if STATE.tp_size == 1 or tokens == 0:
+            return local_out
         # NCCL all_gather_into_tensor requires equal sizes. This pads only the
-        # ownership boundary (at most ep_size-1 rows across the whole group),
+        # TP ownership boundary (at most tp_size-1 rows in this replica),
         # never expert activations to a hottest-expert capacity.
         padded = torch.zeros((rows, hidden), device=x.device, dtype=x.dtype)
         padded[:local_out.shape[0]].copy_(local_out)
-        output = torch.empty((rows * STATE.ep_size, hidden), device=x.device, dtype=x.dtype)
-        with torch.autograd.profiler.record_function("moe.restore_replicated_output"):
-            dist.all_gather_into_tensor(output, padded, group=STATE.ep_group)
+        output = torch.empty((rows * STATE.tp_size, hidden), device=x.device, dtype=x.dtype)
+        dist.all_gather_into_tensor(output, padded, group=STATE.tp_group)
         return output[:tokens]
 
     def _experts_local(self, xs, eids, ws=None):
@@ -318,11 +290,6 @@ class MoEMLP(nn.Module):
         E = self.experts.num_experts
         final = torch.empty_like(xs)
         counts = torch.bincount(eids, minlength=E)
-        if self.experts._profile_enabled:
-            c = counts.detach().cpu()
-            self.experts._profile_token_counts = (
-                c if self.experts._profile_token_counts is None
-                else self.experts._profile_token_counts + c)
         offsets = counts.cumsum(0)
         order = torch.argsort(eids, stable=True)
         xs_s = xs[order]
@@ -359,10 +326,6 @@ class MoEMLP(nn.Module):
         send_counts = torch.bincount(dest, minlength=world).to(torch.int64)
         recv_counts = torch.empty_like(send_counts)
         dist.all_to_all_single(recv_counts, send_counts, group=STATE.ep_group)
-        if self.experts._profile_enabled:
-            sc, rc = send_counts.detach().cpu(), recv_counts.detach().cpu()
-            self.experts._profile_send_counts = sc if self.experts._profile_send_counts is None else self.experts._profile_send_counts + sc
-            self.experts._profile_recv_counts = rc if self.experts._profile_recv_counts is None else self.experts._profile_recv_counts + rc
         ss = [int(v) for v in send_counts.tolist()]
         rs = [int(v) for v in recv_counts.tolist()]
 
@@ -372,16 +335,13 @@ class MoEMLP(nn.Module):
                                    input_split_sizes=splits_in, group=STATE.ep_group)
             return out
 
-        with torch.autograd.profiler.record_function("moe.dispatch"):
-            recv_x = a2a(send_x, (sum(rs), H), ss, rs)
+        recv_x = a2a(send_x, (sum(rs), H), ss, rs)
         recv_e = a2a(send_e, (sum(rs),), ss, rs)
         recv_w = None if self.weight_at_source else a2a(send_w, (sum(rs),), ss, rs)
         # Convert global expert ids to this rank's local interval.
         local_e = recv_e - STATE.ep_rank * experts_per_rank
-        with torch.autograd.profiler.record_function("moe.expert"):
-            recv_out = self._experts_local(recv_x, local_e, recv_w)
-        with torch.autograd.profiler.record_function("moe.combine"):
-            returned = a2a(recv_out, (sum(ss), H), rs, ss)
+        recv_out = self._experts_local(recv_x, local_e, recv_w)
+        returned = a2a(recv_out, (sum(ss), H), rs, ss)
         # Each flattened route has exactly one output. Restore route order,
         # then sum top-k in FP32 instead of BF16 atomic index_add_. Atomic
         # accumulation order varies across launches and can change greedy

@@ -1,5 +1,4 @@
-# v5/layers/flash_attn.py
-"""v4 手写 triton FlashAttention（直接注意力，替换 v3 的纯 PyTorch gather + matmul + softmax）。
+"""可选的手写 Triton paged attention；尚未通过整模数值门槛。
 
 两个 kernel：
   decode: paged flash decoding——q 每头一路在线 softmax，K/V 按 block 表逐块从
@@ -7,8 +6,10 @@
   prefill: paged causal flash——支持 chunked prefill / 前缀缓存（q 是 k 的尾段，
           causal 底右对齐：query 绝对位置 = seqlen_k - seqlen_q + j）
 
-数值约定：全部 load 后升 fp32 计算（decode 用逐元素乘加，prefill 用 tl.dot ieee），
-fp32 输入下与纯 PyTorch 路径逐位一致（accuracy T4 依赖这一点）。"""
+decode 使用 FP32 中间累加；prefill 使用在线 softmax 和 tl.dot，部分乘法
+输入会转换回模型 dtype。归约顺序、指数和舍入与 SDPA 后端不同，不能
+保证 FP32 或 BF16 的逐位一致；组件容差测试也不等于整模正确性。
+"""
 import torch
 import triton
 import triton.language as tl

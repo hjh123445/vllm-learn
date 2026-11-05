@@ -62,7 +62,9 @@ def run_one(cfg):
     from engine.core import EngineCore
     prompts = get_prompts()
     t0 = time.time()
-    core = EngineCore(PATH, tp_size=tp, ep_size=ep, dcp_size=dcp, pp_size=pp,
+    if ep != 1:
+        raise ValueError('Legacy independent EP matrix removed; use bench_workload_matrix.py --dp N --tp M --enable-expert-parallel')
+    core = EngineCore(PATH, tp_size=tp, enable_expert_parallel=False, dcp_size=dcp, pp_size=pp,
                       master_port=29711, gpus=gpus,
                       config_kwargs={"max_num_seqs": 8, "max_model_len": 2048,
                                      # PP warmup exercises both P2P stages without

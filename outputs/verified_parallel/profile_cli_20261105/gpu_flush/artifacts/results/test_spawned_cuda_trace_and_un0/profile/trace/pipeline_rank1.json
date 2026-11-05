@@ -1,0 +1,86 @@
+{
+  "displayTimeUnit": "ms",
+  "traceEvents": [
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 797589952009.282,
+      "dur": 52131.19299151003,
+      "pid": 1,
+      "tid": "compute",
+      "args": {
+        "message_index": 1,
+        "microbatch_id": 0,
+        "lane": 0,
+        "is_prefill": true,
+        "scheduled_sequences": 3,
+        "stage": 0
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 797590111352.0391,
+      "dur": 51991.31101835519,
+      "pid": 1,
+      "tid": "compute",
+      "args": {
+        "message_index": 2,
+        "microbatch_id": 1,
+        "lane": 0,
+        "is_prefill": false,
+        "scheduled_sequences": 3,
+        "stage": 0
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 797590164265.084,
+      "dur": 54699.85108356923,
+      "pid": 1,
+      "tid": "compute",
+      "args": {
+        "message_index": 3,
+        "microbatch_id": 2,
+        "lane": 0,
+        "is_prefill": false,
+        "scheduled_sequences": 3,
+        "stage": 0
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 797590468435.893,
+      "dur": 32086.356077343225,
+      "pid": 1,
+      "tid": "compute",
+      "args": {
+        "message_index": 4,
+        "microbatch_id": 3,
+        "lane": 0,
+        "is_prefill": false,
+        "scheduled_sequences": 3,
+        "stage": 0
+      }
+    }
+  ],
+  "metadata": {
+    "rank": 1,
+    "world_rank": 1,
+    "pp_stage": 0,
+    "clock": "host_monotonic_us",
+    "measurement": "CPU calls, not GPU duration",
+    "tp_rank": 1,
+    "ep_rank": 1,
+    "layer_range": [
+      0,
+      8
+    ]
+  }
+}

@@ -19,6 +19,7 @@ v6-v8 的做法（shard_model_for_tp：全量加载后就地切片）的三个�
 单卡/多卡是同一条代码路径——这是组件架构相对"事后切"的核心优势。
 """
 
+import os
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
@@ -34,19 +35,17 @@ class ParallelState:
     def __init__(self):
         self.tp_size, self.tp_rank = 1, 0
         self.ep_size, self.ep_rank = 1, 0
+        self.dp_size, self.dp_rank = 1, 0
+        self.replica_size, self.replica_rank = 1, 0  # diagnostic IDs, also for independent DP worlds
+        self.enable_expert_parallel = False
         self.cp_size, self.cp_rank = 1, 0       # DCP（decode cache 并行）
         self.pp_size, self.pp_rank = 1, 0       # PP（层切 stage）
-        # PP transport 的运行时元数据。由 ModelRunner 在每个微批开始时写入，
-        # 模型层只读取它选择 lane，不把调度状态塞进模型参数。
+        # PP transport 的运行时元数据，由 ModelRunner 在每个微批开始时写入。
         self.pipeline_lane, self.microbatch_id = 0, 0
         self.pipeline_warmup = False
         self.pipeline_transport = None
-        # Optional host timeline populated by the model only when a worker
-        # requests a trace. Keeping it in ParallelState avoids coupling model
-        # code to EngineCore or a particular profiler backend.
-        self.trace_events = []
         self.tp_group = None       # o_proj/w2 的 allreduce 域（tp 维）
-        self.ep_group = None       # 同一 tp/cp/pp 坐标沿 ep 变化
+        self.ep_group = None       # same PP/CP, union of DP x TP
 
     @property
     def tp_enabled(self):
@@ -60,14 +59,27 @@ class ParallelState:
 STATE = ParallelState()
 
 
-def configure_parallel(tp_size=1, tp_rank=0, ep_size=1, ep_rank=0,
+def configure_parallel(tp_size=1, tp_rank=0, ep_size=None, ep_rank=None,
                        tp_group=None,
                        ep_group=None,
-                       cp_size=1, cp_rank=0, pp_size=1, pp_rank=0):
+                       cp_size=1, cp_rank=0, pp_size=1, pp_rank=0,
+                       dp_size=1, dp_rank=0, enable_expert_parallel=False):
     """launcher 注入（构造模型前调用）。通信组由引擎侧建好传入——
     组件不建组（v8.2 教训：new_group 必须全 rank 对称 + device_id + 预热）。"""
+    derived_size = dp_size * tp_size if enable_expert_parallel else 1
+    derived_rank = dp_rank * tp_size + tp_rank if enable_expert_parallel else 0
+    if ep_size is not None and ep_size != derived_size:
+        raise ValueError("EP is derived from DP x TP; use enable_expert_parallel, not an independent ep_size")
+    if ep_rank is not None and ep_rank != derived_rank:
+        raise ValueError("EP rank must equal dp_rank * tp_size + tp_rank")
+    if not 0 <= dp_rank < dp_size or not 0 <= tp_rank < tp_size:
+        raise ValueError("invalid DP/TP rank")
     STATE.tp_size, STATE.tp_rank = tp_size, tp_rank
-    STATE.ep_size, STATE.ep_rank = ep_size, ep_rank
+    STATE.dp_size, STATE.dp_rank = dp_size, dp_rank
+    STATE.replica_size = int(os.getenv("VLLM_LEARN_DP_REPLICA_COUNT", str(dp_size)))
+    STATE.replica_rank = int(os.getenv("VLLM_LEARN_DP_REPLICA_ID", str(dp_rank)))
+    STATE.enable_expert_parallel = enable_expert_parallel
+    STATE.ep_size, STATE.ep_rank = derived_size, derived_rank
     STATE.cp_size, STATE.cp_rank = cp_size, cp_rank
     STATE.pp_size, STATE.pp_rank = pp_size, pp_rank
     STATE.tp_group, STATE.ep_group = tp_group, ep_group

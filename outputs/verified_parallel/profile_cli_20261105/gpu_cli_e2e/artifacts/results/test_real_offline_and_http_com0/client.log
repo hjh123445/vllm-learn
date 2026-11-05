@@ -1,0 +1,21 @@
+{
+  "requests": 8,
+  "concurrency": 4,
+  "wall_s": 0.596180038060993,
+  "successes": 8,
+  "failures": 0,
+  "profiled": true,
+  "benchmark_valid": false,
+  "missing_usage": 0,
+  "output_tokens": 32,
+  "output_tok_s": null,
+  "request_s": null,
+  "e2e_s": null,
+  "ttft_content_s": null,
+  "tpot_content_s": null,
+  "chunk_itl_s": null,
+  "percentile_method": "nearest observed order statistic: round((n-1)*q/100); seconds",
+  "measurement": "closed-loop HTTP; TTFT=first nonempty content; chunk ITL is not token ITL; content TPOT uses first/last nonempty content and server token count",
+  "quality": "model accuracy is not evaluated; failures remain in requests.json",
+  "server_profile_status": true
+}

@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from transformers import AutoTokenizer
 from engine.core import EngineCore
+from utils.observed_runner import ObservedModelRunner, ObservedPipelineTransport
 from samplingParams import SamplingParams
 
 
@@ -27,7 +28,7 @@ def quantiles(xs):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--model', required=True)
-    ap.add_argument('--ep', type=int, default=8)
+    ap.add_argument('--enable-expert-parallel', action='store_true')
     ap.add_argument('--pp', type=int, default=1)
     ap.add_argument('--tp', type=int, default=1)
     ap.add_argument('--output', required=True)
@@ -41,12 +42,8 @@ def main():
     args = ap.parse_args()
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
-    os.environ['VLLM_LEARN_METRICS_DIR'] = str(out)
-    if args.trace:
-        os.environ['VLLM_LEARN_TRACE_DIR'] = str(out / 'trace')
-        os.environ['VLLM_LEARN_CUDA_PROFILE'] = '1'
-        os.environ['VLLM_LEARN_PROFILE_EXPERTS'] = '1'
-        os.environ['VLLM_LEARN_PROFILE_DIR'] = str(out / 'experts')
+    from utils.observation_config import configure_observation
+    configure_observation(out, profile=args.trace, start_message=3, messages=4)
     tok = AutoTokenizer.from_pretrained(args.model)
     template = Path(args.model) / 'chat_template.json'
     if template.exists():
@@ -68,8 +65,9 @@ def main():
                   max_num_batched_tokens=512, gpu_memory_utilization=0.70,
                   enforce_eager=True)
     started = time.perf_counter()
-    core = EngineCore(args.model, tp_size=args.tp, ep_size=args.ep,
-                      pp_size=args.pp, gpus=list(range(args.tp * args.ep * args.pp)),
+    core = EngineCore(args.model, tp_size=args.tp, enable_expert_parallel=args.enable_expert_parallel,
+                      runner_cls=ObservedModelRunner, transport_cls=ObservedPipelineTransport,
+                      pp_size=args.pp, gpus=list(range(args.tp * args.pp)),
                       master_port=30873, pipeline_microbatch_tokens=32,
                       pipeline_lanes=2, config_kwargs=config)
     init_s = time.perf_counter() - started
@@ -95,10 +93,12 @@ def main():
         ttft = [times[0] for times in arrivals.values() if times]
         itl = [b-a for times in arrivals.values() for a,b in zip(times, times[1:])]
         record = dict(workload=name, mode=mode, repeat=repeat,
-                      tp=args.tp, ep=args.ep, pp=args.pp, init_s=init_s,
+                      tp=args.tp, ep=(args.tp if args.enable_expert_parallel else 1), pp=args.pp, init_s=init_s,
                       wall_s=elapsed, output_tokens=sum(map(len, outputs)),
-                      output_tok_s=sum(map(len, outputs))/elapsed,
-                      ttft_s=quantiles(ttft), itl_s=quantiles(itl),
+                      output_tok_s=None if args.trace else sum(map(len, outputs))/elapsed,
+                      ttft_s=None if args.trace else quantiles(ttft),
+                      itl_s=None if args.trace else quantiles(itl),
+                      benchmark_valid=not args.trace,
                       step_s=steps, prompt_lengths=list(map(len, inputs)),
                       output_ids=outputs, texts=[tok.decode(ids) for ids in outputs],
                       measurement='engine step completion timestamps; not client streaming',

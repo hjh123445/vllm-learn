@@ -1,0 +1,33 @@
+{
+  "rank": 1,
+  "world_rank": 1,
+  "mode": "window",
+  "start_message": 2,
+  "requested_messages": 2,
+  "captured_messages": [
+    {
+      "message_index": 2,
+      "microbatch_id": 1,
+      "lane": 0,
+      "is_prefill": false,
+      "scheduled_sequences": 3,
+      "stage": 0
+    },
+    {
+      "message_index": 3,
+      "microbatch_id": 2,
+      "lane": 0,
+      "is_prefill": false,
+      "scheduled_sequences": 3,
+      "stage": 0
+    }
+  ],
+  "cuda_activities": true,
+  "cuda_verified": true,
+  "cupti_flush": {
+    "attempted": true,
+    "status": 0,
+    "library": "/data/ifly_jyhe23/env/miniconda3/lib/python3.10/site-packages/nvidia/cu13/lib/libcupti.so.13"
+  },
+  "measurement": "profile-only; synchronization/export distort throughput"
+}

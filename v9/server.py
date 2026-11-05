@@ -38,6 +38,7 @@ class Handler(BaseHTTPRequestHandler):
     max_body_bytes = 1024 * 1024
     max_output_tokens = 4096
     metrics_path = None
+    profiled_run = False
     metrics_lock = threading.Lock()
 
     def setup(self):
@@ -62,7 +63,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/health":
             stats = self.engine.stats()
-            self._json(200 if stats['accepting'] else 503, dict(status="ok" if stats['accepting'] else "unavailable", **stats))
+            self._json(200 if stats['accepting'] else 503, dict(status="ok" if stats['accepting'] else "unavailable",
+                profiled_run=self.profiled_run, **stats))
         else:
             self._json(404, {"error": "not found"})
 
@@ -92,6 +94,9 @@ class Handler(BaseHTTPRequestHandler):
                    or m.get('role') not in ('system','user','assistant') for m in messages):
                 raise ValueError('this endpoint currently supports text messages only')
             stream = req.get('stream', False)
+            stream_options = req.get('stream_options', {})
+            if not isinstance(stream_options, dict) or type(stream_options.get('include_usage', False)) is not bool:
+                raise ValueError('invalid stream_options')
             limit = req.get('max_tokens', 128)
             temperature = float(req.get('temperature', .7))
             if type(stream) is not bool or type(limit) is not int or not 1 <= limit <= self.max_output_tokens:
@@ -156,6 +161,10 @@ class Handler(BaseHTTPRequestHandler):
                     raise RuntimeError('unstable terminal text prefix')
                 if len(text)>len(emitted):send(chunk(dict(content=text[len(emitted):])))
                 send(chunk({},st.finish_reason))
+                if stream_options.get('include_usage', False):
+                    send(dict(id=rid, object='chat.completion.chunk', choices=[],
+                        usage=dict(prompt_tokens=len(prompt_ids), completion_tokens=len(ids),
+                                   total_tokens=len(prompt_ids) + len(ids))))
                 send('[DONE]')
                 self.wfile.write(b'0\r\n\r\n');self.wfile.flush()
             else:
@@ -207,17 +216,34 @@ def main():
     ap.add_argument('--stream-buffer-tokens',type=int,default=256)
     ap.add_argument('--request-timeout',type=float,default=300.)
     ap.add_argument('--metrics-path',default=None)
+    ap.add_argument('--profile', action='store_true',
+                    help='diagnostic run: bounded CPU/CUDA trace; timings are not benchmark results')
+    ap.add_argument('--profile-dir', default='outputs/server_profile')
+    ap.add_argument('--profile-start-message', type=int, default=3)
+    ap.add_argument('--profile-messages', type=int, default=16)
     ap.add_argument("--tensor-parallel-size", type=int, default=1)
-    ap.add_argument("--expert-parallel-size", type=int, default=1)
+    ap.add_argument("--enable-expert-parallel", action="store_true",
+                    help="shard experts over DP x TP; no independent EP axis")
+    ap.add_argument("--expert-parallel-size", type=int, default=None,
+                    help=argparse.SUPPRESS)
     ap.add_argument("--pipeline-parallel-size", type=int, default=1)
     ap.add_argument("--pipeline-microbatches", type=int, default=1,
                     help="legacy fixed-count schedule is unsupported; use token budget")
     ap.add_argument("--zero-bubble", action="store_true",
                     help="reserved; training DualPipe is not implemented by this inference runtime")
     ap.add_argument("--pipeline-microbatch-tokens", type=int, default=2048)
+    ap.add_argument("--max-concurrent-batches", type=int, default=None,
+                    help="in-flight batch bound; defaults to pipeline parallel size")
     ap.add_argument("--gpus", default=None,
                     help="comma-separated physical GPU ids, e.g. 0,1,2,3")
     args = ap.parse_args()
+    implementations = {}
+    if args.profile:
+        from utils.observation_config import configure_observation
+        from utils.observed_runner import ObservedModelRunner, ObservedPipelineTransport
+        configure_observation(args.profile_dir, profile=True,
+            start_message=args.profile_start_message, messages=args.profile_messages)
+        implementations = dict(runner_cls=ObservedModelRunner, transport_cls=ObservedPipelineTransport)
 
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(args.model)
@@ -237,17 +263,20 @@ def main():
         max_pending_requests=args.max_pending_requests,stream_buffer_tokens=args.stream_buffer_tokens,
         tensor_parallel_size=args.tensor_parallel_size,
         expert_parallel_size=args.expert_parallel_size,
+        enable_expert_parallel=args.enable_expert_parallel,
         pipeline_parallel_size=args.pipeline_parallel_size,
         pipeline_microbatches=args.pipeline_microbatches,
         pipeline_schedule=("zero_bubble" if args.zero_bubble else "forward"),
         pipeline_microbatch_tokens=args.pipeline_microbatch_tokens,
-        gpus=gpus)
+        max_concurrent_batches=args.max_concurrent_batches,
+        gpus=gpus, **implementations)
     engine.start()
 
     Handler.engine = engine
     Handler.tokenizer = tok
     Handler.request_timeout=args.request_timeout
     Handler.metrics_path=args.metrics_path
+    Handler.profiled_run=args.profile
     ThreadingHTTPServer.request_queue_size = 256   # 64+ 并发同时建连不打爆 accept 队列（默认 5）
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
 

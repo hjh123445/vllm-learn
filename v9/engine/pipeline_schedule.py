@@ -1,11 +1,11 @@
-"""Pipeline topology, virtual-engine assignment, and trace utilities.
+"""Pipeline topology and offline scheduling utilities.
 
 This module is CPU-only and intentionally independent of torch/NCCL. It makes
 the scheduling policy testable without loading a model and keeps physical
 placement separate from model-layer code.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -66,113 +66,6 @@ class PipelineTopology:
         }
 
 
-@dataclass
-class VirtualEngineSlot:
-    """One forward lane's ownership and in-flight accounting."""
-
-    slot_id: int
-    lane: int
-    in_flight: int = 0
-    submitted: int = 0
-    completed: int = 0
-
-
-class VirtualEnginePool:
-    """Stable microbatch-to-lane assignment with explicit lifecycle."""
-
-    def __init__(self, size: int):
-        self.size = max(1, int(size))
-        self.slots = [VirtualEngineSlot(i, i % self.size)
-                      for i in range(self.size)]
-
-    def assign(self, microbatch_id: int) -> VirtualEngineSlot:
-        slot = self.slots[int(microbatch_id) % self.size]
-        slot.in_flight += 1
-        slot.submitted += 1
-        return slot
-
-    def complete(self, slot_id: int):
-        slot = self.slots[int(slot_id) % self.size]
-        if slot.in_flight <= 0:
-            raise RuntimeError(f"virtual engine {slot_id} has no in-flight work")
-        slot.in_flight -= 1
-        slot.completed += 1
-
-    def snapshot(self):
-        return [
-            {
-                "slot_id": s.slot_id,
-                "lane": s.lane,
-                "in_flight": s.in_flight,
-                "submitted": s.submitted,
-                "completed": s.completed,
-            }
-            for s in self.slots
-        ]
-
-
-@dataclass
-class TraceEvent:
-    name: str
-    ts: float
-    end: float
-    stage: int = -1
-    microbatch_id: int = -1
-    lane: int = -1
-    category: str = "pipeline"
-    args: dict = field(default_factory=dict)
-
-    def as_chrome(self, pid: int = 0, tid: int = 0, origin: float = 0.0):
-        return {
-            "name": self.name,
-            "cat": self.category,
-            "ph": "X",
-            "ts": (self.ts - origin) * 1e6,
-            "dur": max(0.0, self.end - self.ts) * 1e6,
-            "pid": pid,
-            "tid": tid,
-            "args": {
-                "stage": self.stage,
-                "microbatch_id": self.microbatch_id,
-                "lane": self.lane,
-                **self.args,
-            },
-        }
-
-
-class PipelineTrace:
-    """Collect host-side stage/transport events and export Chrome trace JSON."""
-
-    def __init__(self, origin: float = 0.0):
-        self.origin = origin
-        self.events: list[TraceEvent] = []
-
-    def add(self, name, start, end, *, stage=-1, microbatch_id=-1,
-            lane=-1, category="pipeline", **args):
-        self.events.append(TraceEvent(
-            name, float(start), float(end), stage, int(microbatch_id),
-            int(lane), category, args))
-
-    def chrome_events(self, pid=0, tid=0):
-        return [event.as_chrome(pid, tid, self.origin)
-                for event in self.events]
-
-    def as_dict(self, *, pid=0, tid=0, metadata=None):
-        return {
-            "displayTimeUnit": "ms",
-            "traceEvents": self.chrome_events(pid, tid),
-            "metadata": metadata or {},
-        }
-
-    def summary(self):
-        by_name = {}
-        for event in self.events:
-            by_name.setdefault(event.name, 0.0)
-            by_name[event.name] += max(0.0, event.end - event.ts)
-        return by_name
-
-
-
 @dataclass(frozen=True)
 class PipelineAction:
     """One idealized forward action used to inspect a PP schedule."""
@@ -186,7 +79,7 @@ class PipelineAction:
 
 def build_forward_schedule(pp_size: int, microbatches: int, lanes: int = 2,
                            mode: str = "optimized") -> list[PipelineAction]:
-    """Build an idealized forward-only schedule for tests and trace planning.
+    """Build an idealized forward-only schedule for tests and planning.
 
     This is not the worker runtime scheduler or a measured execution plan. It
     does not implement training scheduling or DualPipe.

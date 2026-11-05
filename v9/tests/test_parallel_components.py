@@ -41,20 +41,11 @@ def test_shard_bounds():
 
 
 def test_process_group_plan():
-    plan = list(group_plan(tp_size=2, cp_size=1, ep_size=2, pp_size=2))
-    assert plan == [
-        ("tp", [0, 1]), ("tp", [2, 3]),
-        ("tp", [4, 5]), ("tp", [6, 7]),
-        ("ep", [0, 2]), ("ep", [1, 3]),
-        ("ep", [4, 6]), ("ep", [5, 7]),
-    ], plan
-    per_rank = {rank: [] for rank in range(8)}
-    for name, members in plan:
-        for rank in members:
-            per_rank[rank].append((name, members))
-    assert all(per_rank.values())
-    assert all(len(groups) == 2 for groups in per_rank.values())
-    print("process_group_plan: PASS")
+    plan = list(group_plan(tp_size=2, cp_size=1, dp_size=2, pp_size=2,
+                           enable_expert_parallel=True))
+    assert [members for name, members in plan if name == 'tp'] == [[0,1],[2,3],[4,5],[6,7]]
+    assert [members for name, members in plan if name == 'ep'] == [[0,1,4,5],[2,3,6,7]]
+    assert [members for name, members in plan if name == 'dp'] == [[0,4],[1,5],[2,6],[3,7]]
 
 
 def test_column_parallel():
@@ -129,7 +120,7 @@ def test_grouped_experts():
     # EP=2: rank0 持专家 0-3, rank1 持 4-7
     experts_per_rank = {}
     for r in range(2):
-        configure_parallel(tp_size=1, tp_rank=0, ep_size=2, ep_rank=r)
+        configure_parallel(tp_size=1, tp_rank=0, dp_size=2, dp_rank=r, enable_expert_parallel=True)
         ge = GroupedExperts(E, H, I)
         assert ge.num_experts == 4 and ge.e_start == r * 4
         assert ge.w13.shape == (4, 2 * I, H)
@@ -145,31 +136,26 @@ def test_grouped_experts():
     assert torch.equal(w13_rec, full_w13), "EP w13 拼回不等"
     assert torch.equal(w2_rec, full_w2), "EP w2 拼回不等"
 
-    # EP=2 × TP=2: inter 切半（w13 行 / w2 列）
-    quarter = {}
-    for er in range(2):
-        for tr in range(2):
-            configure_parallel(tp_size=2, tp_rank=tr, ep_size=2, ep_rank=er)
+    # DP2 x TP2 => EP4: each owner holds 2 WHOLE experts, no I/TP shard.
+    parts = []
+    for dp in range(2):
+        for tp in range(2):
+            configure_parallel(tp_size=2, tp_rank=tp, dp_size=2, dp_rank=dp,
+                               enable_expert_parallel=True)
             ge = GroupedExperts(E, H, I)
-            assert ge.num_experts == 4 and ge.inter == 16
-            assert ge.w13.shape == (4, 32, H)
+            assert ge.num_experts == 2 and ge.inter == I and ge.i_start == 0
+            assert ge.w13.shape == (2, 2 * I, H)
             for e in range(E):
-                ge.weight_loader(ge.w13, full_w13[e], (e, 0))
-                ge.weight_loader(ge.w13, full_w13[e][I:], (e, 1))
+                ge.weight_loader(ge.w13, full_w13[e, :I], (e, 0))
+                ge.weight_loader(ge.w13, full_w13[e, I:], (e, 1))
                 ge.weight_loader(ge.w2, full_w2[e], (e, None))
-            quarter[(er, tr)] = (ge.w13.data.clone(), ge.w2.data.clone())
-    # tp 部分和拼回: 每 (er) 的两个 tr 的 w13 拼行 == full 对应专家
-    for er in range(2):
-        w13_t0, w2_t0 = quarter[(er, 0)]
-        w13_t1, w2_t1 = quarter[(er, 1)]
-        # w13: gate 半区 t0 行[0:16) + t1 行[16:32)
-        gate = torch.cat([w13_t0[:, :16, :], w13_t1[:, :16, :]], dim=1)
-        up = torch.cat([w13_t0[:, 16:, :], w13_t1[:, 16:, :]], dim=1)
-        full_e = full_w13[er * 4:(er + 1) * 4]
-        assert torch.equal(torch.cat([gate, up], dim=1), full_e), "TP×EP w13 拼回不等"
-        w2 = torch.cat([w2_t0, w2_t1], dim=2)
-        assert torch.equal(w2, full_w2[er * 4:(er + 1) * 4]), "TP×EP w2 拼回不等"
-    print("GroupedExperts: PASS（EP 区间 / TP×EP 组合切回拼）")
+            parts.append((ge.w13.detach().clone(), ge.w2.detach().clone()))
+    assert torch.equal(torch.cat([p[0] for p in parts]), full_w13)
+    assert torch.equal(torch.cat([p[1] for p in parts]), full_w2)
+    configure_parallel(tp_size=2, tp_rank=1)
+    ge = GroupedExperts(E, H, I)
+    assert ge.num_experts == E and ge.inter == I // 2
+    configure_parallel()
 
 
 def test_attention_shapes():

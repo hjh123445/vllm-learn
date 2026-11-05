@@ -12,7 +12,7 @@ class _FakeModel:
     def __init__(self):
         self.batch_sizes = []
 
-    def __call__(self, input_ids, positions):
+    def __call__(self, input_ids, positions, intermediate_tensors=None):
         self.batch_sizes.append(input_ids.shape[0])
         return input_ids.float().unsqueeze(-1)
 
@@ -28,8 +28,10 @@ class _GreedySampler:
 class ModelRunnerBatchPolicyTests(unittest.TestCase):
     def _runner(self, mode):
         runner = ModelRunner.__new__(ModelRunner)
-        runner.config = SimpleNamespace(batch_execution_mode=mode)
+        runner.config = SimpleNamespace(batch_execution_mode=mode,
+                                        hf_config=SimpleNamespace(hidden_size=1))
         runner.device = "cpu"
+        runner.dtype = torch.float32
         runner.model = _FakeModel()
         runner.sampler = _GreedySampler()
         runner.prepare_decode = lambda seqs: (
@@ -39,7 +41,12 @@ class ModelRunnerBatchPolicyTests(unittest.TestCase):
 
     def _run(self, runner, pp_size=1, pp_rank=0):
         state = SimpleNamespace(pp_size=pp_size, pp_rank=pp_rank,
-                                pipeline_lane=0, microbatch_id=0)
+                                pipeline_lane=0, microbatch_id=0,
+                                pipeline_warmup=False,
+                                pipeline_transport=SimpleNamespace(recv_forward=lambda lane, **kw:
+                                    (torch.zeros(kw['expected_shape']),
+                                     torch.zeros(kw['expected_shape']),
+                                     kw['expected_microbatch_id'], lane)))
         seqs = [SimpleNamespace(last_token=i, temperature=0.) for i in (7, 3, 9)]
         with patch("layers.parallel.STATE", state):
             result = runner.run(seqs, is_prefill=False)

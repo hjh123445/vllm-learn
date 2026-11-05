@@ -1,0 +1,442 @@
+[
+  {
+    "index": 0,
+    "request": {
+      "model": "qwen3-omni",
+      "messages": [
+        {
+          "role": "user",
+          "content": "自生成性能请求0：简述GPU推理通信与计算的关系。"
+        }
+      ],
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "temperature": 0.0,
+      "max_tokens": 4
+    },
+    "started": 797790.028435385,
+    "success": true,
+    "http_status": 200,
+    "id": "chatcmpl-5466d5133162",
+    "usage": {
+      "prompt_tokens": 1,
+      "completion_tokens": 4,
+      "total_tokens": 5
+    },
+    "finished": 797790.480122504,
+    "e2e_s": 0.451687119086273,
+    "content_chunks": [
+      {
+        "at": 797790.0705811,
+        "content": "t40"
+      },
+      {
+        "at": 797790.171809628,
+        "content": " t27"
+      },
+      {
+        "at": 797790.452425753,
+        "content": " t27"
+      },
+      {
+        "at": 797790.479109206,
+        "content": " t27"
+      }
+    ],
+    "ttft_content_s": 0.042145714978687465,
+    "chunk_itl_s": [
+      0.10122852807398885,
+      0.28061612497549504,
+      0.026683453004807234
+    ],
+    "output_tokens": 4,
+    "tpot_content_s": 0.13617603535143039
+  },
+  {
+    "index": 1,
+    "request": {
+      "model": "qwen3-omni",
+      "messages": [
+        {
+          "role": "user",
+          "content": "自生成性能请求1：简述GPU推理通信与计算的关系。"
+        }
+      ],
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "temperature": 0.0,
+      "max_tokens": 4
+    },
+    "started": 797790.029012935,
+    "success": true,
+    "http_status": 200,
+    "id": "chatcmpl-bd870b91fabd",
+    "usage": {
+      "prompt_tokens": 1,
+      "completion_tokens": 4,
+      "total_tokens": 5
+    },
+    "finished": 797790.479986003,
+    "e2e_s": 0.4509730680147186,
+    "content_chunks": [
+      {
+        "at": 797790.070340733,
+        "content": "t40"
+      },
+      {
+        "at": 797790.171551586,
+        "content": " t27"
+      },
+      {
+        "at": 797790.452582472,
+        "content": " t27"
+      },
+      {
+        "at": 797790.479183576,
+        "content": " t27"
+      }
+    ],
+    "ttft_content_s": 0.04132779804058373,
+    "chunk_itl_s": [
+      0.10121085296850652,
+      0.2810308859916404,
+      0.02660110394936055
+    ],
+    "output_tokens": 4,
+    "tpot_content_s": 0.13628094763650248
+  },
+  {
+    "index": 2,
+    "request": {
+      "model": "qwen3-omni",
+      "messages": [
+        {
+          "role": "user",
+          "content": "自生成性能请求2：简述GPU推理通信与计算的关系。"
+        }
+      ],
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "temperature": 0.0,
+      "max_tokens": 4
+    },
+    "started": 797790.029713037,
+    "success": true,
+    "http_status": 200,
+    "id": "chatcmpl-7fa652baffe4",
+    "usage": {
+      "prompt_tokens": 1,
+      "completion_tokens": 4,
+      "total_tokens": 5
+    },
+    "finished": 797790.479902118,
+    "e2e_s": 0.45018908102065325,
+    "content_chunks": [
+      {
+        "at": 797790.070391564,
+        "content": "t40"
+      },
+      {
+        "at": 797790.171601934,
+        "content": " t27"
+      },
+      {
+        "at": 797790.452106287,
+        "content": " t27"
+      },
+      {
+        "at": 797790.479008863,
+        "content": " t27"
+      }
+    ],
+    "ttft_content_s": 0.04067852708976716,
+    "chunk_itl_s": [
+      0.10121036996133626,
+      0.2805043529951945,
+      0.026902575977146626
+    ],
+    "output_tokens": 4,
+    "tpot_content_s": 0.1362057663112258
+  },
+  {
+    "index": 3,
+    "request": {
+      "model": "qwen3-omni",
+      "messages": [
+        {
+          "role": "user",
+          "content": "自生成性能请求3：简述GPU推理通信与计算的关系。"
+        }
+      ],
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "temperature": 0.0,
+      "max_tokens": 4
+    },
+    "started": 797790.030384707,
+    "success": true,
+    "http_status": 200,
+    "id": "chatcmpl-f65ce7f46bef",
+    "usage": {
+      "prompt_tokens": 1,
+      "completion_tokens": 4,
+      "total_tokens": 5
+    },
+    "finished": 797790.501302093,
+    "e2e_s": 0.4709173860028386,
+    "content_chunks": [
+      {
+        "at": 797790.171673833,
+        "content": "t40"
+      },
+      {
+        "at": 797790.452666254,
+        "content": " t27"
+      },
+      {
+        "at": 797790.479738548,
+        "content": " t27"
+      },
+      {
+        "at": 797790.500992131,
+        "content": " t27"
+      }
+    ],
+    "ttft_content_s": 0.14128912601154298,
+    "chunk_itl_s": [
+      0.2809924209723249,
+      0.027072294033132493,
+      0.021253582905046642
+    ],
+    "output_tokens": 4,
+    "tpot_content_s": 0.10977276597016801
+  },
+  {
+    "index": 4,
+    "request": {
+      "model": "qwen3-omni",
+      "messages": [
+        {
+          "role": "user",
+          "content": "自生成性能请求4：简述GPU推理通信与计算的关系。"
+        }
+      ],
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "temperature": 0.0,
+      "max_tokens": 4
+    },
+    "started": 797790.480313149,
+    "success": true,
+    "http_status": 200,
+    "id": "chatcmpl-c4dca624cf27",
+    "usage": {
+      "prompt_tokens": 1,
+      "completion_tokens": 4,
+      "total_tokens": 5
+    },
+    "finished": 797790.604963083,
+    "e2e_s": 0.12464993400499225,
+    "content_chunks": [
+      {
+        "at": 797790.525797536,
+        "content": "t40"
+      },
+      {
+        "at": 797790.552169292,
+        "content": " t27"
+      },
+      {
+        "at": 797790.578288333,
+        "content": " t27"
+      },
+      {
+        "at": 797790.604018881,
+        "content": " t27"
+      }
+    ],
+    "ttft_content_s": 0.04548438696656376,
+    "chunk_itl_s": [
+      0.026371755986474454,
+      0.026119041023775935,
+      0.025730547960847616
+    ],
+    "output_tokens": 4,
+    "tpot_content_s": 0.02607378165703267
+  },
+  {
+    "index": 5,
+    "request": {
+      "model": "qwen3-omni",
+      "messages": [
+        {
+          "role": "user",
+          "content": "自生成性能请求5：简述GPU推理通信与计算的关系。"
+        }
+      ],
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "temperature": 0.0,
+      "max_tokens": 4
+    },
+    "started": 797790.480748836,
+    "success": true,
+    "http_status": 200,
+    "id": "chatcmpl-72738d47d519",
+    "usage": {
+      "prompt_tokens": 1,
+      "completion_tokens": 4,
+      "total_tokens": 5
+    },
+    "finished": 797790.604661745,
+    "e2e_s": 0.12391290906816721,
+    "content_chunks": [
+      {
+        "at": 797790.52589796,
+        "content": "t40"
+      },
+      {
+        "at": 797790.552360626,
+        "content": " t27"
+      },
+      {
+        "at": 797790.578454344,
+        "content": " t27"
+      },
+      {
+        "at": 797790.604183454,
+        "content": " t27"
+      }
+    ],
+    "ttft_content_s": 0.045149123994633555,
+    "chunk_itl_s": [
+      0.02646266610827297,
+      0.026093717897310853,
+      0.02572910999879241
+    ],
+    "output_tokens": 4,
+    "tpot_content_s": 0.02609516466812541
+  },
+  {
+    "index": 6,
+    "request": {
+      "model": "qwen3-omni",
+      "messages": [
+        {
+          "role": "user",
+          "content": "自生成性能请求6：简述GPU推理通信与计算的关系。"
+        }
+      ],
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "temperature": 0.0,
+      "max_tokens": 4
+    },
+    "started": 797790.481212648,
+    "success": true,
+    "http_status": 200,
+    "id": "chatcmpl-46c6e3c2fde6",
+    "usage": {
+      "prompt_tokens": 1,
+      "completion_tokens": 4,
+      "total_tokens": 5
+    },
+    "finished": 797790.604588951,
+    "e2e_s": 0.1233763030031696,
+    "content_chunks": [
+      {
+        "at": 797790.525996636,
+        "content": "t40"
+      },
+      {
+        "at": 797790.552273219,
+        "content": " t27"
+      },
+      {
+        "at": 797790.57836854,
+        "content": " t27"
+      },
+      {
+        "at": 797790.604262567,
+        "content": " t27"
+      }
+    ],
+    "ttft_content_s": 0.044783988036215305,
+    "chunk_itl_s": [
+      0.02627658296842128,
+      0.02609532105270773,
+      0.025894026970490813
+    ],
+    "output_tokens": 4,
+    "tpot_content_s": 0.026088643663873274
+  },
+  {
+    "index": 7,
+    "request": {
+      "model": "qwen3-omni",
+      "messages": [
+        {
+          "role": "user",
+          "content": "自生成性能请求7：简述GPU推理通信与计算的关系。"
+        }
+      ],
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "temperature": 0.0,
+      "max_tokens": 4
+    },
+    "started": 797790.501379422,
+    "success": true,
+    "http_status": 200,
+    "id": "chatcmpl-5cb328ee4003",
+    "usage": {
+      "prompt_tokens": 1,
+      "completion_tokens": 4,
+      "total_tokens": 5
+    },
+    "finished": 797790.623776536,
+    "e2e_s": 0.12239711394067854,
+    "content_chunks": [
+      {
+        "at": 797790.552458829,
+        "content": "t40"
+      },
+      {
+        "at": 797790.578525019,
+        "content": " t27"
+      },
+      {
+        "at": 797790.604102588,
+        "content": " t27"
+      },
+      {
+        "at": 797790.623567472,
+        "content": " t27"
+      }
+    ],
+    "ttft_content_s": 0.05107940698508173,
+    "chunk_itl_s": [
+      0.02606618998106569,
+      0.0255775690311566,
+      0.0194648839533329
+    ],
+    "output_tokens": 4,
+    "tpot_content_s": 0.023702880988518398
+  }
+]

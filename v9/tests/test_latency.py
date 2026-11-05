@@ -42,7 +42,9 @@ def main():
     tp, ep, dcp, pp, gpus = SPECS[a.config]
     from engine.core import EngineCore
     t0 = time.perf_counter()
-    core = EngineCore(MODEL, tp_size=tp, ep_size=ep, dcp_size=dcp, pp_size=pp,
+    if ep != 1:
+        raise ValueError('Legacy independent EP matrix removed; use bench_workload_matrix.py --dp N --tp M --enable-expert-parallel')
+    core = EngineCore(MODEL, tp_size=tp, enable_expert_parallel=False, dcp_size=dcp, pp_size=pp,
                       master_port=29941 + len(gpus), gpus=gpus,
                       config_kwargs={"max_num_seqs":64, "max_model_len":1024,
                                      "max_num_batched_tokens":512,

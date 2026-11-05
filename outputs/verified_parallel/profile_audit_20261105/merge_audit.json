@@ -1,0 +1,453 @@
+{
+  "clock_domain": "kineto",
+  "same_host_asserted": true,
+  "common_base_ns": 1790857026000000000,
+  "common_origin_us": 2920614848978.277,
+  "timestamp_unit": "us",
+  "alignment": "ts_out=ts_in+(base_in-common_base)/1000-common_origin; dur unchanged",
+  "workers": [
+    {
+      "file": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\trace_catalog_20261105\\pp2ep4_baseline_stage0_rank0_full_cpu_cuda.json.gz",
+      "sha256": "7a9977d09efe6d1d76d958a7c8b1d5af6c7674e8d3844a082ff6768ea817cc21",
+      "rank": 0,
+      "stage": 0,
+      "base_ns": 1790857026000000000,
+      "original_process_ids": {
+        "3378321": 1,
+        "-1": 2,
+        "0": 3,
+        "Spans": 4,
+        "Traces": 5,
+        "": 6
+      },
+      "gpu_event_count": 35995,
+      "source_metadata": {
+        "schemaVersion": 1,
+        "deviceProperties": [
+          {
+            "id": 0,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          },
+          {
+            "id": 1,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          },
+          {
+            "id": 2,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          },
+          {
+            "id": 3,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          },
+          {
+            "id": 4,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          },
+          {
+            "id": 5,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          },
+          {
+            "id": 6,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          },
+          {
+            "id": 7,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          }
+        ],
+        "cupti_version": 130000,
+        "cuda_runtime_version": 13000,
+        "cuda_driver_version": 13000,
+        "distributedInfo": {
+          "backend": "nccl",
+          "rank": 0,
+          "world_size": 8,
+          "pg_count": 3,
+          "pg_config": [
+            {
+              "pg_name": "0",
+              "pg_desc": "default_pg",
+              "backend_config": "cuda:nccl",
+              "pg_size": 8,
+              "ranks": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7
+              ]
+            },
+            {
+              "pg_name": "1",
+              "pg_desc": "undefined",
+              "backend_config": "cuda:nccl",
+              "pg_size": 4,
+              "ranks": [
+                0,
+                1,
+                2,
+                3
+              ]
+            }
+          ],
+          "nccl_version": "2.27.7"
+        },
+        "record_shapes": 1,
+        "trace_id": "C087CD2DCD5743268BA383FB19E1FC26",
+        "displayTimeUnit": "ms",
+        "baseTimeNanoseconds": 1790857026000000000,
+        "traceName": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/rollout_trace_056_20261104_152543/trace_pp2ep4_baseline/trace/cuda_rank0.json"
+      }
+    },
+    {
+      "file": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\trace_catalog_20261105\\pp2ep4_baseline_stage1_rank4_full_cpu_cuda.json.gz",
+      "sha256": "5bb46010b819fb675bf81a700dd6c36961435934e3aac928d1e2fc2597818856",
+      "rank": 4,
+      "stage": 1,
+      "base_ns": 1790857026000000000,
+      "original_process_ids": {
+        "3378325": 7,
+        "-1": 8,
+        "4": 9,
+        "Spans": 10,
+        "Traces": 11,
+        "": 12
+      },
+      "gpu_event_count": 35987,
+      "source_metadata": {
+        "schemaVersion": 1,
+        "deviceProperties": [
+          {
+            "id": 0,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          },
+          {
+            "id": 1,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          },
+          {
+            "id": 2,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          },
+          {
+            "id": 3,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          },
+          {
+            "id": 4,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          },
+          {
+            "id": 5,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          },
+          {
+            "id": 6,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          },
+          {
+            "id": 7,
+            "name": "NVIDIA A800-SXM4-80GB",
+            "totalGlobalMem": 85094825984,
+            "computeMajor": 8,
+            "computeMinor": 0,
+            "maxThreadsPerBlock": 1024,
+            "maxThreadsPerMultiprocessor": 2048,
+            "regsPerBlock": 65536,
+            "warpSize": 32,
+            "sharedMemPerBlock": 49152,
+            "numSms": 108,
+            "regsPerMultiprocessor": 65536,
+            "sharedMemPerBlockOptin": 166912,
+            "sharedMemPerMultiprocessor": 167936
+          }
+        ],
+        "cupti_version": 130000,
+        "cuda_runtime_version": 13000,
+        "cuda_driver_version": 13000,
+        "distributedInfo": {
+          "backend": "nccl",
+          "rank": 4,
+          "world_size": 8,
+          "pg_count": 3,
+          "pg_config": [
+            {
+              "pg_name": "0",
+              "pg_desc": "default_pg",
+              "backend_config": "cuda:nccl",
+              "pg_size": 8,
+              "ranks": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7
+              ]
+            },
+            {
+              "pg_name": "2",
+              "pg_desc": "undefined",
+              "backend_config": "cuda:nccl",
+              "pg_size": 4,
+              "ranks": [
+                4,
+                5,
+                6,
+                7
+              ]
+            }
+          ],
+          "nccl_version": "2.27.7"
+        },
+        "record_shapes": 1,
+        "trace_id": "09CF13ADA2D948E895B3679E40A7E279",
+        "displayTimeUnit": "ms",
+        "baseTimeNanoseconds": 1790857026000000000,
+        "traceName": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/rollout_trace_056_20261104_152543/trace_pp2ep4_baseline/trace/cuda_rank4.json"
+      }
+    }
+  ],
+  "summary": {
+    "event_count": 877953,
+    "gpu_tracks": [
+      {
+        "source": "pp2ep4_baseline_stage0_rank0_full_cpu_cuda.json.gz",
+        "pid": 3,
+        "observed_gpu_span_us": 2453322.849125,
+        "gpu_active_union_us": 376807.89300006727,
+        "non_nccl_kernel_union_us": 171911.3080000504,
+        "nccl_kernel_union_us": 196340.2060000001,
+        "nccl_non_nccl_intersection_us": 0.0,
+        "fraction_nccl_time_overlapped": 0.0,
+        "observed_inactive_fraction": 0.846409169859377
+      },
+      {
+        "source": "pp2ep4_baseline_stage1_rank4_full_cpu_cuda.json.gz",
+        "pid": 9,
+        "observed_gpu_span_us": 2696976.8838867187,
+        "gpu_active_union_us": 1061902.0429998396,
+        "non_nccl_kernel_union_us": 168991.41399983858,
+        "nccl_kernel_union_us": 884749.1650000024,
+        "nccl_non_nccl_intersection_us": 0.0,
+        "fraction_nccl_time_overlapped": 0.0,
+        "observed_inactive_fraction": 0.6062620894734956
+      }
+    ],
+    "caveat": "GPU inactivity within each captured GPU span is NOT a pipeline bubble metric. NCCL kernels include waiting; non-NCCL kernels include routing. No steady-state utilization or cross-host clock accuracy is inferred."
+  },
+  "categories": {
+    "user_annotation": 4774,
+    "cpu_op": 498482,
+    "overhead": 32,
+    "kernel": 64331,
+    "ac2g": 185692,
+    "cuda_runtime": 108329,
+    "gpu_memcpy": 7621,
+    "cuda_driver": 5381,
+    "gpu_user_annotation": 3221,
+    "metadata": 58,
+    "Trace": 2,
+    "gpu_memset": 30
+  },
+  "raw_inputs_scope": "Historical 2026-11-04 rollout capture, rank0/stage0 and rank4/stage1 only; NOT the new V1 queue implementation and NOT all eight ranks.",
+  "two_rank_non_nccl_kernel_intersection_us": 11768.249894535693,
+  "cross_rank_caveat": "Any non-NCCL kernel concurrency across these two GPUs; not a full-stage efficiency measure or proof of distinct microbatches.",
+  "tests": {
+    "command": "python -m pytest v9/tests/test_trace_merge.py -q",
+    "passed": 8,
+    "failed": 0,
+    "observed_duration_s": 0.07
+  },
+  "perfetto_binary": {
+    "version": "v59.1",
+    "sha256": "3acc5aca1c764541033a82ba3bb0a47524b5c3c0aa194eea8d9a7b0cdb346bdc"
+  }
+}

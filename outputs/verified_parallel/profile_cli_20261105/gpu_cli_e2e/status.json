@@ -1,0 +1,12 @@
+{
+  "host": "172.28.30.56",
+  "remote": "/tmp/vllm-learn-profile-cli-gpu-20261105-220914",
+  "exit_code": 0,
+  "gpu_ids": [
+    4,
+    5,
+    6,
+    7
+  ],
+  "scope": "tiny synthetic TP2 and PP2TP2 EP capture; not30B throughput"
+}

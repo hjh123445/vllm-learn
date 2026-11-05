@@ -1,0 +1,7 @@
+ERROR: External init callback must run in same thread as registerClient (-1686649280 != -298588352)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+[server] http://127.0.0.1:41683/v1/chat/completions  (model=tiny)
+[server] 收到 SIGTERM，正在关闭……
+[server] 已退出

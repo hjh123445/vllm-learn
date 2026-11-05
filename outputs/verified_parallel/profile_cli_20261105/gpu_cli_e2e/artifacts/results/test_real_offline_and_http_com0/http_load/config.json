@@ -1,0 +1,12 @@
+{
+  "base_url": "http://127.0.0.1:41683/v1",
+  "model": "qwen3-omni",
+  "output": "/tmp/vllm-learn-profile-cli-gpu-20261105-220914/results/test_real_offline_and_http_com0/http_load",
+  "requests": 8,
+  "concurrency": 4,
+  "warmup": 0,
+  "max_tokens": 4,
+  "timeout": 300,
+  "inputs": null,
+  "profile": false
+}

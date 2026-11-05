@@ -4,8 +4,6 @@
 attention 栈沿用 v4/v5（qk_norm + rope + GQA + 平铺 context + triton flash），
 MLP 换成 MoE（router + grouped experts，layers/moe.py）。
 只做文本路径：vision/audio tower 的权重 loader 直接跳过。"""
-import json
-import os
 import torch
 import torch.nn as nn
 
@@ -16,6 +14,7 @@ from layers.norm import RmsNorm
 from layers.attention import Attention
 from layers.kernels import fused_add_rmsnorm
 from layers.moe import MoEMLP
+from engine.intermediate_tensors import IntermediateTensors
 
 
 class Qwen3MoeAttention(nn.Module):
@@ -82,32 +81,10 @@ class Qwen3MoeDecoderLayer(nn.Module):
     def forward(self, x, residual, positions):
         x, residual = fused_add_rmsnorm(x, residual, self.input_layernorm.weight,
                                        self.input_layernorm.eps)
-        from layers.parallel import STATE
-        import time
-        prefix = f"stage{STATE.pp_rank}.layer{self.layer_idx}"
-        trace = os.getenv("VLLM_LEARN_TRACE_DIR") and getattr(STATE, "trace_events", None) is not None
-        if trace:
-            started = time.perf_counter()
-        with torch.autograd.profiler.record_function(f"{prefix}.attention"):
-            x = self.self_attn(x, positions)     # o_proj(RowParallel) 内置 allreduce
-        if trace:
-            STATE.trace_events.append({"name": f"{prefix}.attention", "cat": "attention",
-                                       "start": started, "end": time.perf_counter(),
-                                       "stage": STATE.pp_rank, "layer": self.layer_idx,
-                                       "microbatch_id": STATE.microbatch_id,
-                                       "lane": STATE.pipeline_lane})
+        x = self.self_attn(x, positions)         # o_proj(RowParallel) 内置 allreduce
         x, residual = fused_add_rmsnorm(x, residual, self.post_attention_layernorm.weight,
                                        self.post_attention_layernorm.eps)
-        if trace:
-            started = time.perf_counter()
-        with torch.autograd.profiler.record_function(f"{prefix}.moe"):
-            x = self.mlp(x)                      # MoE 部分和聚合在 MoEMLP 内
-        if trace:
-            STATE.trace_events.append({"name": f"{prefix}.moe", "cat": "moe",
-                                       "start": started, "end": time.perf_counter(),
-                                       "stage": STATE.pp_rank, "layer": self.layer_idx,
-                                       "microbatch_id": STATE.microbatch_id,
-                                       "lane": STATE.pipeline_lane})
+        x = self.mlp(x)
         return x, residual
 
 
@@ -144,21 +121,15 @@ class Qwen3MoeModel(nn.Module):
             if isinstance(layer, Qwen3MoeDecoderLayer):
                 layer.self_attn.rope = rope
 
-    def forward(self, input_ids, positions):
-        """Qwen3-Omni thinker forward with adjacent-stage PP transport.
-
-        Stage 0 embeds locally; later stages consume a lane-specific
-        activation mailbox. The transport posts receives lazily and retains
-        outstanding sends. Actual overlap depends on NCCL process groups and
-        worker scheduling; lanes alone do not guarantee it.
-        """
+    def forward(self, input_ids, positions, intermediate_tensors=None):
+        """Compute local layers; worker/runner owns PP communication."""
         from layers.parallel import STATE
         if STATE.pp_size > 1 and not STATE.pipeline_warmup:
             if STATE.pp_rank > 0:
-                if STATE.pipeline_transport is None:
-                    raise RuntimeError("PP transport was not initialized")
-                x, residual, _mb, _lane = STATE.pipeline_transport.recv_forward(
-                    STATE.pipeline_lane)
+                if intermediate_tensors is None:
+                    raise RuntimeError("non-first PP stage requires IntermediateTensors")
+                x = intermediate_tensors.hidden_states
+                residual = intermediate_tensors.residual
             else:
                 x = self.embed_tokens(input_ids)
                 residual = torch.zeros_like(x)
@@ -173,16 +144,10 @@ class Qwen3MoeModel(nn.Module):
         else:
             x = self.embed_tokens(input_ids)
             residual = torch.zeros_like(x)
-        for layer_id, layer in enumerate(self.layers):
-            with torch.autograd.profiler.record_function(
-                    f"stage{STATE.pp_rank}.layer.{layer_id}"):
-                x, residual = layer(x, residual, positions)
+        for layer_id in range(self.pp_start, self.pp_end):
+            x, residual = self.layers[layer_id](x, residual, positions)
         if STATE.pp_size > 1 and STATE.pp_rank < STATE.pp_size - 1:
-            # 中间 stage：异步把 hidden/residual 传给下游，不进 norm。
-            if not STATE.pipeline_warmup:
-                STATE.pipeline_transport.send_forward(
-                    x, residual, STATE.pipeline_lane, STATE.microbatch_id)
-            return x          # 占位（中间 stage 的返回不被使用）
+            return IntermediateTensors(x, residual)
         out, _ = fused_add_rmsnorm(x, residual, self.norm.weight, self.norm.eps)
         return out
 
@@ -194,8 +159,8 @@ class Qwen3MoeForCausalLM(nn.Module):
         self.model = Qwen3MoeModel(config, max_position)
         self.lm_head = LmHead(config.hidden_size, config.vocab_size)
 
-    def forward(self, input_ids, positions):
-        return self.model(input_ids, positions)
+    def forward(self, input_ids, positions, intermediate_tensors=None):
+        return self.model(input_ids, positions, intermediate_tensors)
 
     def compute_logits(self, x):
         return self.lm_head(x)
@@ -230,25 +195,3 @@ class Qwen3MoeForCausalLM(nn.Module):
                     del lin
         _t.cuda.empty_cache()
         return n_replaced
-
-    def expert_profile(self):
-        """Return optional routing counters for one worker.
-
-        The counters are intentionally collected at shutdown rather than sent
-        through the inference response path.  This keeps normal EngineCore
-        messages unchanged while allowing an experiment to merge one JSON
-        record per TP/EP rank.
-        """
-        rows = []
-        for layer_idx, layer in enumerate(self.model.layers):
-            experts = getattr(getattr(layer, "mlp", None), "experts", None)
-            if experts is None or not getattr(experts, "_profile_enabled", False):
-                continue
-            def vals(x):
-                return x.tolist() if x is not None else None
-            rows.append({"layer": layer_idx,
-                         "local_experts": int(experts.num_experts),
-                         "token_counts": vals(experts._profile_token_counts),
-                         "send_counts": vals(experts._profile_send_counts),
-                         "recv_counts": vals(experts._profile_recv_counts)})
-        return rows

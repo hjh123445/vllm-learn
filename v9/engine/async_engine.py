@@ -42,9 +42,8 @@ class _StreamState:
 class AsyncEngine:
     """Background-thread facade over :class:`engine.core.EngineCore`.
 
-    ``tensor_parallel_size`` and ``expert_parallel_size`` are translated to
-    EngineCore's ``tp_size``/``ep_size`` names for compatibility with the
-    existing server command line and examples.
+    ``tensor_parallel_size`` sets attention TP; ``enable_expert_parallel``
+    shards whole experts over DP x TP. Independent expert sizes are rejected.
     """
 
     def __init__(self, model: str, **kwargs):
@@ -56,7 +55,8 @@ class AsyncEngine:
             raise ValueError("admission and stream buffer limits must be positive")
 
         tp_size = kwargs.pop("tp_size", kwargs.pop("tensor_parallel_size", 1))
-        ep_size = kwargs.pop("ep_size", kwargs.pop("expert_parallel_size", 1))
+        ep_size = kwargs.pop("ep_size", kwargs.pop("expert_parallel_size", None))
+        enable_ep = kwargs.pop("enable_expert_parallel", False)
         pp_size = kwargs.pop("pp_size", kwargs.pop("pipeline_parallel_size", 1))
         dcp_size = kwargs.pop("dcp_size", 1)
         dp_size = kwargs.pop("data_parallel_size", 1)
@@ -67,14 +67,17 @@ class AsyncEngine:
         pipeline_mode = kwargs.pop("pipeline_mode", "optimized")
         pipeline_microbatch_tokens = kwargs.pop("pipeline_microbatch_tokens", 2048)
         pipeline_stage_map = kwargs.pop("pipeline_stage_map", None)
+        max_concurrent_batches = kwargs.pop("max_concurrent_batches", None)
+        runner_cls = kwargs.pop("runner_cls", None)
+        transport_cls = kwargs.pop("transport_cls", None)
         legacy_microbatches = kwargs.pop("pipeline_microbatches", 1)
         legacy_virtual_engine = kwargs.pop("virtual_engine_size", None)
         legacy_schedule = kwargs.pop("pipeline_schedule", "forward")
         if (legacy_microbatches != 1 or legacy_virtual_engine is not None
                 or legacy_schedule != "forward"):
             raise NotImplementedError(
-                "This inference runtime dynamically splits scheduler output by "
-                "pipeline_microbatch_tokens. Fixed pipeline_microbatches, "
+                "This inference runtime schedules bounded in-flight batches. "
+                "Use pipeline_microbatch_tokens/max_concurrent_batches. Fixed pipeline_microbatches, "
                 "virtual_engine_size and zero-bubble/DualPipe schedules are not implemented.")
         config_fields = {
             "max_num_batched_tokens", "max_num_seqs", "max_model_len",
@@ -93,12 +96,15 @@ class AsyncEngine:
                 "data_parallel_size>1")
         self.engine = EngineCore(
             model, tp_size=tp_size, ep_size=ep_size, dcp_size=dcp_size,
+            enable_expert_parallel=enable_ep,
             pp_size=pp_size, master_port=master_port,
             config_kwargs=config_kwargs, gpus=gpus,
             pipeline_lanes=pipeline_lanes, pipeline_credit=pipeline_credit,
             pipeline_mode=pipeline_mode,
             pipeline_microbatch_tokens=pipeline_microbatch_tokens,
-            pipeline_stage_map=pipeline_stage_map)
+            pipeline_stage_map=pipeline_stage_map,
+            max_concurrent_batches=max_concurrent_batches,
+            runner_cls=runner_cls, transport_cls=transport_cls)
         self.states = {}
         self._seqs = {}
         self._lock = threading.RLock()

@@ -1,17 +1,11 @@
-# v5/layers/kernels.py
-"""v4 手写 triton 融合算子。
+"""参考数学路径与可选 Triton 融合算子。
 
-设计原则（由 profile 数据决定，见 PERFORMANCE_NOTES §7.1）：
-  - 每层每步都跑的 → 手写 triton 融合（零 guard 税）
-  - 每步只跑一次的 → torch.compile（guard 税一次可忽略，见 sampler.py）
-
-融合清单（每个 kernel 替代的 aten kernel 数）：
-  fused_add_rmsnorm      7 个（add + pow/mean/rsqrt/mul×2/to）—— 残差加法一起吃掉
-  silu_and_mul           4 个（chunk + silu + mul）
-  fused_qk_norm_rope_store  30+ 个 —— q_norm + k_norm + rope(q,k) + cache 写入
-                         融成一个 kernel，q 归一化 rope 后返回，
-                         k 归一化 rope 后直接散射进 cache 槽位（v 原样写入）
-注意：cache 偏移一律先转 int64（13000 block × 26 万元素/block 会溢出 int32）。"""
+RMSNorm、Q/K norm + RoPE + cache store 默认走参考实现；对应 Triton
+分支尚未通过整模 cached oracle，需显式开关实验。SiLU 是独立的 Triton
+入口，不能由 REFERENCE_MATH 推断整个引擎是否使用 Triton。
+融合可能减少启动与中间张量开销，但加速和数值等价均需分别验证。
+cache 偏移使用 int64，避免大 KV 池地址计算溢出。
+"""
 import os
 import torch
 import triton

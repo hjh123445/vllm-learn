@@ -1,0 +1,15 @@
+{
+  "host": "172.28.30.56",
+  "remote": "/tmp/vllm-learn-ep-coupled-20261105-205704",
+  "exit_code": 0,
+  "scope": "Tiny synthetic FP32 model on four GPUs/NCCL; no checkpoint or throughput benchmark",
+  "gpu_ids": [
+    0,
+    1,
+    6,
+    7
+  ],
+  "tests": [
+    "test_pipeline_worker_runtime.py::test_dp2tp2_ep4_fixed_prefix_logits_against_expert_tp"
+  ]
+}

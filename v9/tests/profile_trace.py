@@ -2,7 +2,7 @@
 
 单卡 EngineCore 直接在当前进程执行，因而 profiler 能看到 CUDA kernel；多进程
 TP/PP 的 CUDA trace 需要分别在 worker 内启动 profiler，不能由父进程跨进程捕获。
-事件名包含 stage/layer/attention/moe/router/dispatch/expert/combine、微批和 lane。
+模块 hook 标注 stage/layer/attention/moe/router；ATen/CUDA 由 profiler 自动采集。
 """
 import argparse
 import json
@@ -15,6 +15,7 @@ from transformers import AutoTokenizer
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from samplingParams import SamplingParams
+from utils.module_profiling import ModuleProfileRanges
 
 
 def main():
@@ -50,7 +51,8 @@ def main():
     with torch.profiler.profile(
             activities=[torch.profiler.ProfilerActivity.CPU,
                         torch.profiler.ProfilerActivity.CUDA],
-            record_shapes=True, profile_memory=True, with_stack=False) as prof:
+            record_shapes=True, profile_memory=True, with_stack=False) as prof, \
+            ModuleProfileRanges(core.inproc_runner.model):
         while not core.is_finished():
             with torch.autograd.profiler.record_function(
                     "config=Qwen3-Omni-30B;pp_stage=0;microbatch=0;lane=0"):
@@ -61,7 +63,7 @@ def main():
     meta = {
         "model": args.model,
         "parallel": {"tp": 1, "ep": 1, "pp": 1, "dp": 1},
-        "events": "stageN.layerM.attention/moe; moe.router/dispatch/expert/combine",
+        "events": "stageN.layerM.attention/moe/moe.router; ATen and CUDA activities",
         "cuda_activities": True,
         "generated_at": time.time(),
         "trace": args.output,

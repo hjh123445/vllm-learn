@@ -25,11 +25,16 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     """WorkerProc 入口（multiprocessing.Process 的 target）。
 
     rank:      全局 worker 序号（0..world_size-1）
-    tp/ep:     本 EngineCore 内的并行坐标（ParallelCoords 的 (tp,ep) 笛卡尔积）
+    tp/ep:     TP大小、派生EP大小；全局EP坐标由dp_rank*tp_size+tp_rank产生
     broadcast_q/response_q: 引擎侧传来的 Queue（mp.Queue 可 pickle 跨进程）
     """
+    local_rank = rank
+    dp_size, dp_rank = engine_kwargs.get("dp_size", 1), engine_kwargs.get("dp_rank", 0)
+    rank = dp_rank * world_size + local_rank
+    local_world_size = world_size
+    world_size *= dp_size
+    enable_ep = engine_kwargs.get("enable_expert_parallel", False)
     debug = os.getenv("VLLM_LEARN_DEBUG", "0") == "1"
-    trace_events = []
     # 设备由 launcher 通过 CUDA_VISIBLE_DEVICES 控制（每 worker 只见一张卡,
     # spawn 继承父进程 env → EngineCore 在 spawn 前为每个 worker 设置子进程 env）
     os.environ["RANK"] = str(rank)
@@ -69,24 +74,23 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         if debug:
             print(f"[worker-dist-after] rank={rank}", flush=True)
 
-    # ---- 四维坐标（row-major 解码，对齐 ParallelCoords DIMS=(tp,cp,ep,pp)）----
-    # rank = pp*(tp*cp*ep) + ep*(tp*cp) + tp*cp + cp
+    # Global rank = ((dp * pp_size + pp) * tp_size + tp) * cp_size + cp.
+    # EP overlays DP x TP, independent of PP/CP.
     cp_size = engine_kwargs.get("dcp_size", 1)
     pp_size = engine_kwargs.get("pp_size", 1)
-    inner = tp_size * cp_size * ep_size
-    pp_rank = rank // inner
-    r = rank % inner
-    ep_rank = r // (tp_size * cp_size)
-    r = r % (tp_size * cp_size)
+    inner = tp_size * cp_size
+    pp_rank = local_rank // inner
+    r = local_rank % inner
     tp_rank = r // cp_size
     cp_rank = r % cp_size
+    ep_rank = dp_rank * tp_size + tp_rank if enable_ep else 0
     from layers.parallel import configure_parallel, STATE
     from engine.process_groups import create_groups
-    groups = create_groups(rank, tp_size, cp_size, ep_size, pp_size)
+    groups = create_groups(rank, tp_size, cp_size, dp_size, pp_size, enable_ep)
     pp_recv_group, pp_send_group = None, None
-    if pp_size > 1 and os.getenv("VLLM_LEARN_PP_P2P_GROUPS", "world") == "dedicated":
+    if pp_size > 1 and os.getenv("VLLM_LEARN_PP_P2P_GROUPS", "dedicated") == "dedicated":
         from engine.process_groups import create_pipeline_edge_groups
-        pp_recv_group, pp_send_group = create_pipeline_edge_groups(rank, inner, pp_size)
+        pp_recv_group, pp_send_group = create_pipeline_edge_groups(rank, inner, pp_size, dp_size)
         groups.update(pp_recv=pp_recv_group, pp_send=pp_send_group)
     tp_group, ep_group, cp_group = (groups[k] for k in ("tp", "ep", "cp"))
     for group in groups.values():
@@ -97,20 +101,22 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
                        ep_size=ep_size, ep_rank=ep_rank,
                        tp_group=tp_group, ep_group=ep_group,
                        cp_size=cp_size, cp_rank=cp_rank,
-                       pp_size=pp_size, pp_rank=pp_rank)
+                       pp_size=pp_size, pp_rank=pp_rank,
+                       dp_size=dp_size, dp_rank=dp_rank,
+                       enable_expert_parallel=enable_ep)
 
-    # Adjacent PP stages use two activation lanes. The transport is created
-    # before the first scheduler message; the first header receive is posted
-    # lazily to avoid a startup rendezvous before stage 0 is ready.
+    # The transport owns bounded send buffers, not virtual engines. Queue
+    # depth/backpressure lives in EngineCore + MultiprocessExecutor.
     if pp_size > 1:
         from engine.pipeline_transport import PipelineTransport
-        STATE.pipeline_transport = PipelineTransport(
+        transport_cls = engine_kwargs.get("transport_cls") or PipelineTransport
+        STATE.pipeline_transport = transport_cls(
             pp_size=pp_size, pp_rank=pp_rank, inner_size=inner,
             lanes=int(engine_kwargs.get("pipeline_lanes", 2)),
             credit=int(engine_kwargs.get("pipeline_credit", 4)),
             async_enabled=engine_kwargs.get("pipeline_mode", "optimized") != "baseline",
-            trace_variant=engine_kwargs.get("pipeline_mode", "optimized"),
-            device="cuda", recv_group=pp_recv_group, send_group=pp_send_group)
+            device="cuda", recv_group=pp_recv_group, send_group=pp_send_group,
+            rank_offset=dp_rank * local_world_size)
 
     # ---- DCP 注入（v8.2 的 set_dcp，worker 内生效）----
     if cp_size > 1:
@@ -125,40 +131,10 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     config = Config(model_path, **engine_kwargs.get("config_kwargs", {}))
     if debug:
         print(f"[worker-config-after] rank={rank}", flush=True)
-    runner = ModelRunner(config, dtype=None)
-    # Warmup may have populated the optional layer timeline. Discard it so
-    # exported traces and routing counters describe requests only.
-    STATE.trace_events = []
-    for layer in runner.model.model.layers:
-        experts = getattr(getattr(layer, "mlp", None), "experts", None)
-        if experts is not None:
-            experts._profile_token_counts = None
-            experts._profile_send_counts = None
-            experts._profile_recv_counts = None
+    runner_cls = engine_kwargs.get("runner_cls") or ModelRunner
+    runner = runner_cls(config, dtype=None)
     if debug:
         print(f"[worker-runner-after] rank={rank} blocks={config.num_kvcache_blocks}", flush=True)
-
-    profiler = None
-    profile_open = False
-    profile_window = os.getenv("VLLM_LEARN_PROFILE_MODE", "scheduled") == "window"
-    profile_start = max(1, int(os.getenv("VLLM_LEARN_PROFILE_START_MESSAGE", "1")))
-    profile_messages = max(1, int(os.getenv("VLLM_LEARN_PROFILE_MESSAGES", "4")))
-    captured_messages = []
-    if os.getenv("VLLM_LEARN_CUDA_PROFILE", "0") == "1" and torch.cuda.is_available():
-        profile_dir = os.getenv("VLLM_LEARN_TRACE_DIR", "/tmp")
-        os.makedirs(profile_dir, exist_ok=True)
-        profiler = torch.profiler.profile(
-            activities=[torch.profiler.ProfilerActivity.CPU,
-                       torch.profiler.ProfilerActivity.CUDA],
-            schedule=(None if profile_window else torch.profiler.schedule(
-                wait=1, warmup=1, active=int(os.getenv("VLLM_LEARN_PROFILE_STEPS", "2")), repeat=1)),
-            on_trace_ready=lambda p: p.export_chrome_trace(
-                os.path.join(profile_dir, f"cuda_rank{rank}.json")),
-            record_shapes=os.getenv("VLLM_LEARN_PROFILE_RECORD_SHAPES", "1") == "1",
-            with_stack=False, profile_memory=False)
-        if not profile_window:
-            profiler.__enter__()
-            profile_open = True
 
     from engine.mq import SHUTDOWN
     # PP response 路由：采样在 last stage——只有 last stage 的 inner-rank0
@@ -166,8 +142,7 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     # A TP/EP worker group produces one logical result.  EngineCore reads
     # that result from rank 0 only; letting every rank send into its response
     # slot leaves the other slots without an ACK and blocks the next step.
-    is_resp_rank = (pp_rank == pp_size - 1 and rank % inner == 0) \
-        if pp_size > 1 else (rank == 0)
+    is_resp_rank = (pp_rank == pp_size - 1 and tp_rank == 0 and cp_rank == 0)
     # 每个 PP stage 都必须报告 ready。EngineCore 会等齐所有 stage 后再
     # 调度请求；否则 stage0 可能已经进入真实 forward，而 stage1 仍在
     # warmup，P2P mailbox 的消息顺序就会错位。
@@ -185,7 +160,6 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
             print(f"[worker-ready] rank={rank} blocks={config.num_kvcache_blocks}", flush=True)
 
     response_pending = False
-    message_index = 0
     while True:
         msg = broadcast_conn.recv()
         if msg is SHUTDOWN or msg.get("type") == "shutdown":
@@ -195,163 +169,34 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         # scheduler_output → forward 输入（用完即弃的快照）
         from engine.core import rebuild_specs
         specs = rebuild_specs(msg)
-        message_index += 1
-        # Profile-only bounded capture: drain GPU activity before entering and
-        # before exporting. A whole worker message is captured, including every
-        # local decoder layer. No collective barrier is inserted: PP peers may
-        # be at different messages and must keep servicing activation receives.
-        if profiler is not None and profile_window and message_index == profile_start:
-            torch.cuda.synchronize()
-            profiler.__enter__()
-            profile_open = True
         if STATE.pipeline_transport is not None:
             STATE.pipeline_transport.async_enabled = msg.get(
                 "pipeline_mode", "optimized") != "baseline"
-            STATE.pipeline_transport.trace_variant = msg.get(
-                "pipeline_mode", "optimized")
         is_prefill = msg["is_prefill"]
         token_ids = []
-        forward_started = __import__("time").perf_counter()
-        if specs:
+        if specs or (enable_ep and dp_size > 1):
             if debug:
                 print(f"[worker-run] rank={rank} mb={msg.get('microbatch_id')}", flush=True)
-            with torch.autograd.profiler.record_function(
-                    f"rank{rank}.stage{pp_rank}.message{message_index}."
-                    f"mb{msg.get('microbatch_id', 0)}."
-                    f"{'prefill' if is_prefill else 'decode'}"):
-                token_ids = runner.run(specs, is_prefill,
-                                       pipeline_lane=msg.get("pipeline_lane", 0),
-                                       microbatch_id=msg.get("microbatch_id", 0))
-            if debug:
-                print(f"[worker-done] rank={rank} mb={msg.get('microbatch_id')}", flush=True)
-        forward_finished = __import__("time").perf_counter()
-        if specs:
-            trace_events.append({
-                "name": f"stage{pp_rank}.forward", "cat": "forward",
-                "ph": "X", "ts": forward_started,
-                "end": forward_finished, "stage": pp_rank,
-                "microbatch_id": msg.get("microbatch_id", 0),
-                "lane": msg.get("pipeline_lane", 0),
-                "message_index": message_index, "is_prefill": is_prefill,
-                "variant": msg.get("pipeline_mode", "optimized"),
-            })
-        if profiler is not None and profile_open:
-            if profile_window:
-                captured_messages.append({"message_index": message_index,
-                    "microbatch_id": msg.get("microbatch_id", 0),
-                    "lane": msg.get("pipeline_lane", 0), "is_prefill": is_prefill,
-                    "scheduled_sequences": len(specs)})
-                if len(captured_messages) >= profile_messages:
-                    torch.cuda.synchronize()
-                    profiler.__exit__(None, None, None)
-                    profile_open = False
-            else:
-                profiler.step()
+            token_ids = runner.run(specs, is_prefill,
+                                   pipeline_lane=msg.get("pipeline_lane", 0),
+                                   microbatch_id=msg.get("microbatch_id", 0))
         if is_resp_rank:
             if response_pending:
                 response_conn.wait_ack()
             response_conn.send({"type": "output", "tokens": token_ids,
                                 "seq_ids": [s.seq_id for s in specs],
                                 "microbatch_id": msg.get("microbatch_id", 0),
-                                "virtual_engine": msg.get("virtual_engine", 0),
                                 "pipeline_lane": msg.get("pipeline_lane", 0),
                                 "n": len(specs)}, wait_ack=False)
             response_pending = True
 
     if response_pending:
         response_conn.wait_ack()
-    metrics_dir = os.getenv("VLLM_LEARN_METRICS_DIR")
-    if metrics_dir:
-        import json
-        os.makedirs(metrics_dir, exist_ok=True)
-        torch.cuda.synchronize()
-        with open(os.path.join(metrics_dir, f"memory_rank{rank}.json"), "w") as f:
-            json.dump({"rank": rank, "gpu": torch.cuda.current_device(),
-                       "pp_stage": pp_rank, "ep_rank": ep_rank, "tp_rank": tp_rank,
-                       "allocated_bytes": torch.cuda.memory_allocated(),
-                       "peak_allocated_bytes": torch.cuda.max_memory_allocated(),
-                       "reserved_bytes": torch.cuda.memory_reserved(),
-                       "kv_cache_bytes": runner.kv_cache.numel() * runner.kv_cache.element_size(),
-                       "local_parameter_bytes": sum(t.numel() * t.element_size()
-                                                    for t in runner.model.parameters())}, f)
-    if profiler is not None and profile_open:
-        torch.cuda.synchronize()
-        profiler.__exit__(None, None, None)
-    if profiler is not None and profile_window:
-        import json
-        with open(os.path.join(profile_dir, f"capture_rank{rank}.json"), "w") as f:
-            json.dump({"rank": rank, "mode": "window", "start_message": profile_start,
-                "requested_messages": profile_messages, "captured_messages": captured_messages,
-                "cuda_drained_before_export": True,
-                "measurement": "profile-only; synchronization and export distort throughput"}, f)
+    runner.shutdown()
     if pp_size > 1 and STATE.pipeline_transport is not None:
         STATE.pipeline_transport.shutdown()
-    trace_dir = os.getenv("VLLM_LEARN_TRACE_DIR")
-    if trace_dir:
-        import json
-        os.makedirs(trace_dir, exist_ok=True)
-        transport_trace = list(getattr(STATE.pipeline_transport, "trace", []))
-        origin = 0.0  # perf_counter shares one monotonic clock on this host.
-        layer_range = [getattr(runner.model.model, "pp_start", 0),
-                       getattr(runner.model.model, "pp_end", 0)]
-        events = []
-        for event in trace_events:
-            events.append({
-                "name": event["name"], "cat": event["cat"], "ph": "X",
-                "ts": (event["ts"] - origin) * 1e6,
-                "dur": max(0.0, event["end"] - event["ts"]) * 1e6,
-                "pid": rank, "tid": "compute",
-                "args": {"stage": pp_rank,
-                         "message_index": event["message_index"],
-                         "is_prefill": event["is_prefill"],
-                         "variant": event["variant"],
-                         "microbatch_id": event["microbatch_id"],
-                         "lane": event["lane"], "layer_range": layer_range},
-            })
-        for event in transport_trace:
-            events.append({
-                "name": "pp." + event["kind"], "cat": "p2p", "ph": "X",
-                "ts": (event["start"] - origin) * 1e6,
-                "dur": max(0.0, event["end"] - event["start"]) * 1e6,
-                "pid": rank, "tid": "comm",
-                "args": {"stage": event.get("stage", pp_rank),
-                         "microbatch_id": event["microbatch_id"],
-                         "lane": event["lane"],
-                         "variant": event.get("variant", "optimized")},
-            })
-        for event in getattr(STATE, "trace_events", []):
-            events.append({
-                "name": event["name"], "cat": event["cat"], "ph": "X",
-                "ts": (event["start"] - origin) * 1e6,
-                "dur": max(0.0, event["end"] - event["start"]) * 1e6,
-                "pid": rank, "tid": "layer",
-                "args": {"stage": event["stage"],
-                         "layer": event["layer"],
-                         "microbatch_id": event["microbatch_id"],
-                         "lane": event["lane"],
-                         "layer_range": layer_range},
-            })
-        with open(os.path.join(trace_dir, f"pipeline_rank{rank}.json"),
-                  "w", encoding="utf-8") as f:
-            json.dump({
-                "displayTimeUnit": "ms", "traceEvents": events,
-                "metadata": {"rank": rank, "pp_stage": pp_rank,
-                             "gpu": torch.cuda.current_device(),
-                             "clock": "host_monotonic_us", "measurement": "CPU submission, not GPU duration",
-                             "tp_rank": tp_rank, "ep_rank": ep_rank,
-                             "pipeline_mode": engine_kwargs.get(
-                                 "pipeline_mode", "optimized"),
-                             "layer_range": layer_range},
-            }, f, ensure_ascii=False)
-    if os.getenv("VLLM_LEARN_PROFILE_EXPERTS", "0") == "1":
-        import json
-        path = os.getenv("VLLM_LEARN_PROFILE_DIR", "/tmp")
-        os.makedirs(path, exist_ok=True)
-        with open(os.path.join(path, f"qwen_expert_profile_rank{rank}.json"), "w", encoding="utf-8") as f:
-            json.dump({"rank": rank, "tp_rank": tp_rank, "ep_rank": ep_rank,
-                       "pp_rank": pp_rank, "profile": runner.model.expert_profile()},
-                      f, ensure_ascii=False)
     if world_size > 1:
+        torch.cuda.synchronize()  # Idle DP replies can precede device collective completion.
         dist.destroy_process_group()
     # Release the child-side pipes and shared-memory handles.  The parent
     # owns unlinking; closing here keeps multiprocessing.resource_tracker from
