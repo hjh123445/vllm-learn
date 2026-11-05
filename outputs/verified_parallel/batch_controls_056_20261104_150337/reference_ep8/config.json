@@ -1,0 +1,44 @@
+{
+  "model": "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+  "output": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_controls_056_20261104_150337/reference_ep8",
+  "inputs": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/batch_controls_056_20261104_150337/code/fixtures/inputs.json",
+  "generate_only": false,
+  "ep": 8,
+  "pp": 1,
+  "tp": 1,
+  "dp": 1,
+  "budget": 512,
+  "microbatch_tokens": 128,
+  "lanes": 2,
+  "mode": "optimized",
+  "workloads": "short128,context4k8,mixed64",
+  "repeats": 3,
+  "max_kv_blocks": 256,
+  "ablate": false,
+  "engine_config": {
+    "max_num_seqs": 128,
+    "max_model_len": 8192,
+    "max_num_batched_tokens": 512,
+    "max_kvcache_blocks": 256,
+    "gpu_memory_utilization": 0.7,
+    "enforce_eager": true,
+    "enable_prefix_caching": false
+  },
+  "ep_shard_replicated_input": true,
+  "numerical_policy": {
+    "VLLM_LEARN_EXPERT_BACKEND": "torch_grouped",
+    "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "1",
+    "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+    "VLLM_LEARN_REFERENCE_MATH": "1",
+    "VLLM_LEARN_MOE_REDUCTION": "fp32",
+    "VLLM_LEARN_ATTENTION_BACKEND": "sdpa_reference"
+  },
+  "source_sha256": {
+    "layers/moe.py": "2df4c9ba66ed1623b8cd0b6cf480891b596896ade6e36366200e4f681e8b4bc4",
+    "layers/parallel.py": "53add30bf0daef80b5002f5bce538d8ef3cc79798248248decf21426a7dee92c",
+    "engine/core.py": "99e4371231b9a87de08fa48c7078e75d5cdd4a3128c1401f4527877ff6ceb2f6",
+    "engine/worker.py": "4c9a1b9601db73fe0578743269bfedbe4935058af72c310798945b0bb85a6d96"
+  },
+  "measurement": "local engine completion timestamps, excluding initialization; no HTTP",
+  "inputs_sha256": "6dfb53d73aa8de3405afa0d8f29382f1cacd046639c9df382f2de3a745e6a9bf"
+}

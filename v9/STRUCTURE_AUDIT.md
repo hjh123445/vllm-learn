@@ -8,7 +8,7 @@
 - `engine/worker.py`：一个 GPU 一个 worker process；初始化 process group、模型组件和 profiler；负责 CUDA/NCCL执行。
 - `engine/mq.py`：pickle + 单槽 shared-memory控制消息与 ACK。控制面；模型activation仍由 NCCL管理。
 - `engine/frontend.py`：一个DP副本一个独立 supervisor/EngineCore进程树；分配互斥物理GPU。当前离线step_all会join所有副本，存在慢副本barrier。
-- `engine/process_groups.py`：所有worker以相同rank顺序建立 TP/CP/EP group；PP仍使用默认P2P process group。
+- `engine/process_groups.py`：所有worker以相同rank顺序建立 TP/CP/EP group；PP默认使用world P2P group；另有opt-in邻接stage专用communicator，待匹配负载验证。
 - `layers/linear.py` / `layers/parallel.py`：线性权重装载时按TP shard；RowParallel触发TP all-reduce。
 - `layers/moe.py`：本地专家权重形状为 `[E_local, ...]`；EP是变长all-to-allv dispatch/combine，TP×EP路径只在combine之后做TP归约。
 - `engine/pipeline_transport.py`：stage间异步P2P、单独comm stream、CUDA event依赖、lane与发送credit；shape header需要worker调用recv后才能收到，payload随后分配，接收端仍同步等待。
@@ -23,6 +23,13 @@
 - 四卡TP2×EP2合成numerical oracle检查FP32/BF16、不同EP来源token长度及一个空source rank，通过。
 - 专家计数在模型显存warmup后重置；profiler window扩展至长prefill真实CUDA activity。
 - 初始化CPU thread oversubscription经实测可用OMP/MKL线程数4缓解。
+
+## 2026-11-04 补充验收结论
+
+- 全模型跨拓扑 greedy 有分歧，HF 数值认证尚未通过；上面的重复通过只证明同拓扑重复性，不能作为参考正确性结论。
+- 默认 EP 复制 attention 输入，并重复 dispatch routes；opt-in token ownership 减少重复 MoE 工作，但恢复 hidden 要 gather，目前已测负载未获稳定加速。尚未实现官方 attention-DP + 跨 DP EP。
+- worker 已有初始化超时与进程存活检测；DP supervisor 到 frontend 的 Pipe RPC 仍缺完整超时与健康协议，应单独处理，不能笼统说所有路径都已有故障隔离。
+- 本项目 CP/TP/EP 是独立设备坐标，官方 DCP/EP 的设备复用规则不同；详见 VLLM_ARCH.md。
 
 ## 仍需优先处理
 

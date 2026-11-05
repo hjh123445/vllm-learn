@@ -33,3 +33,23 @@ def create_groups(rank, tp_size, cp_size, ep_size, pp_size):
         if rank in members:
             groups[name] = group
     return groups
+
+
+def create_pipeline_edge_groups(rank, inner_size, pp_size):
+    """Isolate each adjacent PP link from other links and world collectives.
+
+    Every worker creates groups in the same order, including nonmembers.
+    Two-rank groups avoid serializing unrelated P2P links on an eagerly
+    initialized NCCL world communicator. Returns this rank's input/output link.
+    """
+    import torch.distributed as dist
+    incoming, outgoing = None, None
+    for stage in range(pp_size - 1):
+        for inner in range(inner_size):
+            members = [stage * inner_size + inner, (stage + 1) * inner_size + inner]
+            group = dist.new_group(ranks=members)
+            if rank == members[0]:
+                outgoing = group
+            elif rank == members[1]:
+                incoming = group
+    return incoming, outgoing

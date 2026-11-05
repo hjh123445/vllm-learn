@@ -45,6 +45,18 @@ class ModelRunner:
         self.kv_cache = None
         self._warmup_model()
         self.allocate_kv_cache()
+        # Diagnostics are enabled only after memory-sizing warmup. Capturing
+        # CPU logits synchronizes the device and must never be used for speed.
+        self._logit_capture_dir = os.getenv("VLLM_LEARN_LOGITS_DIR")
+        self._logit_capture_count = 0
+        self._logit_capture_limit = int(os.getenv("VLLM_LEARN_LOGITS_LIMIT", "128"))
+        capture_dir = os.getenv("VLLM_LEARN_ACTIVATIONS_DIR")
+        if capture_dir:
+            from layers.parallel import STATE
+            if STATE.tp_rank == STATE.ep_rank == STATE.cp_rank == 0:
+                from utils.activation_capture import install_activation_capture
+                self._activation_handles = install_activation_capture(
+                    self.model, capture_dir, STATE.pp_rank)
 
     # ================= 显存 =================
 
@@ -151,10 +163,15 @@ class ModelRunner:
             peak = torch.cuda.memory_stats()["allocated_bytes.all.peak"]
             budget = int(total * config.gpu_memory_utilization) - used - peak + current
         config.num_kvcache_blocks = budget // block_bytes
+        if config.max_kvcache_blocks is not None:
+            config.num_kvcache_blocks = min(config.num_kvcache_blocks, config.max_kvcache_blocks)
         if config.num_kvcache_blocks <= 0:
-            print(f"[池诊断] total={total/1e9:.1f} used={used/1e9:.1f} current={current/1e9:.1f} "
-                  f"block={block_bytes/1e6:.1f}MB budget={budget/1e9:.1f}GB", flush=True)
-        assert config.num_kvcache_blocks > 0
+            raise RuntimeError(
+                f'KV cache budget exhausted: total={total/1e9:.2f} GB, '
+                f'used={used/1e9:.2f} GB, model_allocated={current/1e9:.2f} GB, '
+                f'budget={budget/1e9:.2f} GB, block={block_bytes/1e6:.2f} MB. '
+                'Reduce memory demand or choose a device with more free memory; '
+                'gpu_memory_utilization applies to total device memory, including other processes.')
         self.kv_cache = torch.empty(2, _n, config.num_kvcache_blocks,
                                     self.block_size, num_kv_heads, head_dim,
                                     dtype=self.dtype, device=self.device)
@@ -230,12 +247,22 @@ class ModelRunner:
     @torch.inference_mode()
     def run(self, seqs: list[Sequence], is_prefill: bool,
             pipeline_lane: int = 0, microbatch_id: int = 0) -> list[int]:
+        # Numerical reproducibility mode: keep each request's GEMM M shape
+        # equal to its single-request path. Every PP worker receives the same
+        # ordered sequence list and applies the same split. This intentionally
+        # sacrifices batch fusion and remains opt-in.
+        from layers.parallel import STATE
+        if self.config.batch_execution_mode == "per_request" and len(seqs) > 1:
+            result = []
+            for seq in seqs:
+                result.extend(self.run([seq], is_prefill, pipeline_lane,
+                                      microbatch_id))
+            return result
         if is_prefill:
             input_ids, positions = self.prepare_prefill(seqs)
         else:
             input_ids, positions = self.prepare_decode(seqs)
         # lane/微批元数据只用于 PP transport 的调度和 trace，不改变模型数学。
-        from layers.parallel import STATE
         STATE.pipeline_lane = pipeline_lane
         STATE.microbatch_id = microbatch_id
         with torch.autograd.profiler.record_function(
@@ -251,7 +278,32 @@ class ModelRunner:
             logits = self.model.compute_logits(hidden[last])
         else:
             logits = self.model.compute_logits(hidden)
+        if getattr(self, "_logit_capture_dir", None):
+            self._capture_logits(logits, seqs, is_prefill)
         temperatures = torch.tensor([seq.temperature for seq in seqs],
                                     dtype=torch.float32, device=self.device)
         return self.sampler(logits, temperatures).tolist()
+
+    def _capture_logits(self, logits, seqs, is_prefill):
+        """Save terminal-query rows on one final-stage replica, for oracles."""
+        from pathlib import Path
+        from layers.parallel import STATE
+        if STATE.ep_rank or STATE.tp_rank or getattr(STATE, "cp_rank", 0):
+            return
+        if self._logit_capture_count >= self._logit_capture_limit:
+            raise RuntimeError("Diagnostic logits limit exceeded; reduce probe size")
+        selected = [i for i, seq in enumerate(seqs)
+                    if seq.num_cached_tokens + seq.num_scheduled_tokens >= len(seq)]
+        if not selected:
+            return
+        path = Path(self._logit_capture_dir)
+        path.mkdir(parents=True, exist_ok=True)
+        record = dict(logits=logits[selected].float().cpu(),
+                      seq_ids=[seqs[i].seq_id for i in selected],
+                      prompt_lengths=[len(seqs[i]) for i in selected],
+                      pp_rank=STATE.pp_rank, is_prefill=is_prefill,
+                      measurement="synchronizing numerical diagnostic; no throughput")
+        filename = path / f"logits_stage{STATE.pp_rank}_{self._logit_capture_count:04d}.pt"
+        torch.save(record, filename)
+        self._logit_capture_count += 1
 

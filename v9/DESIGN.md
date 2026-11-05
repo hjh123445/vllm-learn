@@ -1,3 +1,5 @@
+> 历史设计材料（2026-11-04 审计）：下文混合旧模型、H20 与不同版本实验、估计及尚未实现的路线，不是当前 Qwen3-Omni-30B / 8×A800 的能力或性能验收报告。旧的 28 层、1800/5551 tok/s、CUDA graph 约 3x 等数字不得用于本轮对比；当前模型为 48 层，尚未完成同机官方基线及全模型 HF 精度认证。本文的“几乎白送”“已知主因”和“vLLM 同款”是历史假设，不是当前实验证据。PP 当前没有训练 1F1B/DualPipe；量化与投机解码未接入 serving。以 VLLM_ARCH.md、PARALLELISM_COMPARISON.md 和任务输出中文报告为当前事实来源。
+
 # v9 设计：并行 × 量化——同一堵墙的两个攻面
 
 > 状态：组件级 TP/EP、EngineCore、shared-memory 控制面和 PP 微批 transport 已实施；DeepEP fused kernel 与完整 1F1B scheduler 仍未实施。先行实验数据已实测（§II.1.5, §II.2 的 B1 陷阱）。
@@ -232,6 +234,11 @@ L3 端到端:   greedy 分歧率（vs bf16 引擎，同 prompt 同 seed）
 标准（bf16 两个 batch size 都可能分歧）。合格线建议：greedy 分歧率 <5% 且
 分歧处语义等价、ppl 上升 <0.5%。TP/EP 的数值裁决（逐位一致）与量化的裁决
 （统计一致）是两套标准——文档里必须分开写清楚。
+
+对未量化的 BF16 推理，执行形状变化也可能改动 GEMM 舍入，并经 MoE router 的
+top-k 放大成离散 token 分叉。当前 `Config.batch_execution_mode` 默认 `batched`
+以保留 GEMM 融合；`per_request` 按请求独立执行，已用于 EP8 短输入/1K 上下文和
+PP2×EP4 小样本的数值复核。该模式牺牲吞吐，不能当作默认优化或全负载确定性证明。
 
 ### II.3.5 收益可见性的诚实分析（结合 I.1 的 launch-bound 现实）
 

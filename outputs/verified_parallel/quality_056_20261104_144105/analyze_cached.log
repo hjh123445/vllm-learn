@@ -1,0 +1,1 @@
+{'cached_teacher_pp2ep4': {'cases': 384, 'matches': 384, 'worst_abs': 0.0}, 'cached_teacher_ep8_batch': {'cases': 384, 'matches': 371, 'worst_abs': 4.6875}, 'cached_teacher_ep8': {'cases': 384, 'matches': 384, 'worst_abs': 0.0}, 'cached_teacher_pp2ep4_batch': {'cases': 384, 'matches': 371, 'worst_abs': 4.6875}}

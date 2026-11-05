@@ -1,0 +1,6 @@
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_section', 'interleaved'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_section', 'interleaved'}
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8269 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.9
+  → KV 池 128 blocks × 256 tok (3.22 GB, 每 block 25.17 MB, 激活预算 实测 0.09 GB)
+{"cases": 12, "exact_matches": 8, "passed": false, "scope": "Synthetic HF continuation parity including cached decode; not a quality benchmark", "caution": "After first divergence, later positions have different input prefixes"}

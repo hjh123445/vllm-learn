@@ -1,0 +1,234 @@
+{
+  "scope": "single request vs first request of a repeated-prompt batch; full prefill rows when available, otherwise decode row 0",
+  "sequence_tokens": 47,
+  "single_fixture_index": 0,
+  "batch_fixture_index": 0,
+  "batch_is_repeated_prompt": true,
+  "serialize_requests": true,
+  "single_output_ids": [
+    75882,
+    108704
+  ],
+  "batch_first_output_ids": [
+    75882,
+    108704
+  ],
+  "first_output_ids_match": true,
+  "first_divergence": null,
+  "layers": [
+    {
+      "label": "embedding",
+      "parts": {
+        "input.0": {
+          "exact": true,
+          "different_elements": 0
+        },
+        "output.tensor": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 96256,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        }
+      }
+    },
+    {
+      "label": "layer0.q_proj",
+      "parts": {
+        "input.0": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 96256,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "output.tensor": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 192512,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        }
+      }
+    },
+    {
+      "label": "layer0.k_proj",
+      "parts": {
+        "input.0": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 96256,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "output.tensor": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 24064,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        }
+      }
+    },
+    {
+      "label": "layer0.v_proj",
+      "parts": {
+        "input.0": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 96256,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "output.tensor": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 24064,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        }
+      }
+    },
+    {
+      "label": "layer0.o_proj",
+      "parts": {
+        "input.0": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 192512,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "output.tensor": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 96256,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        }
+      }
+    },
+    {
+      "label": "layer0.attention",
+      "parts": {
+        "input.0": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 96256,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "input.1": {
+          "exact": true,
+          "different_elements": 0
+        },
+        "output.tensor": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 96256,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        }
+      }
+    },
+    {
+      "label": "layer0.router",
+      "parts": {
+        "input.0": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 96256,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "output.0": {
+          "exact": true,
+          "different_elements": 0
+        },
+        "output.1": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 376,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        }
+      }
+    },
+    {
+      "label": "layer0.moe",
+      "parts": {
+        "input.0": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 96256,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "output.tensor": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 96256,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        }
+      }
+    },
+    {
+      "label": "layer0.block",
+      "parts": {
+        "input.0": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 96256,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "input.1": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 96256,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "input.2": {
+          "exact": true,
+          "different_elements": 0
+        },
+        "output.0": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 96256,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "output.1": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 96256,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        }
+      }
+    },
+    {
+      "label": "lm_head",
+      "parts": {
+        "input.0": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 2048,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "output.tensor": {
+          "exact": true,
+          "different_elements": 0,
+          "elements": 152064,
+          "max_abs": 0.0,
+          "rmse": 0.0
+        }
+      }
+    }
+  ],
+  "note": "Synchronized activation capture is numerical diagnosis only, not performance data."
+}

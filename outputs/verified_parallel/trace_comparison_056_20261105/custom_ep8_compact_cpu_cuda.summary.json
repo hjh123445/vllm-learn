@@ -1,0 +1,100 @@
+{
+  "schema": "chrome_trace_event_format",
+  "displayTimeUnit": "ms",
+  "clock": "torch.profiler/CUPTI timestamps in microseconds; baseTimeNanoseconds preserved per rank",
+  "scope": "custom EP8 first message window; CPU annotations + CUDA runtime + GPU stream + NCCL/kernel events",
+  "selection": "rank*.stage0.message1.mb0.prefill +/- 1 ms; profile-only, not throughput",
+  "ranks": [
+    {
+      "rank": 0,
+      "raw_file": "outputs\\verified_parallel\\rollout_trace_056_20261104_152543\\trace_ep8\\trace\\cuda_rank0.json",
+      "message": "rank0.stage0.message1.mb0.prefill",
+      "start_us": 2920577897925.183,
+      "end_us": 2920578434976.164,
+      "base_time_ns": 1790857026000000000,
+      "raw_events": 454737,
+      "selected_ranges": 192
+    },
+    {
+      "rank": 1,
+      "raw_file": "outputs\\verified_parallel\\rollout_trace_056_20261104_152543\\trace_ep8\\trace\\cuda_rank1.json",
+      "message": "rank1.stage0.message1.mb0.prefill",
+      "start_us": 2920577907420.528,
+      "end_us": 2920578434988.2827,
+      "base_time_ns": 1790857026000000000,
+      "raw_events": 457620,
+      "selected_ranges": 192
+    },
+    {
+      "rank": 2,
+      "raw_file": "outputs\\verified_parallel\\rollout_trace_056_20261104_152543\\trace_ep8\\trace\\cuda_rank2.json",
+      "message": "rank2.stage0.message1.mb0.prefill",
+      "start_us": 2920577906090.952,
+      "end_us": 2920578435174.7363,
+      "base_time_ns": 1790857026000000000,
+      "raw_events": 452620,
+      "selected_ranges": 192
+    },
+    {
+      "rank": 3,
+      "raw_file": "outputs\\verified_parallel\\rollout_trace_056_20261104_152543\\trace_ep8\\trace\\cuda_rank3.json",
+      "message": "rank3.stage0.message1.mb0.prefill",
+      "start_us": 2920577899272.563,
+      "end_us": 2920578435057.549,
+      "base_time_ns": 1790857026000000000,
+      "raw_events": 459738,
+      "selected_ranges": 192
+    },
+    {
+      "rank": 4,
+      "raw_file": "outputs\\verified_parallel\\rollout_trace_056_20261104_152543\\trace_ep8\\trace\\cuda_rank4.json",
+      "message": "rank4.stage0.message1.mb0.prefill",
+      "start_us": 2920577902073.259,
+      "end_us": 2920578434554.632,
+      "base_time_ns": 1790857026000000000,
+      "raw_events": 452829,
+      "selected_ranges": 192
+    },
+    {
+      "rank": 5,
+      "raw_file": "outputs\\verified_parallel\\rollout_trace_056_20261104_152543\\trace_ep8\\trace\\cuda_rank5.json",
+      "message": "rank5.stage0.message1.mb0.prefill",
+      "start_us": 2920577895085.712,
+      "end_us": 2920578434514.2607,
+      "base_time_ns": 1790857026000000000,
+      "raw_events": 415645,
+      "selected_ranges": 192
+    },
+    {
+      "rank": 6,
+      "raw_file": "outputs\\verified_parallel\\rollout_trace_056_20261104_152543\\trace_ep8\\trace\\cuda_rank6.json",
+      "message": "rank6.stage0.message1.mb0.prefill",
+      "start_us": 2920577894070.83,
+      "end_us": 2920578435246.372,
+      "base_time_ns": 1790857026000000000,
+      "raw_events": 458807,
+      "selected_ranges": 192
+    },
+    {
+      "rank": 7,
+      "raw_file": "outputs\\verified_parallel\\rollout_trace_056_20261104_152543\\trace_ep8\\trace\\cuda_rank7.json",
+      "message": "rank7.stage0.message1.mb0.prefill",
+      "start_us": 2920577908275.611,
+      "end_us": 2920578434892.9956,
+      "base_time_ns": 1790857026000000000,
+      "raw_events": 458008,
+      "selected_ranges": 192
+    }
+  ],
+  "events": 249549,
+  "categories": {
+    "user_annotation": 5023,
+    "kernel": 81289,
+    "cuda_runtime": 146140,
+    "gpu_memcpy": 10846,
+    "gpu_memset": 424,
+    "nccl": 1920,
+    "gpu_user_annotation": 3867,
+    "?": 40
+  }
+}

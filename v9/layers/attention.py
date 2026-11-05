@@ -10,6 +10,7 @@ v8.2 新增 DCP 分支：KV cache 按块染色分片到 cp 维各 rank——
 TP 与 DCP 正交：TP 切头（cp 组内各 rank 头相同），DCP 切位置（cp 组内
 各 rank 行不同）——cp 组恰好是 LSE 合并需要的通信域（coords.group("cp")）。
 """
+import os
 import torch
 import torch.distributed as dist
 from torch import nn
@@ -27,6 +28,9 @@ class Attention(nn.Module):
         self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim
         self.scale = scale
+        self.backend = os.getenv('VLLM_LEARN_ATTENTION_BACKEND', 'sdpa_reference')
+        if self.backend not in ('triton', 'sdpa_reference'):
+            raise ValueError('attention backend must be triton or sdpa_reference')
         self.k_cache = self.v_cache = torch.tensor([])   # ModelRunner 分配后指过来
 
     def forward(self, q, k, v, positions, q_norm_w, k_norm_w, cos_sin_cache, eps):
@@ -39,7 +43,19 @@ class Attention(nn.Module):
                                      positions, slot_mapping,
                                      self.k_cache, self.v_cache, eps)
         if dcp.active:
+            if self.backend == 'sdpa_reference':
+                raise ValueError('SDPA numerical oracle does not support DCP')
             return self._dcp_attention(q)
+        if self.backend == 'sdpa_reference':
+            from layers.attention_reference import paged_sdpa
+            if ctx.is_prefill:
+                cq, ck = ctx.cu_seqlens_q.tolist(), ctx.cu_seqlens_k.tolist()
+                qlens = [b-a for a,b in zip(cq, cq[1:])]
+                klens = [b-a for a,b in zip(ck, ck[1:])]
+            else:
+                qlens, klens = [1]*q.shape[0], ctx.context_lens.tolist()
+            return paged_sdpa(q, self.k_cache, self.v_cache, ctx.block_tables,
+                              qlens, klens, self.scale)
         if ctx.is_prefill:
             return prefill_attn(q, self.k_cache, self.v_cache, ctx.block_tables,
                                  ctx.cu_seqlens_q, ctx.cu_seqlens_k,

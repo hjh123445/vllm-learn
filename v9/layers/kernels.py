@@ -12,9 +12,23 @@
                          融成一个 kernel，q 归一化 rope 后返回，
                          k 归一化 rope 后直接散射进 cache 槽位（v 原样写入）
 注意：cache 偏移一律先转 int64（13000 block × 26 万元素/block 会溢出 int32）。"""
+import os
 import torch
 import triton
 import triton.language as tl
+
+
+# The fused variants have not passed the full-model cached oracle. Keep the
+# validated math as the default; fast kernels remain an explicit experiment.
+_REFERENCE_MATH = os.getenv("VLLM_LEARN_REFERENCE_MATH", "1") == "1"
+_REFERENCE_RMS = os.getenv("VLLM_LEARN_REFERENCE_RMS", str(int(_REFERENCE_MATH))) == "1"
+_REFERENCE_QK = os.getenv("VLLM_LEARN_REFERENCE_QK", str(int(_REFERENCE_MATH))) == "1"
+
+
+def _reference_rmsnorm(x, weight, eps):
+    value = x.float()
+    value = value * torch.rsqrt(value.square().mean(-1, keepdim=True) + eps)
+    return weight * value.to(x.dtype)
 
 
 # ================= 残差加法 + RMSNorm 融合 =================
@@ -28,8 +42,10 @@ def _add_rmsnorm_kernel(X, RES, W, OUT, N, EPS, BLOCK: tl.constexpr):
     x = tl.load(X + row * N + cols, mask=mask, other=0.0).to(tl.float32)
     r = tl.load(RES + row * N + cols, mask=mask, other=0.0).to(tl.float32)
     x = x + r
+    x = x.to(RES.dtype.element_ty).to(tl.float32)
     var = tl.sum(x * x, 0) / N
     y = x * tl.math.rsqrt(var + EPS)
+    y = y.to(OUT.dtype.element_ty).to(tl.float32)
     w = tl.load(W + cols, mask=mask, other=0.0).to(tl.float32)
     tl.store(OUT + row * N + cols, (y * w).to(OUT.dtype.element_ty), mask=mask)
     tl.store(RES + row * N + cols, x.to(RES.dtype.element_ty), mask=mask)
@@ -38,11 +54,16 @@ def _add_rmsnorm_kernel(X, RES, W, OUT, N, EPS, BLOCK: tl.constexpr):
 def fused_add_rmsnorm(x: torch.Tensor, residual: torch.Tensor,
                       weight: torch.Tensor, eps: float):
     """返回 (normed_out, new_residual)。residual 被原地更新。"""
+    if _REFERENCE_RMS:
+        # HF materializes the residual addition in model dtype, then rounds
+        # the normalized value before multiplying the model-dtype weight.
+        residual.add_(x)
+        return _reference_rmsnorm(residual, weight, eps), residual
     T, N = x.shape
     out = torch.empty_like(x)
     _add_rmsnorm_kernel[(T,)](x, residual, weight, out, N, eps,
                                BLOCK=triton.next_power_of_2(N),
-                               num_warps=8 if N >= 4096 else 4)
+                               num_warps=8 if N >= 4096 else 4, enable_fp_fusion=False)
     return out, residual
 
 
@@ -56,7 +77,8 @@ def _silu_mul_kernel(X, OUT, M, BLOCK: tl.constexpr):
     mask = cols < M
     gate = tl.load(X + row * 2 * M + cols, mask=mask, other=0.0).to(tl.float32)
     up = tl.load(X + row * 2 * M + M + cols, mask=mask, other=0.0).to(tl.float32)
-    y = gate / (1.0 + tl.math.exp(-gate)) * up
+    silu = (gate / (1.0 + tl.math.exp(-gate))).to(OUT.dtype.element_ty).to(tl.float32)
+    y = silu * up
     tl.store(OUT + row * M + cols, y.to(OUT.dtype.element_ty), mask=mask)
 
 
@@ -102,10 +124,14 @@ def _qk_norm_rope_store_kernel(Q, K, V, WQ, WK, QOUT, CS, POS, SLOT, KC, VC,
     inv = tl.math.rsqrt(var + EPS)
     wq1 = tl.load(WQ + d2).to(tl.float32)
     wq2 = tl.load(WQ + HD // 2 + d2).to(tl.float32)
-    x1 = x1 * inv[:, None] * wq1[None, :]
-    x2 = x2 * inv[:, None] * wq2[None, :]
-    tl.store(QOUT + off_q1, (cos[None, :] * x1 - sin[None, :] * x2).to(QOUT.dtype.element_ty))
-    tl.store(QOUT + off_q2, (sin[None, :] * x1 + cos[None, :] * x2).to(QOUT.dtype.element_ty))
+    x1 = ((x1 * inv[:, None]).to(Q.dtype.element_ty).to(tl.float32) * wq1[None, :]).to(Q.dtype.element_ty).to(tl.float32)
+    x2 = ((x2 * inv[:, None]).to(Q.dtype.element_ty).to(tl.float32) * wq2[None, :]).to(Q.dtype.element_ty).to(tl.float32)
+    qc1 = (cos[None, :] * x1).to(Q.dtype.element_ty).to(tl.float32)
+    qs2 = (sin[None, :] * x2).to(Q.dtype.element_ty).to(tl.float32)
+    qs1 = (sin[None, :] * x1).to(Q.dtype.element_ty).to(tl.float32)
+    qc2 = (cos[None, :] * x2).to(Q.dtype.element_ty).to(tl.float32)
+    tl.store(QOUT + off_q1, (qc1 - qs2).to(QOUT.dtype.element_ty))
+    tl.store(QOUT + off_q2, (qs1 + qc2).to(QOUT.dtype.element_ty))
 
     # ---- k：norm + rope → cache；v：原样 → cache ----
     hk = tl.arange(0, HK)[:, None]
@@ -119,14 +145,18 @@ def _qk_norm_rope_store_kernel(Q, K, V, WQ, WK, QOUT, CS, POS, SLOT, KC, VC,
     inv = tl.math.rsqrt(var + EPS)
     wk1 = tl.load(WK + d2).to(tl.float32)
     wk2 = tl.load(WK + HD // 2 + d2).to(tl.float32)
-    k1 = k1 * inv[:, None] * wk1[None, :]
-    k2 = k2 * inv[:, None] * wk2[None, :]
+    k1 = ((k1 * inv[:, None]).to(K.dtype.element_ty).to(tl.float32) * wk1[None, :]).to(K.dtype.element_ty).to(tl.float32)
+    k2 = ((k2 * inv[:, None]).to(K.dtype.element_ty).to(tl.float32) * wk2[None, :]).to(K.dtype.element_ty).to(tl.float32)
+    kc1 = (cos[None, :] * k1).to(K.dtype.element_ty).to(tl.float32)
+    ks2 = (sin[None, :] * k2).to(K.dtype.element_ty).to(tl.float32)
+    ks1 = (sin[None, :] * k1).to(K.dtype.element_ty).to(tl.float32)
+    kc2 = (cos[None, :] * k2).to(K.dtype.element_ty).to(tl.float32)
     # slot < 0 = DCP 门控丢弃（本 rank 不持有该块）——mask 掉 store。
     # mask 需与 value 同形可广播（标量不行，构 [1, HD//2]）
     keep = (d2[None, :] >= 0) & (slot >= 0)
-    tl.store(KC + off_c1, (cos[None, :] * k1 - sin[None, :] * k2).to(KC.dtype.element_ty),
+    tl.store(KC + off_c1, (kc1 - ks2).to(KC.dtype.element_ty),
              mask=keep)
-    tl.store(KC + off_c2, (sin[None, :] * k1 + cos[None, :] * k2).to(KC.dtype.element_ty),
+    tl.store(KC + off_c2, (ks1 + kc2).to(KC.dtype.element_ty),
              mask=keep)
     # v：[HK, HD] 原样
     d = tl.arange(0, HD)
@@ -139,10 +169,27 @@ def _qk_norm_rope_store_kernel(Q, K, V, WQ, WK, QOUT, CS, POS, SLOT, KC, VC,
 def fused_qk_norm_rope_store(q, k, v, q_norm_w, k_norm_w, cos_sin_cache,
                             positions, slot_mapping, k_cache, v_cache, eps):
     """返回 rope 后的 q（k/v 已写进 cache）。"""
+    if _REFERENCE_QK:
+        cache = cos_sin_cache[positions].reshape(q.shape[0], 1, q.shape[-1])
+        cos, sin = cache.chunk(2, dim=-1)
+        cos = torch.cat((cos, cos), dim=-1).to(q.dtype)
+        sin = torch.cat((sin, sin), dim=-1).to(q.dtype)
+
+        def rotate(value, weight):
+            value = _reference_rmsnorm(value, weight, eps)
+            first, second = value.chunk(2, dim=-1)
+            return value*cos + torch.cat((-second, first), dim=-1)*sin
+
+        q_out, k_out = rotate(q, q_norm_w), rotate(k, k_norm_w)
+        keep = slot_mapping >= 0
+        slots = slot_mapping[keep].long()
+        k_cache.view(-1, k.shape[1], k.shape[2])[slots] = k_out[keep]
+        v_cache.view(-1, v.shape[1], v.shape[2])[slots] = v[keep]
+        return q_out
     T, HQ, HD = q.shape
     HK = k.shape[1]
     q_out = torch.empty_like(q)
     _qk_norm_rope_store_kernel[(T,)](
         q, k, v, q_norm_w, k_norm_w, q_out, cos_sin_cache, positions, slot_mapping,
-        k_cache, v_cache, eps, HQ=HQ, HK=HK, HD=HD, MAXB=0, BT_ROW_STRIDE=0)
+        k_cache, v_cache, eps, HQ=HQ, HK=HK, HD=HD, MAXB=0, BT_ROW_STRIDE=0, enable_fp_fusion=False)
     return q_out

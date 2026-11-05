@@ -20,11 +20,13 @@ import sys
 import threading
 import time
 import uuid
+import math
+import queue
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from engine.async_engine import AsyncEngine
+from engine.async_engine import AsyncEngine, EngineOverloaded
 from samplingParams import SamplingParams
 
 
@@ -32,6 +34,15 @@ class Handler(BaseHTTPRequestHandler):
     engine: AsyncEngine = None
     tokenizer = None
     protocol_version = "HTTP/1.1"      # keep-alive
+    request_timeout = 300.0
+    max_body_bytes = 1024 * 1024
+    max_output_tokens = 4096
+    metrics_path = None
+    metrics_lock = threading.Lock()
+
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(120)
 
     def log_message(self, fmt, *args):  # 静默访问日志
         pass
@@ -50,87 +61,132 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/health":
-            self._json(200, {"status": "ok", "running": not self.engine.engine.is_finished()})
+            stats = self.engine.stats()
+            self._json(200 if stats['accepting'] else 503, dict(status="ok" if stats['accepting'] else "unavailable", **stats))
         else:
             self._json(404, {"error": "not found"})
 
     # ---------------- POST /v1/chat/completions ----------------
 
     def do_POST(self):
+        started = time.perf_counter()
         if self.path != "/v1/chat/completions":
             self._json(404, {"error": "not found"})
             return
-        n = int(self.headers.get("Content-Length", 0))
+        rid, st, request_id = "chatcmpl-" + uuid.uuid4().hex[:12], None, None
+        stream_started = False
+        record = dict(id=rid, start=started, status='error')
         try:
+            if self.headers.get('Transfer-Encoding'):
+                raise ValueError('chunked request bodies are unsupported')
+            n = int(self.headers.get("Content-Length", 0))
+            if not 0 < n <= self.max_body_bytes:
+                raise ValueError('request body missing or exceeds size limit')
             req = json.loads(self.rfile.read(n))
-        except Exception as e:
-            self._json(400, {"error": f"bad json: {e}"})
-            return
-        messages = req.get("messages")
-        if not messages:
-            self._json(400, {"error": "messages required"})
-            return
-        stream = bool(req.get("stream", False))
-        sp = SamplingParams(
-            temperature=float(req.get("temperature", 0.7)),
-            max_tokens=int(req.get("max_tokens", 128)),
-        )
-        prompt = self.tokenizer.apply_chat_template(messages, tokenize=False,
-                                                    add_generation_prompt=True)
-        rid = "chatcmpl-" + uuid.uuid4().hex[:12]
-        t0 = time.perf_counter()
-        _, st = self.engine.add(prompt, sp)
-
-        if stream:
-            # SSE + chunked 传输
-            self.send_response(200)
-            self.send_header("Content-Type", "text/event-stream")
-            self.send_header("Cache-Control", "no-cache")
-            self.send_header("Transfer-Encoding", "chunked")
-            self.end_headers()
+            if not isinstance(req, dict):
+                raise ValueError('body must be a JSON object')
+            messages = req.get('messages')
+            if not isinstance(messages, list) or not messages:
+                raise ValueError('messages required')
+            if any(not isinstance(m, dict) or not isinstance(m.get('content'), str)
+                   or m.get('role') not in ('system','user','assistant') for m in messages):
+                raise ValueError('this endpoint currently supports text messages only')
+            stream = req.get('stream', False)
+            limit = req.get('max_tokens', 128)
+            temperature = float(req.get('temperature', .7))
+            if type(stream) is not bool or type(limit) is not int or not 1 <= limit <= self.max_output_tokens:
+                raise ValueError('invalid stream or max_tokens')
+            if not math.isfinite(temperature) or temperature < 0:
+                raise ValueError('invalid temperature')
+            if req.get('n', 1) != 1 or req.get('stop') or 'top_p' in req:
+                raise ValueError('n>1, stop strings and top_p are not implemented')
+            record['parsed'] = time.perf_counter()
+            prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            record['templated'] = time.perf_counter()
+            prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)
+            record['tokenized'] = time.perf_counter()
+            record['prompt_tokens'] = len(prompt_ids)
+            if self.metrics_path: record['input_ids'] = prompt_ids
+            request_id, st = self.engine.add(prompt_ids, SamplingParams(temperature=temperature,max_tokens=limit))
+            record['submitted'] = time.perf_counter()
 
             def send(obj):
-                payload = (b"data: " + json.dumps(obj, ensure_ascii=False).encode() + b"\n\n")
+                data = obj if isinstance(obj,str) else json.dumps(obj,ensure_ascii=False)
+                payload = ('data: ' + data + '\n\n').encode()
                 self.wfile.write(f"{len(payload):x}\r\n".encode() + payload + b"\r\n")
                 self.wfile.flush()
-
-            send({"id": rid, "object": "chat.completion.chunk",
-                  "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]})
-            ids, prev_text, first_t = [], "", None
+            def chunk(delta, reason=None):
+                return dict(id=rid,object='chat.completion.chunk',choices=[dict(index=0,delta=delta,finish_reason=reason)])
+            if stream:
+                self.send_response(200)
+                self.send_header('Content-Type','text/event-stream')
+                self.send_header('Cache-Control','no-cache')
+                self.send_header('Transfer-Encoding','chunked')
+                self.end_headers()
+                stream_started = True
+                send(chunk(dict(role='assistant')))
+            ids, emitted = [], ''
+            deadline = started + self.request_timeout
             while True:
-                t = st.q.get()
-                if t is None:
+                remaining = deadline-time.perf_counter()
+                if remaining <= 0:
+                    raise TimeoutError('request deadline exceeded')
+                try:
+                    token = st.q.get(timeout=min(1., remaining))
+                except queue.Empty:
+                    continue
+                if token is None:
+                    if st.error:
+                        raise st.error
                     break
-                if first_t is None:
-                    first_t = time.perf_counter() - t0      # 首 token 到达
-                ids.append(t)
-                # 增量文本 = 全量 decode 的差量（BPE 字节级切词，单 token decode 不安全）
-                full = self.tokenizer.decode(ids, skip_special_tokens=True)
-                delta = full[len(prev_text):]
-                prev_text = full
-                if delta:
-                    send({"id": rid, "object": "chat.completion.chunk",
-                          "choices": [{"index": 0, "delta": {"content": delta}, "finish_reason": None}]})
-            send({"id": rid, "object": "chat.completion.chunk",
-                  "choices": [{"index": 0, "delta": {},
-                               "finish_reason": st.finish_reason or "stop"}]})
-            self.wfile.write(b"0\r\n\r\n")
-            self.wfile.flush()
-            print(f"[server] {rid} stream done: {len(ids)} tok, "
-                  f"ttft {first_t*1e3:.0f}ms, total {time.perf_counter()-t0:.2f}s", flush=True)
-        else:
-            toks = []
-            while True:
-                t = st.q.get()
-                if t is None:
-                    break
-                toks.append(t)
-            text = self.tokenizer.decode(toks, skip_special_tokens=True)
-            self._json(200, {"id": rid, "object": "chat.completion",
-                             "choices": [{"index": 0, "message": {"role": "assistant", "content": text},
-                                           "finish_reason": st.finish_reason or "stop"}],
-                             "usage": {"completion_tokens": len(toks)}})
-            print(f"[server] {rid} done: {len(toks)} tok, {time.perf_counter()-t0:.2f}s", flush=True)
+                record.setdefault('first_token_consumed',time.perf_counter())
+                ids.append(token)
+                if stream:
+                    full = self.tokenizer.decode(ids,skip_special_tokens=True,clean_up_tokenization_spaces=False).rstrip('\ufffd')
+                    if not full.startswith(emitted):
+                        raise RuntimeError('tokenizer revised an already emitted text prefix')
+                    delta=full[len(emitted):]
+                    if delta:
+                        send(chunk(dict(content=delta)))
+                        record.setdefault('first_content_flushed',time.perf_counter())
+                        emitted=full
+            text=self.tokenizer.decode(ids,skip_special_tokens=True,clean_up_tokenization_spaces=False)
+            if stream:
+                if not text.startswith(emitted):
+                    raise RuntimeError('unstable terminal text prefix')
+                if len(text)>len(emitted):send(chunk(dict(content=text[len(emitted):])))
+                send(chunk({},st.finish_reason))
+                send('[DONE]')
+                self.wfile.write(b'0\r\n\r\n');self.wfile.flush()
+            else:
+                self._json(200,dict(id=rid,object='chat.completion',choices=[dict(index=0,
+                    message=dict(role='assistant',content=text),finish_reason=st.finish_reason)],
+                    usage=dict(prompt_tokens=len(prompt_ids),completion_tokens=len(ids),total_tokens=len(prompt_ids)+len(ids))))
+            record.update(status='ok',completion_tokens=len(ids))
+            if self.metrics_path: record['output_ids'] = ids
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            record['status']='disconnected'
+        except Exception as exc:
+            record['error']=str(exc)
+            code=429 if isinstance(exc,EngineOverloaded) else (400 if isinstance(exc,(ValueError,TypeError)) else (504 if isinstance(exc,TimeoutError) else 500))
+            record['http_status']=code
+            try:
+                if stream_started:
+                    send(dict(error=dict(message=str(exc),code=code)))
+                    send('[DONE]')
+                    self.wfile.write(b'0\r\n\r\n');self.wfile.flush()
+                else:
+                    self.close_connection=True
+                    self._json(code,dict(error=dict(message=str(exc),code=code)))
+            except OSError: pass
+        finally:
+            if request_id is not None:self.engine.abort(request_id)
+            record['finished']=time.perf_counter()
+            if st is not None:record['engine_times']=dict(st.times)
+            if self.metrics_path:
+                with self.metrics_lock:
+                    with open(self.metrics_path,'a',encoding='utf-8') as f:
+                        f.write(json.dumps(record,ensure_ascii=False)+'\n')
 
 
 def main():
@@ -141,6 +197,16 @@ def main():
     ap.add_argument("--max-num-seqs", type=int, default=8)
     ap.add_argument("--max-model-len", type=int, default=4096)
     ap.add_argument("--gpu-mem-util", type=float, default=0.3)
+    ap.add_argument('--max-num-batched-tokens',type=int,default=2048)
+    ap.add_argument('--max-kvcache-blocks',type=int,default=None)
+    ap.add_argument('--disable-prefix-caching',action='store_true')
+    ap.add_argument('--batch-execution-mode', choices=('batched', 'per_request'),
+                    default='batched',
+                    help='per_request preserves single-request numerical shapes at a throughput cost')
+    ap.add_argument('--max-pending-requests',type=int,default=1024)
+    ap.add_argument('--stream-buffer-tokens',type=int,default=256)
+    ap.add_argument('--request-timeout',type=float,default=300.)
+    ap.add_argument('--metrics-path',default=None)
     ap.add_argument("--tensor-parallel-size", type=int, default=1)
     ap.add_argument("--expert-parallel-size", type=int, default=1)
     ap.add_argument("--pipeline-parallel-size", type=int, default=1)
@@ -155,12 +221,20 @@ def main():
 
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(args.model)
+    template_path = os.path.join(args.model, 'chat_template.json')
+    if os.path.isfile(template_path):
+        with open(template_path,encoding='utf-8') as f:
+            tok.chat_template = json.load(f)['chat_template']
     gpus = ([int(x) for x in args.gpus.split(",") if x.strip()]
             if args.gpus else None)
     engine = AsyncEngine(
         args.model, max_num_seqs=args.max_num_seqs,
         max_model_len=args.max_model_len,
         gpu_memory_utilization=args.gpu_mem_util, enforce_eager=True,
+        max_num_batched_tokens=args.max_num_batched_tokens,
+        max_kvcache_blocks=args.max_kvcache_blocks,enable_prefix_caching=not args.disable_prefix_caching,
+        batch_execution_mode=args.batch_execution_mode,
+        max_pending_requests=args.max_pending_requests,stream_buffer_tokens=args.stream_buffer_tokens,
         tensor_parallel_size=args.tensor_parallel_size,
         expert_parallel_size=args.expert_parallel_size,
         pipeline_parallel_size=args.pipeline_parallel_size,
@@ -172,6 +246,8 @@ def main():
 
     Handler.engine = engine
     Handler.tokenizer = tok
+    Handler.request_timeout=args.request_timeout
+    Handler.metrics_path=args.metrics_path
     ThreadingHTTPServer.request_queue_size = 256   # 64+ 并发同时建连不打爆 accept 队列（默认 5）
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
 

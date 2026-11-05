@@ -1,131 +1,58 @@
-# v9.4：vLLM v1 形态的进程架构 + 全并行矩阵
+# v9 当前进程与并行架构（2026-11-04）
 
-> 对标源码：/data/ryxu/vllm（v1 目录）。本文档是读源码后的设计映射，
-> 不是抄源码——接口对齐 vLLM 语义，实现用我们的组件栈。
+本文描述当前代码，并把已实现、参考设计和未完成能力分开。支持拓扑参数不代表任意组合均通过模型精度与性能验收。实验、原始数据和中文分析见本任务 outputs/verified_parallel。
 
----
+## 参考版本
 
-## 0. vLLM v1 的真实架构（源码确认的事实）
+源码对照为官方 vLLM commit `d6b48f928f922849db55751ceadbbb55a5a85260`，远端只读路径 `/data/ryxu/vllm`，版本描述 `v0.21.1rc0-359-gd6b48f928`。准备运行的隔离基线是 vLLM **0.13.0**，两者必须分开标注。API、executor 和微批调度随版本变化，本文不把某一版的实现当作所有 vLLM 版本的规则。
 
-```
-进程 1: 前端（AsyncLLM / HTTP SSE）           ← v1/engine/async_llm.py
-   ↕ ZMQ socket（EngineCoreClient: MPClient）  ← v1/engine/core_client.py
-进程 2: EngineCore                             ← v1/engine/core.py
-   ├── Scheduler（唯一决策者）                  ← v1/core/sched/scheduler.py
-   ├── Detokenizer / OutputProcessor
-   └── Executor
-        ├── UniProcExecutor（单卡）: ModelRunner 是【同进程对象】
-        └── MultiprocExecutor（多卡）: spawn N 个 WorkerProc 子进程
-             ↕ 共享内存 MessageQueue（不是 NCCL！）  ← shm_broadcast.py
-             ├─ scheduler_output 广播: 1 写者（EngineCore）→ N 读者（worker）
-             └─ worker_response: 每 worker 一个 MQ → driver worker 汇聚
+## 进程和控制面
+
+```text
+DPFrontend（离线前端、请求全局 ID、round-robin 路由）
+  ├─ DP replica 0：独立 supervisor / EngineCore
+  │    ├─ Scheduler、KV block 元数据、Executor 驱动
+  │    └─ 每 GPU 一个 WorkerProc / ModelRunner
+  └─ DP replica 1：另一组 supervisor / EngineCore / WorkerProc
+       ...
 ```
 
-关键事实（推翻我们 v6.4 的假设）：
-1. **scheduler 与 executor 同进程**（EngineCore 内），worker 进程里没有 scheduler；
-2. 多卡的调度下发走 **shm MessageQueue 广播**（pickle 的 Python 对象，结构化），
-   不是固定形状 NCCL 张量——我们 v6.4 的固定张量方案是在"没有 EngineCore 主进程"
-   的约束下发明的变通（N 个全等进程只能靠 NCCL 对话）；有了 EngineCore 形态，
-   shm MQ 天然无错位问题（每条消息自带长度/元数据）；
-3. **前端与 EngineCore 独立进程**（ZMQ）——流式输入输出解耦，engine 崩溃可重启；
-4. NCCL 只用于 worker 之间的**前向内通信**（TP allreduce / EP a2a / PP p2p），
-   不用于调度下发。
+本项目 engine/frontend.py 为各 DP 副本创建独立进程树和互斥 GPU 集合；每副本各有 scheduler、模型权重和 KV cache。step_all() 用线程并发驱动各副本再 join，仍有慢副本屏障；它不是完全异步在线服务前端，也不是训练 DDP。
 
-## 1. 我们的迁移映射
+engine/core.py 的 EngineCore 是本副本 scheduler 的唯一 owner，生成结构化 step/microbatch 消息。engine/mq.py 使用 pickle、共享内存槽、notification 与 ACK；这是控制面，不是 GPU tensor 的零拷贝传输。worker 的 TP/EP/PP 激活通信在 GPU 数据面执行。
 
-| vLLM 概念 | 我们的对应（现状 → 目标） |
-|---|---|
-| EngineCore（含 scheduler） | LLMEngine（现在含 scheduler+runner）→ 拆出 **EngineCore**（scheduler+executor） |
-| WorkerProc（子进程） | 无 → **新增**：每 GPU 一个 mp.Process，内含 ModelRunner |
-| MessageQueue（shm 广播） | v6.4 固定张量 NCCL broadcast → **替换为 shm MQ** |
-| AsyncLLM + ZMQ 前端 | v5 的异步引擎 → 前端独立进程，ZMQ 连 EngineCore |
-| UniProcExecutor | 单卡路径：worker 同进程直调（vLLM 同款退化） |
-| virtual engine / micro-batch | 无 → PP 的流水调度 |
-| data_parallel_rank 路由 | ParallelCoords 有 dp 维但无请求分发 → 实现 |
+官方 v1 通常把 scheduler 和 executor 放在 EngineCore；前端/EngineCore 由客户端协议连接，多进程 executor 可使用共享内存消息队列。detokenizer/output processor 通常属于前端输出处理链，不应画成 EngineCore 固有成员。具体单/多进程方式取决于 executor 和版本。
 
-## 2. v9.4a：EngineCore + WorkerProc（本版核心）
+## 本项目拓扑不等于官方 vLLM 拓扑
 
-```
-v9/engine/core.py      EngineCore: busy loop = scheduler.schedule() → MQ 广播
-                       → 等 driver worker 的 response → scheduler.update_from_output
-v9/engine/worker.py    WorkerProc: 主循环 = MQ.recv(scheduler_output)
-                       → model_runner.run() → response MQ.send
-v9/engine/mq.py        轻量 shm 消息队列（multiprocessing.Queue 即可起步，
-                       vLLM 的 shm_broadcast 是零拷贝优化，后续可选）
-```
+本项目物理 worker 数为 `DP × PP × EP × TP × CP`。TP、EP 是正交坐标；EP 切专家编号，TP 还会切同一个专家的 intermediate 维。DCP 也使用本项目独立的 CP 坐标，不能直接套用官方 DCP 的 GPU 数公式。
 
-**SchedulerOutput 序列化**（对齐 vLLM 的结构化消息，不再是张量）：
-```python
-@dataclass
-class SchedulerOutput:
-    scheduled: list[SeqSpec]   # (seq_id, is_prefill, num_scheduled, block_table, tokens)
-    finished: list[int]        # 本步完成的 seq_id
-```
-worker 收到后构造 forward 输入（v6.4 _SeqSpec 的职责，但每条消息独立、
-无跨步状态 → 不存在"镜像状态列不全"的坑）。
+官方参考版本 vllm/config/parallel.py:152 将 EP 描述为 MoE 层采用专家并行来代替 tensor parallel。parallel.py:769 中单 DP 副本 world size 为 PP×TP×prefill-CP；distributed/parallel_state.py:1688 的 EP group 大小包含 DP×prefill-CP×TP。EP 通常复用 attention 的 TP/DP ranks，并不是额外乘出的设备轴；官方 DCP 同样复用 TP 设备（parallel_state.py:1611）。
 
-**Worker 的 forward 输入同步**：TP/EP 下所有 worker 必须跑同一批 token。
-vLLM 的保证 = scheduler_output 广播到所有 worker（同一条消息）——
-我们的 MQ 广播同样保证。
+因此，本项目 **DP2×EP4 是两个各自完整的 EP4 专家池**。官方 attention-DP2 与跨 DP 的 EP 组合可以让两个 attention 分片共享更大的专家池，必须协调 collective/空 batch，不能说 DP ranks 永远零通信。官方 TP8+EP 在 8 张卡上采用 attention-TP8 / expert-EP8；本项目 TP8×EP8 则需要 64 张卡，是另一种结构。
 
-**权重加载**：worker 进程内 ModelRunner 构造时读 ParallelState 切片
-（v9.3 组件化的直接受益——launcher 只需在 fork 后 configure_parallel）。
+本项目当前 EP peers 收到同一 attention batch，默认重复 dense attention/router。opt-in ownership 仅切分进入 MoE 的 token，combine 后 gather 恢复复制 hidden；它不等于完整 attention-DP。官方 EP 也不能概括为所有 ranks 都处理相同 token。
 
-## 3. v9.4b：DP
+## TP、EP 和装载边界
 
-vLLM 语义：dp_size 个 **完整 EngineCore**（各自的 scheduler + KV cache +
-完整模型副本），前端按 `data_parallel_rank` 路由请求（round-robin 或
-load-aware）。**DP rank 之间零通信**（除了 metrics 汇聚）。
+layers/linear.py、layers/parallel.py、layers/moe.py 的组件持有 shard 与 collective 语义；loader 做 checkpoint 名称映射，再调用组件 weight_loader。当前不是在额外 parallel.py 中通过 monkey patch 劫持整个模型 forward。
 
-我们的实现：
-```
-前端进程: 请求队列 → dp_rank = i % dp_size 分发
-EngineCore_i (i=0..dp_size-1): 独立 busy loop
-   内部: TP/EP worker 们（DP 与 TP/EP 正交：dp×tp×ep 总进程数）
-```
-单机 8 卡的 DP2×TP4 = 2 个 EngineCore，各管 4 张卡。**TP 组在 EngineCore
-内部的 worker 集合上建**（ ParallelCoords 的 (dp,tp,cp,ep,pp) 坐标直接适用）。
+本地专家权重为 `[E_local, 2*I_local, H]` 与 `[E_local, H, I_local]`。EP dispatch 交换 per-peer counts 后使用变长 all_to_all_single，expert 计算后 reverse combine；源 rank 恢复 route 顺序、聚合 top-k，再在 TP group 归约专家 intermediate partial。该 TP 归约是本项目布局的要求，不可原样解释官方 EP 内核。
 
-## 4. v9.4c：PP
+模型激活仍用 NCCL；shared-memory MQ 解决 CPU 调度消息广播。官方 GPU communicator 还可能按硬件和消息条件选 CUDA IPC custom all-reduce 等，不能说 vLLM 的 TP 一律只走 NCCL，更不能把 Python shared memory 当成 NVLink 通信替代。
 
-vLLM 语义（源码要点）：
-- `make_layers` + `get_pp_indices`: 每个阶段持层区间 [start, end)，
-  区间外的层用 `PPMissingLayer`（Identity）占位——**层索引全局对齐**，
-  checkpoint 名字不变；
-- 微批（virtual engine）：EngineCore 维护 num_stages 个 in-flight batch，
-  第 i 个微批的输出经过 p-1 次 p2p 激活传递后从最后 stage 流出；
-- **scheduler 只在 stage 0 生效**（PP 的调度一致性由"同一个 scheduler_output
-  广播到所有 stage 的 worker"保证——每 stage 收到同一批请求，但只算自己的层）。
+## PP 和 virtual engine 的准确状态
 
-我们的实现：
-```
-模型层: models/qwen3_moe.py 的 layers 用 get_pp_indices 切区间,
-        区间外 PPMissingLayer 占位（loader 按名字跳过——param 不存在则跳）
-worker: stage>0 的额外输入 = 上游传来的 hidden（p2p recv 替代 embedding）
-        stage<p-1 的输出 = hidden 发给下游（不进 lm_head）
-EngineCore: 微批调度（1F1B 起步，schedule 的 batch 池按 stage 数翻倍）
-```
+PP 按全局 layer index 连续切分，非本 stage 的层用不持参数的占位模块保持 checkpoint 名字。PP2 对 48 层为 L0–23 / L24–47；stage 间传 hidden 与 residual。
 
-## 5. v9.4d：DCP 检查（回答"DCP 有没有集成在 layers/模型"）
+当前 EngineCore 按完整 Sequence 组成 microbatch，不能在同一个 step 内任意切开一个长 Sequence；token budget 对单个超长请求不是硬边界。VirtualEnginePool 管理在途 microbatch 的 lane/slot 状态，Core 窗口最多两条消息。worker 一次处理一条消息，接收 header 后分配 payload 并等待；send 可在独立 communication stream 异步进行，有 CUDA event 和 send credit。可选邻接 stage 专用 P2P group 正在与 world group 对照。
 
-**是的，已在组件层**：`layers/attention.py` 的 DCP 分支（store 门控 +
-partial/LSE 合并）读 `get_dcp()` 的全局状态——worker 进程内 forward 时
-生效，与 WorkerProc 架构天然兼容（每个 worker 独立持有自己的 cache 分片）。
-**缺口**：v9 快照从 v8 拷来时 DCP 的 set_dcp 注入点要在 worker 初始化里
-补一行（v8.2 是 launcher 注入的）。
+这些是 forward-only 推理微批原型。没有 backward，因此不能叫 1F1B；lane 不代表同卡多 stage。非一一 stage 映射目前明确拒绝，完整 virtual-engine scheduler、同卡多 chunk 交错、预投递接收、DeepSeek 训练 DualPipe 和 zero-bubble 均未完成。scheduler 位于 EngineCore host，不是“stage 0 的 GPU 内”。
 
-## 6. 里程碑与验证
+数值复核可通过 `batch_execution_mode="per_request"` 让每个 PP worker 按同一顺序逐条执行 batch。这个保守模式已在 PP2×EP4 短输入小样本验证 stage0/stage1 边界，仍会牺牲批量融合；默认 `batched` 路径的跨 M 形状 BF16 数值差异仍需用真实负载验收。
 
-| 小版本 | 内容 | 验证（全部在 172.28.30.56 上跑） |
-|---|---|---|
-| v9.4a | EngineCore + WorkerProc + shm MQ | 单卡 inproc == 单进程逐位一致；TP2 双卡 token 级 vs 单卡 |
-| v9.4b | DP2（×TP2 = 4 卡） | 两 dp rank 各自吞吐 ≈ 单 rank；输出与单卡一致 |
-| v9.4c | PP2（微批 1F1B） | token 级 vs 单卡；bubble 实测 vs 理论 (p-1)/(m+p-1) |
-| v9.4d | 全矩阵 DP×TP×EP×PP×DCP 扫描 | ParallelCoords 任意坐标可跑；对比表 |
+## 验收边界与当前环境
 
-## 7. 实验环境约束（用户指令）
+用户已授权在 172.29.226.143 的任务仓库进行 8×A800 实验，2026-11-04 北京时间 09:00 前停止，本任务 supervisor 截止设为 08:59。只管理本任务 process group。
 
-**172.29.226.143（本机）禁止跑实验**——只做代码修改 + CPU 单测。
-全部 GPU 实验迁 **172.28.30.56**（同机房，之前 v6 跨节点实测过的对端节点，
-A800 ×8，SSH 免密已配）。跑前需确认：该机 Python 环境/模型缓存路径/
-GPU 空闲状态。
+CPU 拓扑/状态机、四卡 TP2×EP2 的小张量 oracle、若干模型拓扑运行与 greedy 重复检查已经提供证据，但**全模型 HF 数值认证尚未通过，跨拓扑 greedy 有分歧**。因此性能表只表示当前实现的测量，不能据此宣称与官方等价、正确性全面通过或优于 vLLM。多模态 HF probe、量化组件和投机解码历史原型也不能当作当前 serving 已集成能力。

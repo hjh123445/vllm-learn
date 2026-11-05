@@ -1,0 +1,1 @@
+{"rank": 4, "gpu": 4, "pp_stage": 1, "ep_rank": 0, "tp_rank": 0, "allocated_bytes": 12644087296, "peak_allocated_bytes": 12839267840, "reserved_bytes": 13918797824, "kv_cache_bytes": 3221225472, "local_parameter_bytes": 9412231168}

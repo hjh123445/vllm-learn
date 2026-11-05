@@ -1,0 +1,151 @@
+INFO 11-04 15:11:33 [utils.py:263] non-default args: {'dtype': 'bfloat16', 'max_model_len': 8192, 'tensor_parallel_size': 8, 'enable_expert_parallel': True, 'block_size': 16, 'enable_prefix_caching': False, 'gpu_memory_utilization': 0.7, 'max_num_batched_tokens': 512, 'max_num_seqs': 128, 'disable_log_stats': True, 'enforce_eager': True, 'limit_mm_per_prompt': {'image': 0, 'audio': 0, 'video': 0}, 'num_gpu_blocks_override': 4096, 'enable_chunked_prefill': True, 'model': '/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct'}
+Unrecognized keys in `rope_scaling` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section', 'interleaved'}
+Unrecognized keys in `rope_scaling` for 'rope_type'='default': {'mrope_section', 'interleaved'}
+INFO 11-04 15:11:33 [model.py:530] Resolved architecture: Qwen3OmniMoeForConditionalGeneration
+INFO 11-04 15:11:33 [model.py:1545] Using max model len 8192
+INFO 11-04 15:11:34 [scheduler.py:229] Chunked prefill is enabled with max_num_batched_tokens=512.
+INFO 11-04 15:11:34 [vllm.py:630] Asynchronous scheduling is enabled.
+INFO 11-04 15:11:34 [vllm.py:637] Disabling NCCL for DP synchronization when using async scheduling.
+WARNING 11-04 15:11:34 [vllm.py:665] Enforce eager set, overriding optimization level to -O0
+INFO 11-04 15:11:34 [vllm.py:765] Cudagraph is disabled under eager mode
+INFO 11-04 15:11:36 [registry.py:138] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:11:41 [core.py:97] Initializing a V1 LLM engine (v0.14.1) with config: model='/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct', speculative_config=None, tokenizer='/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=8192, download_dir=None, load_format=auto, tensor_parallel_size=8, pipeline_parallel_size=1, data_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=True, enable_return_routed_experts=False, kv_cache_dtype=auto, device_config=cuda, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_fallback=False, disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False), seed=0, served_model_name=/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct, enable_prefix_caching=False, enable_chunked_prefill=True, pooler_config=None, compilation_config={'level': None, 'mode': <CompilationMode.NONE: 0>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'inductor', 'custom_ops': ['all'], 'splitting_ops': [], 'compile_mm_encoder': False, 'compile_sizes': [], 'compile_ranges_split_points': [512], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.NONE: 0>, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': [], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': False, 'fuse_act_quant': False, 'fuse_attn_quant': False, 'eliminate_noops': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False}, 'max_cudagraph_capture_size': 0, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': True}, 'local_cache_dir': None}
+INFO 11-04 15:11:49 [registry.py:138] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 11-04 15:11:49 [registry.py:138] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 11-04 15:11:49 [registry.py:138] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 11-04 15:11:49 [registry.py:138] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 11-04 15:11:49 [registry.py:138] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 11-04 15:11:50 [registry.py:138] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 11-04 15:11:50 [registry.py:138] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 11-04 15:11:50 [registry.py:138] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 11-04 15:11:53 [parallel_state.py:1214] world_size=8 rank=0 local_rank=0 distributed_init_method=tcp://127.0.0.1:42387 backend=nccl
+INFO 11-04 15:11:53 [parallel_state.py:1214] world_size=8 rank=1 local_rank=1 distributed_init_method=tcp://127.0.0.1:42387 backend=nccl
+INFO 11-04 15:11:53 [parallel_state.py:1214] world_size=8 rank=5 local_rank=5 distributed_init_method=tcp://127.0.0.1:42387 backend=nccl
+INFO 11-04 15:11:53 [parallel_state.py:1214] world_size=8 rank=3 local_rank=3 distributed_init_method=tcp://127.0.0.1:42387 backend=nccl
+INFO 11-04 15:11:53 [parallel_state.py:1214] world_size=8 rank=7 local_rank=7 distributed_init_method=tcp://127.0.0.1:42387 backend=nccl
+INFO 11-04 15:11:53 [parallel_state.py:1214] world_size=8 rank=2 local_rank=2 distributed_init_method=tcp://127.0.0.1:42387 backend=nccl
+INFO 11-04 15:11:53 [parallel_state.py:1214] world_size=8 rank=4 local_rank=4 distributed_init_method=tcp://127.0.0.1:42387 backend=nccl
+INFO 11-04 15:11:53 [parallel_state.py:1214] world_size=8 rank=6 local_rank=6 distributed_init_method=tcp://127.0.0.1:42387 backend=nccl
+INFO 11-04 15:11:53 [pynccl.py:111] vLLM is using nccl==2.27.7
+WARNING 11-04 15:11:54 [symm_mem.py:67] SymmMemCommunicator: Device capability 8.0 not supported, communicator is not available.
+WARNING 11-04 15:11:54 [symm_mem.py:67] SymmMemCommunicator: Device capability 8.0 not supported, communicator is not available.
+WARNING 11-04 15:11:54 [symm_mem.py:67] SymmMemCommunicator: Device capability 8.0 not supported, communicator is not available.
+WARNING 11-04 15:11:54 [symm_mem.py:67] SymmMemCommunicator: Device capability 8.0 not supported, communicator is not available.
+WARNING 11-04 15:11:54 [symm_mem.py:67] SymmMemCommunicator: Device capability 8.0 not supported, communicator is not available.
+WARNING 11-04 15:11:54 [symm_mem.py:67] SymmMemCommunicator: Device capability 8.0 not supported, communicator is not available.
+WARNING 11-04 15:11:54 [symm_mem.py:67] SymmMemCommunicator: Device capability 8.0 not supported, communicator is not available.
+WARNING 11-04 15:11:54 [symm_mem.py:67] SymmMemCommunicator: Device capability 8.0 not supported, communicator is not available.
+INFO 11-04 15:11:55 [parallel_state.py:1425] rank 6 in world size 8 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 6, EP rank 6
+INFO 11-04 15:11:55 [parallel_state.py:1425] rank 4 in world size 8 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 4, EP rank 4
+INFO 11-04 15:11:55 [parallel_state.py:1425] rank 7 in world size 8 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 7, EP rank 7
+INFO 11-04 15:11:55 [parallel_state.py:1425] rank 0 in world size 8 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank 0
+INFO 11-04 15:11:55 [parallel_state.py:1425] rank 1 in world size 8 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 1, EP rank 1
+INFO 11-04 15:11:55 [parallel_state.py:1425] rank 5 in world size 8 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 5, EP rank 5
+INFO 11-04 15:11:55 [parallel_state.py:1425] rank 2 in world size 8 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 2, EP rank 2
+INFO 11-04 15:11:55 [parallel_state.py:1425] rank 3 in world size 8 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 3, EP rank 3
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m INFO 11-04 15:11:56 [gpu_model_runner.py:3808] Starting to load model /data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct...
+[0;36m(Worker_TP4_EP4 pid=3353497)[0;0m WARNING 11-04 15:11:56 [qwen3_omni_moe_thinker.py:1215] flash_attn is not available, the model may not yield the exactly same result as the transformers implementation in the audio tower part.
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m WARNING 11-04 15:11:56 [qwen3_omni_moe_thinker.py:1215] flash_attn is not available, the model may not yield the exactly same result as the transformers implementation in the audio tower part.
+[0;36m(Worker_TP7_EP7 pid=3353500)[0;0m WARNING 11-04 15:11:56 [qwen3_omni_moe_thinker.py:1215] flash_attn is not available, the model may not yield the exactly same result as the transformers implementation in the audio tower part.
+[0;36m(Worker_TP6_EP6 pid=3353499)[0;0m WARNING 11-04 15:11:56 [qwen3_omni_moe_thinker.py:1215] flash_attn is not available, the model may not yield the exactly same result as the transformers implementation in the audio tower part.
+[0;36m(Worker_TP5_EP5 pid=3353498)[0;0m WARNING 11-04 15:11:56 [qwen3_omni_moe_thinker.py:1215] flash_attn is not available, the model may not yield the exactly same result as the transformers implementation in the audio tower part.
+[0;36m(Worker_TP2_EP2 pid=3353495)[0;0m WARNING 11-04 15:11:56 [qwen3_omni_moe_thinker.py:1215] flash_attn is not available, the model may not yield the exactly same result as the transformers implementation in the audio tower part.
+[0;36m(Worker_TP4_EP4 pid=3353497)[0;0m INFO 11-04 15:11:56 [mm_encoder_attention.py:86] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m INFO 11-04 15:11:56 [mm_encoder_attention.py:86] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+[0;36m(Worker_TP7_EP7 pid=3353500)[0;0m INFO 11-04 15:11:56 [mm_encoder_attention.py:86] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+[0;36m(Worker_TP6_EP6 pid=3353499)[0;0m INFO 11-04 15:11:56 [mm_encoder_attention.py:86] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+[0;36m(Worker_TP5_EP5 pid=3353498)[0;0m INFO 11-04 15:11:56 [mm_encoder_attention.py:86] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+[0;36m(Worker_TP4_EP4 pid=3353497)[0;0m INFO 11-04 15:11:56 [vllm.py:630] Asynchronous scheduling is enabled.
+[0;36m(Worker_TP4_EP4 pid=3353497)[0;0m WARNING 11-04 15:11:56 [vllm.py:672] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+[0;36m(Worker_TP4_EP4 pid=3353497)[0;0m INFO 11-04 15:11:56 [vllm.py:765] Cudagraph is disabled under eager mode
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m INFO 11-04 15:11:56 [vllm.py:630] Asynchronous scheduling is enabled.
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m WARNING 11-04 15:11:56 [vllm.py:672] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m INFO 11-04 15:11:56 [vllm.py:765] Cudagraph is disabled under eager mode
+[0;36m(Worker_TP7_EP7 pid=3353500)[0;0m INFO 11-04 15:11:56 [vllm.py:630] Asynchronous scheduling is enabled.
+[0;36m(Worker_TP7_EP7 pid=3353500)[0;0m WARNING 11-04 15:11:56 [vllm.py:672] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+[0;36m(Worker_TP7_EP7 pid=3353500)[0;0m INFO 11-04 15:11:56 [vllm.py:765] Cudagraph is disabled under eager mode
+[0;36m(Worker_TP6_EP6 pid=3353499)[0;0m INFO 11-04 15:11:56 [vllm.py:630] Asynchronous scheduling is enabled.
+[0;36m(Worker_TP6_EP6 pid=3353499)[0;0m WARNING 11-04 15:11:56 [vllm.py:672] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+[0;36m(Worker_TP6_EP6 pid=3353499)[0;0m INFO 11-04 15:11:56 [vllm.py:765] Cudagraph is disabled under eager mode
+[0;36m(Worker_TP5_EP5 pid=3353498)[0;0m INFO 11-04 15:11:56 [vllm.py:630] Asynchronous scheduling is enabled.
+[0;36m(Worker_TP5_EP5 pid=3353498)[0;0m WARNING 11-04 15:11:56 [vllm.py:672] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+[0;36m(Worker_TP5_EP5 pid=3353498)[0;0m INFO 11-04 15:11:56 [vllm.py:765] Cudagraph is disabled under eager mode
+[0;36m(Worker_TP2_EP2 pid=3353495)[0;0m INFO 11-04 15:11:56 [mm_encoder_attention.py:86] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+[0;36m(Worker_TP3_EP3 pid=3353496)[0;0m WARNING 11-04 15:11:56 [qwen3_omni_moe_thinker.py:1215] flash_attn is not available, the model may not yield the exactly same result as the transformers implementation in the audio tower part.
+[0;36m(Worker_TP1_EP1 pid=3353494)[0;0m WARNING 11-04 15:11:56 [qwen3_omni_moe_thinker.py:1215] flash_attn is not available, the model may not yield the exactly same result as the transformers implementation in the audio tower part.
+[0;36m(Worker_TP2_EP2 pid=3353495)[0;0m INFO 11-04 15:11:56 [vllm.py:630] Asynchronous scheduling is enabled.
+[0;36m(Worker_TP2_EP2 pid=3353495)[0;0m WARNING 11-04 15:11:56 [vllm.py:672] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+[0;36m(Worker_TP2_EP2 pid=3353495)[0;0m INFO 11-04 15:11:56 [vllm.py:765] Cudagraph is disabled under eager mode
+[0;36m(Worker_TP3_EP3 pid=3353496)[0;0m INFO 11-04 15:11:56 [mm_encoder_attention.py:86] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+[0;36m(Worker_TP1_EP1 pid=3353494)[0;0m INFO 11-04 15:11:56 [mm_encoder_attention.py:86] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+[0;36m(Worker_TP3_EP3 pid=3353496)[0;0m INFO 11-04 15:11:56 [vllm.py:630] Asynchronous scheduling is enabled.
+[0;36m(Worker_TP3_EP3 pid=3353496)[0;0m WARNING 11-04 15:11:56 [vllm.py:672] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+[0;36m(Worker_TP3_EP3 pid=3353496)[0;0m INFO 11-04 15:11:56 [vllm.py:765] Cudagraph is disabled under eager mode
+[0;36m(Worker_TP1_EP1 pid=3353494)[0;0m INFO 11-04 15:11:56 [vllm.py:630] Asynchronous scheduling is enabled.
+[0;36m(Worker_TP1_EP1 pid=3353494)[0;0m WARNING 11-04 15:11:56 [vllm.py:672] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+[0;36m(Worker_TP1_EP1 pid=3353494)[0;0m INFO 11-04 15:11:56 [vllm.py:765] Cudagraph is disabled under eager mode
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m INFO 11-04 15:11:56 [cuda.py:351] Using FLASH_ATTN attention backend out of potential backends: ('FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION')
+[0;36m(Worker_TP4_EP4 pid=3353497)[0;0m INFO 11-04 15:11:56 [layer.py:503] [EP Rank 4/8] Expert parallelism is enabled. Expert placement strategy: linear. Local/global number of experts: 16/128. Experts local to global index map: 0->64, 1->65, 2->66, 3->67, 4->68, 5->69, 6->70, 7->71, 8->72, 9->73, 10->74, 11->75, 12->76, 13->77, 14->78, 15->79.
+[0;36m(Worker_TP7_EP7 pid=3353500)[0;0m INFO 11-04 15:11:56 [layer.py:503] [EP Rank 7/8] Expert parallelism is enabled. Expert placement strategy: linear. Local/global number of experts: 16/128. Experts local to global index map: 0->112, 1->113, 2->114, 3->115, 4->116, 5->117, 6->118, 7->119, 8->120, 9->121, 10->122, 11->123, 12->124, 13->125, 14->126, 15->127.
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m INFO 11-04 15:11:56 [layer.py:503] [EP Rank 0/8] Expert parallelism is enabled. Expert placement strategy: linear. Local/global number of experts: 16/128. Experts local to global index map: 0->0, 1->1, 2->2, 3->3, 4->4, 5->5, 6->6, 7->7, 8->8, 9->9, 10->10, 11->11, 12->12, 13->13, 14->14, 15->15.
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m INFO 11-04 15:11:56 [unquantized_fused_moe_method.py:84] FlashInfer CUTLASS MoE is available for EP but not enabled, consider setting VLLM_USE_FLASHINFER_MOE_FP16=1 to enable it.
+[0;36m(Worker_TP6_EP6 pid=3353499)[0;0m INFO 11-04 15:11:56 [layer.py:503] [EP Rank 6/8] Expert parallelism is enabled. Expert placement strategy: linear. Local/global number of experts: 16/128. Experts local to global index map: 0->96, 1->97, 2->98, 3->99, 4->100, 5->101, 6->102, 7->103, 8->104, 9->105, 10->106, 11->107, 12->108, 13->109, 14->110, 15->111.
+[0;36m(Worker_TP5_EP5 pid=3353498)[0;0m INFO 11-04 15:11:56 [layer.py:503] [EP Rank 5/8] Expert parallelism is enabled. Expert placement strategy: linear. Local/global number of experts: 16/128. Experts local to global index map: 0->80, 1->81, 2->82, 3->83, 4->84, 5->85, 6->86, 7->87, 8->88, 9->89, 10->90, 11->91, 12->92, 13->93, 14->94, 15->95.
+[0;36m(Worker_TP2_EP2 pid=3353495)[0;0m INFO 11-04 15:11:56 [layer.py:503] [EP Rank 2/8] Expert parallelism is enabled. Expert placement strategy: linear. Local/global number of experts: 16/128. Experts local to global index map: 0->32, 1->33, 2->34, 3->35, 4->36, 5->37, 6->38, 7->39, 8->40, 9->41, 10->42, 11->43, 12->44, 13->45, 14->46, 15->47.
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards:   0% Completed | 0/15 [00:00<?, ?it/s]
+[0;36m(Worker_TP1_EP1 pid=3353494)[0;0m [0;36m(Worker_TP3_EP3 pid=3353496)[0;0m INFO 11-04 15:11:56 [layer.py:503] [EP Rank 1/8] Expert parallelism is enabled. Expert placement strategy: linear. Local/global number of experts: 16/128. Experts local to global index map: 0->16, 1->17, 2->18, 3->19, 4->20, 5->21, 6->22, 7->23, 8->24, 9->25, 10->26, 11->27, 12->28, 13->29, 14->30, 15->31.
+INFO 11-04 15:11:56 [layer.py:503] [EP Rank 3/8] Expert parallelism is enabled. Expert placement strategy: linear. Local/global number of experts: 16/128. Experts local to global index map: 0->48, 1->49, 2->50, 3->51, 4->52, 5->53, 6->54, 7->55, 8->56, 9->57, 10->58, 11->59, 12->60, 13->61, 14->62, 15->63.
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards:  13% Completed | 2/15 [00:00<00:01,  9.38it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards:  20% Completed | 3/15 [00:00<00:02,  5.52it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards:  27% Completed | 4/15 [00:00<00:02,  4.48it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards:  33% Completed | 5/15 [00:01<00:02,  4.05it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards:  40% Completed | 6/15 [00:01<00:03,  2.96it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards:  47% Completed | 7/15 [00:01<00:02,  3.02it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards:  53% Completed | 8/15 [00:02<00:02,  3.15it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards:  60% Completed | 9/15 [00:02<00:01,  3.25it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards:  67% Completed | 10/15 [00:02<00:01,  3.87it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards:  73% Completed | 11/15 [00:02<00:01,  3.72it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards:  80% Completed | 12/15 [00:03<00:00,  3.65it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards:  87% Completed | 13/15 [00:03<00:00,  3.60it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards:  93% Completed | 14/15 [00:03<00:00,  3.56it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards: 100% Completed | 15/15 [00:04<00:00,  3.53it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m Loading safetensors checkpoint shards: 100% Completed | 15/15 [00:04<00:00,  3.67it/s]
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m 
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m INFO 11-04 15:12:01 [default_loader.py:291] Loading weights took 4.10 seconds
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m INFO 11-04 15:12:01 [gpu_model_runner.py:3905] Model loading took 8.58 GiB memory and 4.756887 seconds
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m WARNING 11-04 15:12:03 [fused_moe.py:1090] Using default MoE config. Performance might be sub-optimal! Config file not found at /data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/vllm014_056_20261104_130658/venv/lib/python3.10/site-packages/vllm/model_executor/layers/fused_moe/configs/E=16,N=768,device_name=NVIDIA_A800-SXM4-80GB.json
+[0;36m(Worker_TP0_EP0 pid=3353493)[0;0m INFO 11-04 15:12:04 [gpu_worker.py:358] Available KV cache memory: 45.86 GiB
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:12:05 [kv_cache_utils.py:819] Overriding num_gpu_blocks=125224 with num_gpu_blocks_override=4096
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:12:05 [kv_cache_utils.py:819] Overriding num_gpu_blocks=125224 with num_gpu_blocks_override=4096
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:12:05 [kv_cache_utils.py:819] Overriding num_gpu_blocks=125224 with num_gpu_blocks_override=4096
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:12:05 [kv_cache_utils.py:819] Overriding num_gpu_blocks=125224 with num_gpu_blocks_override=4096
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:12:05 [kv_cache_utils.py:819] Overriding num_gpu_blocks=125224 with num_gpu_blocks_override=4096
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:12:05 [kv_cache_utils.py:819] Overriding num_gpu_blocks=125224 with num_gpu_blocks_override=4096
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:12:05 [kv_cache_utils.py:819] Overriding num_gpu_blocks=125224 with num_gpu_blocks_override=4096
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:12:05 [kv_cache_utils.py:819] Overriding num_gpu_blocks=125224 with num_gpu_blocks_override=4096
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:12:05 [kv_cache_utils.py:1305] GPU KV cache size: 65,536 tokens
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:12:05 [kv_cache_utils.py:1310] Maximum concurrency for 8,192 tokens per request: 8.00x
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:12:05 [core.py:273] init engine (profile, create kv cache, warmup model) took 3.27 seconds
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:12:07 [registry.py:138] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:12:07 [vllm.py:630] Asynchronous scheduling is enabled.
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m WARNING 11-04 15:12:07 [vllm.py:672] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+[0;36m(EngineCore_DP0 pid=3353396)[0;0m INFO 11-04 15:12:07 [vllm.py:765] Cudagraph is disabled under eager mode
+INFO 11-04 15:12:07 [llm.py:347] Supported tasks: ['generate']
+{"workload": "warmup", "repeat": -1, "output_tokens": 32, "wall_s": 0.49429732805583626, "output_tok_s": 64.73836329616019, "ttft_s": {"50": 0.29882270796224475, "95": 0.3007514229975641, "99": 0.3007514229975641}, "e2e_s": {"50": 0.4908113869605586, "95": 0.4927379849832505, "99": 0.4927379849832505}, "tpot_s": {"50": 0.06399627968979378, "95": 0.0955585619667545, "99": 0.0955585619667545}, "profiled": false, "construction_s": 33.965522821992636}
+{"workload": "short128", "repeat": 0, "output_tokens": 4096, "wall_s": 3.11441050702706, "output_tok_s": 1315.1766572705092, "ttft_s": {"50": 0.5406874059699476, "95": 0.9222520709736273, "99": 0.9868681610096246}, "e2e_s": {"50": 2.630464644986205, "95": 2.9936291029443964, "99": 3.0530084630008787}, "tpot_s": {"50": 0.06729758635628968, "95": 0.06744556654725344, "99": 0.06744571841667377}, "profiled": false, "construction_s": 33.965522821992636}
+{"workload": "short128", "repeat": 1, "output_tokens": 4096, "wall_s": 3.1328238919377327, "output_tok_s": 1307.4466172646935, "ttft_s": {"50": 0.5559527029981837, "95": 0.9375212009763345, "99": 1.0010471290443093}, "e2e_s": {"50": 2.6759112119907513, "95": 3.0360430179862306, "99": 3.0949594830162823}, "tpot_s": {"50": 0.06816444770928713, "95": 0.06845474438816909, "99": 0.06845482383974857}, "profiled": false, "construction_s": 33.965522821992636}
+{"workload": "short128", "repeat": 2, "output_tokens": 4096, "wall_s": 3.0601491919951513, "output_tok_s": 1338.4968323487183, "ttft_s": {"50": 0.5514997550053522, "95": 0.9374818500364199, "99": 1.0017894320189953}, "e2e_s": {"50": 2.6100200650980696, "95": 2.9738019390497357, "99": 3.032863394008018}, "tpot_s": {"50": 0.06628374590147887, "95": 0.06642932674261712, "99": 0.06642939035420216}, "profiled": false, "construction_s": 33.965522821992636}
+{"workload": "context4k8", "repeat": 0, "output_tokens": 256, "wall_s": 5.7828285288996994, "output_tok_s": 44.26899374944966, "ttft_s": {"50": 2.461739258025773, "95": 3.8919195840135217, "99": 3.8919195840135217}, "e2e_s": {"50": 4.321398037020117, "95": 5.779085219022818, "99": 5.779085219022818}, "tpot_s": {"50": 0.06013144967671964, "95": 0.060876310806751495, "99": 0.060876310806751495}, "profiled": false, "construction_s": 33.965522821992636}
+{"workload": "context4k8", "repeat": 1, "output_tokens": 256, "wall_s": 5.80112828896381, "output_tok_s": 44.12934643886774, "ttft_s": {"50": 2.4604403019184247, "95": 3.896843701018952, "99": 3.896843701018952}, "e2e_s": {"50": 4.327263906947337, "95": 5.797771906014532, "99": 5.797771906014532}, "tpot_s": {"50": 0.06022980403260238, "95": 0.061320264677276776, "99": 0.061320264677276776}, "profiled": false, "construction_s": 33.965522821992636}
+{"workload": "context4k8", "repeat": 2, "output_tokens": 256, "wall_s": 5.842008385923691, "output_tok_s": 43.820546477959795, "ttft_s": {"50": 2.4757179190637544, "95": 3.9336056309984997, "99": 3.9336056309984997}, "e2e_s": {"50": 4.367927719955333, "95": 5.838586068013683, "99": 5.838586068013683}, "tpot_s": {"50": 0.0610390258352122, "95": 0.06145098183919946, "99": 0.06145098183919946}, "profiled": false, "construction_s": 33.965522821992636}
+{"workload": "mixed64", "repeat": 0, "output_tokens": 2080, "wall_s": 8.320733281900175, "output_tok_s": 249.9779682308238, "ttft_s": {"50": 2.4311823819298297, "95": 4.343558490043506, "99": 4.343983263010159}, "e2e_s": {"50": 4.160338171059266, "95": 7.7506173780420795, "99": 8.303759213071316}, "tpot_s": {"50": 0.061887754670654736, "95": 0.06348687466233968, "99": 0.06372482920220743}, "profiled": false, "construction_s": 33.965522821992636}
+{"workload": "mixed64", "repeat": 1, "output_tokens": 2080, "wall_s": 8.253527194960043, "output_tok_s": 252.0134665903975, "ttft_s": {"50": 2.4380097390385345, "95": 4.342945168027654, "99": 4.343390243011527}, "e2e_s": {"50": 4.1631047980627045, "95": 7.6899549319641665, "99": 8.238192660966888}, "tpot_s": {"50": 0.06179534340432535, "95": 0.06241797819578399, "99": 0.06274232380092144}, "profiled": false, "construction_s": 33.965522821992636}
+{"workload": "mixed64", "repeat": 2, "output_tokens": 2080, "wall_s": 8.246578734950162, "output_tok_s": 252.22580986035663, "ttft_s": {"50": 2.4268511830596253, "95": 4.31969318294432, "99": 4.320062671904452}, "e2e_s": {"50": 4.140267767012119, "95": 7.677666601957753, "99": 8.232426072936505}, "tpot_s": {"50": 0.061256581195630135, "95": 0.06223793246317655, "99": 0.06256768800473461}, "profiled": false, "construction_s": 33.965522821992636}
+[0;36m(Worker_TP1_EP1 pid=3353494)[0;0m [0;36m(Worker_TP0_EP0 pid=3353493)[0;0m [0;36m(Worker_TP2_EP2 pid=3353495)[0;0m INFO 11-04 15:13:00 [multiproc_executor.py:707] Parent process exited, terminating worker
+[0;36m(Worker_TP4_EP4 pid=3353497)[0;0m [0;36m(Worker_TP5_EP5 pid=3353498)[0;0m [0;36m(Worker_TP6_EP6 pid=3353499)[0;0m INFO 11-04 15:13:00 [multiproc_executor.py:707] Parent process exited, terminating worker
+INFO 11-04 15:13:00 [multiproc_executor.py:707] Parent process exited, terminating worker
+[0;36m(Worker_TP3_EP3 pid=3353496)[0;0m INFO 11-04 15:13:00 [multiproc_executor.py:707] Parent process exited, terminating worker
+INFO 11-04 15:13:00 [multiproc_executor.py:707] Parent process exited, terminating worker
+[0;36m(Worker_TP7_EP7 pid=3353500)[0;0m INFO 11-04 15:13:00 [multiproc_executor.py:707] Parent process exited, terminating worker
+INFO 11-04 15:13:00 [multiproc_executor.py:707] Parent process exited, terminating worker
+INFO 11-04 15:13:00 [multiproc_executor.py:707] Parent process exited, terminating worker

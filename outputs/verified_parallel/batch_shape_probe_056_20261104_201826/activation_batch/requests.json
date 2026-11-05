@@ -1,0 +1,34 @@
+{
+  "case": "batch",
+  "workload": "context1k8",
+  "fixture_index": 0,
+  "repeated_prompt": true,
+  "prefix_tokens": 1,
+  "reference_tokens": [
+    75882
+  ],
+  "input_lengths": [
+    1024,
+    1024,
+    1024
+  ],
+  "capture_rows": 3,
+  "decode_key_length": 1025,
+  "capture_call_index": 0,
+  "serialize_requests": false,
+  "output_ids": [
+    [
+      75882,
+      108704
+    ],
+    [
+      75882,
+      108704
+    ],
+    [
+      75882,
+      108704
+    ]
+  ],
+  "steps": 2
+}

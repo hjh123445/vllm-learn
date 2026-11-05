@@ -1,0 +1,651 @@
+[
+  {
+    "name": "official_retry_056_20261104_141650",
+    "state": {
+      "host": "task3-A800-056",
+      "supervisor_pid": 3296042,
+      "tasks": [
+        {
+          "id": "wait_previous",
+          "argv": [
+            "/home/ifly_jyhe23/env/miniconda3/bin/python",
+            "work/wait_task_queue_056.py",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/official_056_20261104_140104"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "",
+            "VLLM_LEARN_REFERENCE_MATH": "1",
+            "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+            "VLLM_LEARN_ATTENTION_BACKEND": "sdpa_reference",
+            "VLLM_LEARN_EP_SHARD_REPLICATED_INPUT": "1",
+            "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "1",
+            "VLLM_LEARN_EXPERT_BACKEND": "torch_grouped",
+            "VLLM_LEARN_SDPA_MASKED_GQA": "0"
+          },
+          "started": "2026-11-04T14:16:13.997033+08:00",
+          "pid": 3296046,
+          "pgid": 3296046,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:16:14.999035+08:00"
+        },
+        {
+          "id": "vllm_tp8",
+          "argv": [
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/vllm014_056_20261104_130658/venv/bin/python",
+            "work/bench_vllm_reference.py",
+            "--model",
+            "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+            "--inputs",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/official_retry_056_20261104_141650/code/fixtures/inputs.json",
+            "--output",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/official_retry_056_20261104_141650/vllm_tp8",
+            "--tp",
+            "8",
+            "--pp",
+            "1",
+            "--workloads",
+            "short128,context4k8,mixed64",
+            "--repeats",
+            "2",
+            "--max-kv-blocks",
+            "4096"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+            "LD_LIBRARY_PATH": "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/site-packages/nvidia/cuda_runtime/lib",
+            "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "1"
+          },
+          "started": "2026-11-04T14:16:18.068168+08:00",
+          "pid": 3296078,
+          "pgid": 3296078,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:17:42.162982+08:00"
+        },
+        {
+          "id": "vllm_tp8_ep",
+          "argv": [
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/vllm014_056_20261104_130658/venv/bin/python",
+            "work/bench_vllm_reference.py",
+            "--model",
+            "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+            "--inputs",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/official_retry_056_20261104_141650/code/fixtures/inputs.json",
+            "--output",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/official_retry_056_20261104_141650/vllm_tp8_ep",
+            "--tp",
+            "8",
+            "--pp",
+            "1",
+            "--workloads",
+            "short128,context4k8,mixed64",
+            "--repeats",
+            "2",
+            "--max-kv-blocks",
+            "4096",
+            "--ep"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+            "LD_LIBRARY_PATH": "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/site-packages/nvidia/cuda_runtime/lib",
+            "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "1"
+          },
+          "started": "2026-11-04T14:17:45.333119+08:00",
+          "pid": 3299336,
+          "pgid": 3299336,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:20:06.490356+08:00"
+        },
+        {
+          "id": "vllm_tp4pp2_ep",
+          "argv": [
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/vllm014_056_20261104_130658/venv/bin/python",
+            "work/bench_vllm_reference.py",
+            "--model",
+            "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+            "--inputs",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/official_retry_056_20261104_141650/code/fixtures/inputs.json",
+            "--output",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/official_retry_056_20261104_141650/vllm_tp4pp2_ep",
+            "--tp",
+            "4",
+            "--pp",
+            "2",
+            "--workloads",
+            "short128,context4k8,mixed64",
+            "--repeats",
+            "2",
+            "--max-kv-blocks",
+            "4096",
+            "--ep"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+            "LD_LIBRARY_PATH": "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/site-packages/nvidia/cuda_runtime/lib",
+            "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "1"
+          },
+          "started": "2026-11-04T14:20:09.159880+08:00",
+          "pid": 3304506,
+          "pgid": 3304506,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:22:44.331026+08:00"
+        }
+      ],
+      "started": "2026-11-04T14:16:13.996780+08:00",
+      "status": "stopped",
+      "finished": "2026-11-04T14:22:47.100700+08:00"
+    }
+  },
+  {
+    "name": "official_retry_056_20261104_141841",
+    "state": {
+      "host": "task3-A800-056",
+      "supervisor_pid": 3299785,
+      "tasks": [
+        {
+          "id": "wait_previous",
+          "argv": [
+            "/home/ifly_jyhe23/env/miniconda3/bin/python",
+            "work/wait_task_queue_056.py",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/math_ablation_056_20261104_140005"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "",
+            "VLLM_LEARN_REFERENCE_MATH": "1",
+            "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+            "VLLM_LEARN_ATTENTION_BACKEND": "sdpa_reference",
+            "VLLM_LEARN_EP_SHARD_REPLICATED_INPUT": "1",
+            "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "1",
+            "VLLM_LEARN_EXPERT_BACKEND": "torch_grouped",
+            "VLLM_LEARN_SDPA_MASKED_GQA": "0"
+          },
+          "started": "2026-11-04T14:18:05.645130+08:00",
+          "pid": 3299789,
+          "pgid": 3299789,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:18:06.647042+08:00"
+        },
+        {
+          "id": "vllm_tp8",
+          "argv": [
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/vllm014_056_20261104_130658/venv/bin/python",
+            "work/bench_vllm_reference.py",
+            "--model",
+            "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+            "--inputs",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/official_retry_056_20261104_141841/code/fixtures/inputs.json",
+            "--output",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/official_retry_056_20261104_141841/vllm_tp8",
+            "--tp",
+            "8",
+            "--pp",
+            "1",
+            "--workloads",
+            "short128,context4k8,mixed64",
+            "--repeats",
+            "2",
+            "--max-kv-blocks",
+            "4096"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+            "LD_LIBRARY_PATH": "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/site-packages/nvidia/cuda_runtime/lib",
+            "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "1"
+          },
+          "started": "2026-11-04T14:18:09.814937+08:00",
+          "pid": 3299811,
+          "pgid": 3299811,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:20:29.962017+08:00"
+        },
+        {
+          "id": "vllm_tp8_ep",
+          "argv": [
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/vllm014_056_20261104_130658/venv/bin/python",
+            "work/bench_vllm_reference.py",
+            "--model",
+            "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+            "--inputs",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/official_retry_056_20261104_141841/code/fixtures/inputs.json",
+            "--output",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/official_retry_056_20261104_141841/vllm_tp8_ep",
+            "--tp",
+            "8",
+            "--pp",
+            "1",
+            "--workloads",
+            "short128,context4k8,mixed64",
+            "--repeats",
+            "2",
+            "--max-kv-blocks",
+            "4096",
+            "--ep"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+            "LD_LIBRARY_PATH": "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/site-packages/nvidia/cuda_runtime/lib",
+            "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "1"
+          },
+          "started": "2026-11-04T14:20:33.081891+08:00",
+          "pid": 3305222,
+          "pgid": 3305222,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:23:04.246092+08:00"
+        },
+        {
+          "id": "vllm_tp4pp2_ep",
+          "argv": [
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/vllm014_056_20261104_130658/venv/bin/python",
+            "work/bench_vllm_reference.py",
+            "--model",
+            "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+            "--inputs",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/official_retry_056_20261104_141841/code/fixtures/inputs.json",
+            "--output",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/official_retry_056_20261104_141841/vllm_tp4pp2_ep",
+            "--tp",
+            "4",
+            "--pp",
+            "2",
+            "--workloads",
+            "short128,context4k8,mixed64",
+            "--repeats",
+            "2",
+            "--max-kv-blocks",
+            "4096",
+            "--ep"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+            "LD_LIBRARY_PATH": "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/site-packages/nvidia/cuda_runtime/lib",
+            "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "1"
+          },
+          "started": "2026-11-04T14:23:07.367306+08:00",
+          "pid": 3310553,
+          "pgid": 3310553,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:24:20.449764+08:00"
+        }
+      ],
+      "started": "2026-11-04T14:18:05.644872+08:00",
+      "status": "stopped",
+      "finished": "2026-11-04T14:24:23.620081+08:00"
+    }
+  },
+  {
+    "name": "quality_056_20261104_144105",
+    "state": {
+      "host": "task3-A800-056",
+      "supervisor_pid": 3325572,
+      "tasks": [
+        {
+          "id": "wait_previous",
+          "argv": [
+            "/home/ifly_jyhe23/env/miniconda3/bin/python",
+            "work/wait_task_queue_056.py",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/official_retry_056_20261104_141841"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "",
+            "VLLM_LEARN_REFERENCE_MATH": "1",
+            "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+            "VLLM_LEARN_ATTENTION_BACKEND": "sdpa_reference",
+            "VLLM_LEARN_EP_SHARD_REPLICATED_INPUT": "1",
+            "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "1",
+            "VLLM_LEARN_EXPERT_BACKEND": "torch_grouped",
+            "VLLM_LEARN_SDPA_MASKED_GQA": "0"
+          },
+          "started": "2026-11-04T14:40:29.458111+08:00",
+          "pid": 3325573,
+          "pgid": 3325573,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:40:30.460305+08:00"
+        },
+        {
+          "id": "hf_cached_teacher",
+          "argv": [
+            "/home/ifly_jyhe23/env/miniconda3/bin/python",
+            "work/probe_cached_teacher_056.py",
+            "--model",
+            "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+            "--reference",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/correctness_056_20261104_104414/hf_reference/text_reference.json",
+            "--output",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105/hf_cached_teacher",
+            "--implementation",
+            "hf",
+            "--continuation-tokens",
+            "32",
+            "--terminal-head"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "7",
+            "VLLM_LEARN_REFERENCE_MATH": "1",
+            "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+            "VLLM_LEARN_ATTENTION_BACKEND": "sdpa_reference",
+            "VLLM_LEARN_EP_SHARD_REPLICATED_INPUT": "1",
+            "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "1",
+            "VLLM_LEARN_EXPERT_BACKEND": "torch_grouped",
+            "VLLM_LEARN_SDPA_MASKED_GQA": "0"
+          },
+          "started": "2026-11-04T14:40:33.579305+08:00",
+          "pid": 3325587,
+          "pgid": 3325587,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:41:47.661040+08:00"
+        },
+        {
+          "id": "cached_teacher_ep8",
+          "argv": [
+            "/home/ifly_jyhe23/env/miniconda3/bin/python",
+            "work/probe_cached_teacher_056.py",
+            "--model",
+            "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+            "--reference",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105/hf_cached_teacher/text_reference.json",
+            "--output",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105/cached_teacher_ep8",
+            "--implementation",
+            "custom",
+            "--ep",
+            "8",
+            "--pp",
+            "1",
+            "--batch-size",
+            "1"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+            "VLLM_LEARN_REFERENCE_MATH": "1",
+            "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+            "VLLM_LEARN_ATTENTION_BACKEND": "sdpa_reference",
+            "VLLM_LEARN_EP_SHARD_REPLICATED_INPUT": "1",
+            "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "1",
+            "VLLM_LEARN_EXPERT_BACKEND": "torch_grouped",
+            "VLLM_LEARN_SDPA_MASKED_GQA": "0",
+            "VLLM_LEARN_LOGITS_LIMIT": "512"
+          },
+          "started": "2026-11-04T14:41:50.630474+08:00",
+          "pid": 3326544,
+          "pgid": 3326544,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:43:20.734069+08:00"
+        },
+        {
+          "id": "cached_teacher_pp2ep4",
+          "argv": [
+            "/home/ifly_jyhe23/env/miniconda3/bin/python",
+            "work/probe_cached_teacher_056.py",
+            "--model",
+            "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+            "--reference",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105/hf_cached_teacher/text_reference.json",
+            "--output",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105/cached_teacher_pp2ep4",
+            "--implementation",
+            "custom",
+            "--ep",
+            "4",
+            "--pp",
+            "2",
+            "--batch-size",
+            "1"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+            "VLLM_LEARN_REFERENCE_MATH": "1",
+            "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+            "VLLM_LEARN_ATTENTION_BACKEND": "sdpa_reference",
+            "VLLM_LEARN_EP_SHARD_REPLICATED_INPUT": "1",
+            "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "1",
+            "VLLM_LEARN_EXPERT_BACKEND": "torch_grouped",
+            "VLLM_LEARN_SDPA_MASKED_GQA": "0",
+            "VLLM_LEARN_LOGITS_LIMIT": "512"
+          },
+          "started": "2026-11-04T14:43:23.203199+08:00",
+          "pid": 3328847,
+          "pgid": 3328847,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:44:52.306263+08:00"
+        },
+        {
+          "id": "cached_teacher_ep8_batch",
+          "argv": [
+            "/home/ifly_jyhe23/env/miniconda3/bin/python",
+            "work/probe_cached_teacher_056.py",
+            "--model",
+            "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+            "--reference",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105/hf_cached_teacher/text_reference.json",
+            "--output",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105/cached_teacher_ep8_batch",
+            "--implementation",
+            "custom",
+            "--ep",
+            "8",
+            "--pp",
+            "1",
+            "--batch-size",
+            "12"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+            "VLLM_LEARN_REFERENCE_MATH": "1",
+            "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+            "VLLM_LEARN_ATTENTION_BACKEND": "sdpa_reference",
+            "VLLM_LEARN_EP_SHARD_REPLICATED_INPUT": "1",
+            "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "1",
+            "VLLM_LEARN_EXPERT_BACKEND": "torch_grouped",
+            "VLLM_LEARN_SDPA_MASKED_GQA": "0",
+            "VLLM_LEARN_LOGITS_LIMIT": "512"
+          },
+          "started": "2026-11-04T14:44:55.426079+08:00",
+          "pid": 3331249,
+          "pgid": 3331249,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:45:39.478545+08:00"
+        },
+        {
+          "id": "cached_teacher_pp2ep4_batch",
+          "argv": [
+            "/home/ifly_jyhe23/env/miniconda3/bin/python",
+            "work/probe_cached_teacher_056.py",
+            "--model",
+            "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+            "--reference",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105/hf_cached_teacher/text_reference.json",
+            "--output",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105/cached_teacher_pp2ep4_batch",
+            "--implementation",
+            "custom",
+            "--ep",
+            "4",
+            "--pp",
+            "2",
+            "--batch-size",
+            "12"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+            "VLLM_LEARN_REFERENCE_MATH": "1",
+            "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+            "VLLM_LEARN_ATTENTION_BACKEND": "sdpa_reference",
+            "VLLM_LEARN_EP_SHARD_REPLICATED_INPUT": "1",
+            "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "1",
+            "VLLM_LEARN_EXPERT_BACKEND": "torch_grouped",
+            "VLLM_LEARN_SDPA_MASKED_GQA": "0",
+            "VLLM_LEARN_LOGITS_LIMIT": "512"
+          },
+          "started": "2026-11-04T14:45:42.399691+08:00",
+          "pid": 3332122,
+          "pgid": 3332122,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:46:23.449529+08:00"
+        },
+        {
+          "id": "analyze_cached",
+          "argv": [
+            "/home/ifly_jyhe23/env/miniconda3/bin/python",
+            "work/analyze_cached_teacher_056.py",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "",
+            "VLLM_LEARN_REFERENCE_MATH": "1",
+            "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+            "VLLM_LEARN_ATTENTION_BACKEND": "sdpa_reference",
+            "VLLM_LEARN_EP_SHARD_REPLICATED_INPUT": "1",
+            "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "1",
+            "VLLM_LEARN_EXPERT_BACKEND": "torch_grouped",
+            "VLLM_LEARN_SDPA_MASKED_GQA": "0"
+          },
+          "started": "2026-11-04T14:46:26.269638+08:00",
+          "pid": 3333190,
+          "pgid": 3333190,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:46:34.281262+08:00"
+        },
+        {
+          "id": "layer_reference",
+          "argv": [
+            "/home/ifly_jyhe23/env/miniconda3/bin/python",
+            "work/probe_layer_activations.py",
+            "--model",
+            "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+            "--inputs",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/quality_056_20261104_144105/code/fixtures/inputs.json",
+            "--output",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105/layer_reference",
+            "--implementation",
+            "custom",
+            "--workload",
+            "context1k8",
+            "--index",
+            "0",
+            "--ep",
+            "8"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+            "VLLM_LEARN_REFERENCE_MATH": "1",
+            "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+            "VLLM_LEARN_ATTENTION_BACKEND": "sdpa_reference",
+            "VLLM_LEARN_EP_SHARD_REPLICATED_INPUT": "1",
+            "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "1",
+            "VLLM_LEARN_EXPERT_BACKEND": "torch_grouped",
+            "VLLM_LEARN_SDPA_MASKED_GQA": "0",
+            "VLLM_LEARN_ACTIVATIONS_LAYERS": "0,1,2",
+            "VLLM_LEARN_ACTIVATIONS_FULL_ROWS": "1"
+          },
+          "started": "2026-11-04T14:46:37.402015+08:00",
+          "pid": 3333336,
+          "pgid": 3333336,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:47:10.442908+08:00"
+        },
+        {
+          "id": "layer_fused",
+          "argv": [
+            "/home/ifly_jyhe23/env/miniconda3/bin/python",
+            "work/probe_layer_activations.py",
+            "--model",
+            "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+            "--inputs",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/quality_056_20261104_144105/code/fixtures/inputs.json",
+            "--output",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105/layer_fused",
+            "--implementation",
+            "custom",
+            "--workload",
+            "context1k8",
+            "--index",
+            "0",
+            "--ep",
+            "8"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+            "VLLM_LEARN_REFERENCE_MATH": "0",
+            "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+            "VLLM_LEARN_ATTENTION_BACKEND": "sdpa_reference",
+            "VLLM_LEARN_EP_SHARD_REPLICATED_INPUT": "1",
+            "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "1",
+            "VLLM_LEARN_EXPERT_BACKEND": "torch_grouped",
+            "VLLM_LEARN_SDPA_MASKED_GQA": "0",
+            "VLLM_LEARN_ACTIVATIONS_LAYERS": "0,1,2",
+            "VLLM_LEARN_ACTIVATIONS_FULL_ROWS": "1"
+          },
+          "started": "2026-11-04T14:47:13.563624+08:00",
+          "pid": 3334053,
+          "pgid": 3334053,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:47:46.605072+08:00"
+        },
+        {
+          "id": "layer_triton",
+          "argv": [
+            "/home/ifly_jyhe23/env/miniconda3/bin/python",
+            "work/probe_layer_activations.py",
+            "--model",
+            "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+            "--inputs",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/quality_056_20261104_144105/code/fixtures/inputs.json",
+            "--output",
+            "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105/layer_triton",
+            "--implementation",
+            "custom",
+            "--workload",
+            "context1k8",
+            "--index",
+            "0",
+            "--ep",
+            "8"
+          ],
+          "env": {
+            "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+            "VLLM_LEARN_REFERENCE_MATH": "1",
+            "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+            "VLLM_LEARN_ATTENTION_BACKEND": "triton",
+            "VLLM_LEARN_EP_SHARD_REPLICATED_INPUT": "1",
+            "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "1",
+            "VLLM_LEARN_EXPERT_BACKEND": "torch_grouped",
+            "VLLM_LEARN_SDPA_MASKED_GQA": "0",
+            "VLLM_LEARN_ACTIVATIONS_LAYERS": "0,1,2",
+            "VLLM_LEARN_ACTIVATIONS_FULL_ROWS": "1"
+          },
+          "started": "2026-11-04T14:47:49.524985+08:00",
+          "pid": 3334822,
+          "pgid": 3334822,
+          "status": "completed",
+          "returncode": 0,
+          "finished": "2026-11-04T14:48:22.564931+08:00"
+        }
+      ],
+      "started": "2026-11-04T14:40:29.457825+08:00",
+      "status": "stopped",
+      "finished": "2026-11-04T14:48:25.184980+08:00"
+    }
+  }
+]

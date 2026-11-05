@@ -1,0 +1,74 @@
+{
+  "router_id_disagreements": 0,
+  "router_weight": {
+    "comparable": true,
+    "shape": [
+      1027,
+      8
+    ],
+    "dtype_a": "torch.bfloat16",
+    "dtype_b": "torch.bfloat16",
+    "max_abs": 0.0009765625,
+    "rmse": 1.703491034277249e-05,
+    "reference_rms": 0.13756448030471802,
+    "equal_fraction": 0.9995131492614746,
+    "cosine": 1.0000065565109253
+  },
+  "local_routerFalse_token_majorFalse": {
+    "comparable": true,
+    "shape": [
+      1027,
+      2048
+    ],
+    "dtype_a": "torch.bfloat16",
+    "dtype_b": "torch.bfloat16",
+    "max_abs": 0.0,
+    "rmse": 0.0,
+    "reference_rms": 0.011809535324573517,
+    "equal_fraction": 1.0,
+    "cosine": 0.999973475933075
+  },
+  "local_routerFalse_token_majorTrue": {
+    "comparable": true,
+    "shape": [
+      1027,
+      2048
+    ],
+    "dtype_a": "torch.bfloat16",
+    "dtype_b": "torch.bfloat16",
+    "max_abs": 0.0,
+    "rmse": 0.0,
+    "reference_rms": 0.011809535324573517,
+    "equal_fraction": 1.0,
+    "cosine": 0.999973475933075
+  },
+  "local_routerTrue_token_majorFalse": {
+    "comparable": true,
+    "shape": [
+      1027,
+      2048
+    ],
+    "dtype_a": "torch.bfloat16",
+    "dtype_b": "torch.bfloat16",
+    "max_abs": 0.001953125,
+    "rmse": 1.833926148719911e-06,
+    "reference_rms": 0.011809535324573517,
+    "equal_fraction": 0.9994946122169495,
+    "cosine": 0.9999732971191406
+  },
+  "local_routerTrue_token_majorTrue": {
+    "comparable": true,
+    "shape": [
+      1027,
+      2048
+    ],
+    "dtype_a": "torch.bfloat16",
+    "dtype_b": "torch.bfloat16",
+    "max_abs": 0.001953125,
+    "rmse": 1.833926148719911e-06,
+    "reference_rms": 0.011809535324573517,
+    "equal_fraction": 0.9994946122169495,
+    "cosine": 0.9999732971191406
+  },
+  "scope": "identical captured input and checkpoint weights, no generated prefixes"
+}

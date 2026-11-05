@@ -1,0 +1,20 @@
+{
+  "output": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_201826/activation_comparison.json",
+  "sequence_tokens": 1024,
+  "first_divergence": {
+    "label": "layer0.o_proj",
+    "mismatches": [
+      [
+        "output.tensor",
+        {
+          "exact": false,
+          "different_elements": 670271,
+          "elements": 2097152,
+          "max_abs": 0.00390625,
+          "rmse": 3.780923361773603e-05
+        }
+      ]
+    ]
+  },
+  "layers": 34
+}

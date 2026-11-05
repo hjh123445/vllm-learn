@@ -1,0 +1,21 @@
+{
+  "scope": "same topology greedy repeat and policy parity; not HF parity",
+  "checks": [
+    {
+      "workload": "short128",
+      "passed": true,
+      "runs": 3
+    },
+    {
+      "workload": "context4k8",
+      "passed": true,
+      "runs": 3
+    },
+    {
+      "workload": "mixed64",
+      "passed": true,
+      "runs": 3
+    }
+  ],
+  "passed": true
+}

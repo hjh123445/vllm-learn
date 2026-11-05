@@ -1,0 +1,249 @@
+{
+  "cases": 12,
+  "exact_matches": 8,
+  "passed": false,
+  "records": [
+    {
+      "workload": "short64",
+      "index": 0,
+      "input_tokens": 47,
+      "actual_output_ids": [
+        75882,
+        108704,
+        17714,
+        35926
+      ],
+      "reference_output_ids": [
+        75882,
+        108704,
+        17714,
+        35926
+      ],
+      "exact_match": true,
+      "first_divergence": null,
+      "matching_prefix_tokens": 4
+    },
+    {
+      "workload": "short64",
+      "index": 1,
+      "input_tokens": 47,
+      "actual_output_ids": [
+        75882,
+        108704,
+        17714,
+        35926
+      ],
+      "reference_output_ids": [
+        75882,
+        108704,
+        17714,
+        35926
+      ],
+      "exact_match": true,
+      "first_divergence": null,
+      "matching_prefix_tokens": 4
+    },
+    {
+      "workload": "short64",
+      "index": 2,
+      "input_tokens": 47,
+      "actual_output_ids": [
+        75882,
+        72448,
+        102111,
+        101042
+      ],
+      "reference_output_ids": [
+        75882,
+        72448,
+        102111,
+        101042
+      ],
+      "exact_match": true,
+      "first_divergence": null,
+      "matching_prefix_tokens": 4
+    },
+    {
+      "workload": "short64",
+      "index": 3,
+      "input_tokens": 47,
+      "actual_output_ids": [
+        75882,
+        72448,
+        102111,
+        101042
+      ],
+      "reference_output_ids": [
+        75882,
+        72448,
+        102111,
+        101042
+      ],
+      "exact_match": true,
+      "first_divergence": null,
+      "matching_prefix_tokens": 4
+    },
+    {
+      "workload": "context1k8",
+      "index": 0,
+      "input_tokens": 1024,
+      "actual_output_ids": [
+        75882,
+        34859,
+        43815,
+        105444
+      ],
+      "reference_output_ids": [
+        75882,
+        34859,
+        43815,
+        105444
+      ],
+      "exact_match": true,
+      "first_divergence": null,
+      "matching_prefix_tokens": 4
+    },
+    {
+      "workload": "context1k8",
+      "index": 1,
+      "input_tokens": 1024,
+      "actual_output_ids": [
+        75882,
+        108704,
+        105444,
+        34859
+      ],
+      "reference_output_ids": [
+        75882,
+        108704,
+        105444,
+        104183
+      ],
+      "exact_match": false,
+      "first_divergence": 3,
+      "matching_prefix_tokens": 3
+    },
+    {
+      "workload": "context1k8",
+      "index": 2,
+      "input_tokens": 1024,
+      "actual_output_ids": [
+        75882,
+        108704,
+        105444,
+        34859
+      ],
+      "reference_output_ids": [
+        75882,
+        108704,
+        17714,
+        105444
+      ],
+      "exact_match": false,
+      "first_divergence": 2,
+      "matching_prefix_tokens": 2
+    },
+    {
+      "workload": "context4k8",
+      "index": 0,
+      "input_tokens": 4096,
+      "actual_output_ids": [
+        75882,
+        34859,
+        43815,
+        105444
+      ],
+      "reference_output_ids": [
+        75882,
+        34859,
+        43815,
+        105444
+      ],
+      "exact_match": true,
+      "first_divergence": null,
+      "matching_prefix_tokens": 4
+    },
+    {
+      "workload": "context4k8",
+      "index": 1,
+      "input_tokens": 4096,
+      "actual_output_ids": [
+        75882,
+        34859,
+        105444,
+        104183
+      ],
+      "reference_output_ids": [
+        75882,
+        34859,
+        105444,
+        101882
+      ],
+      "exact_match": false,
+      "first_divergence": 3,
+      "matching_prefix_tokens": 3
+    },
+    {
+      "workload": "mixed64",
+      "index": 0,
+      "input_tokens": 2047,
+      "actual_output_ids": [
+        75882,
+        34859,
+        105444,
+        34187
+      ],
+      "reference_output_ids": [
+        75882,
+        34859,
+        43815,
+        105444
+      ],
+      "exact_match": false,
+      "first_divergence": 2,
+      "matching_prefix_tokens": 2
+    },
+    {
+      "workload": "mixed64",
+      "index": 1,
+      "input_tokens": 47,
+      "actual_output_ids": [
+        75882,
+        108704,
+        17714,
+        35926
+      ],
+      "reference_output_ids": [
+        75882,
+        108704,
+        17714,
+        35926
+      ],
+      "exact_match": true,
+      "first_divergence": null,
+      "matching_prefix_tokens": 4
+    },
+    {
+      "workload": "mixed64",
+      "index": 4,
+      "input_tokens": 2047,
+      "actual_output_ids": [
+        75882,
+        108704,
+        105444,
+        34859
+      ],
+      "reference_output_ids": [
+        75882,
+        108704,
+        105444,
+        34859
+      ],
+      "exact_match": true,
+      "first_divergence": null,
+      "matching_prefix_tokens": 4
+    }
+  ],
+  "scope": "Synthetic HF continuation parity including cached decode; not a quality benchmark",
+  "caution": "After first divergence, later positions have different input prefixes"
+}

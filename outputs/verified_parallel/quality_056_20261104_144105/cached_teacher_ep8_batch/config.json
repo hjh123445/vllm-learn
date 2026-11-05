@@ -1,0 +1,13 @@
+{
+  "model": "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+  "reference": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105/hf_cached_teacher/text_reference.json",
+  "output": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/quality_056_20261104_144105/cached_teacher_ep8_batch",
+  "implementation": "custom",
+  "budget": 512,
+  "ep": 8,
+  "pp": 1,
+  "terminal_head": false,
+  "continuation_tokens": 0,
+  "batch_size": 12,
+  "scope": "identical forced prefixes, same prefill chunk size, cached decode"
+}

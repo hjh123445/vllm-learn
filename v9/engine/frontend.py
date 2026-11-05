@@ -47,7 +47,10 @@ def _enginecore_process(conn, model_path, core_kwargs, physical_gpus):
             seq = core.add_request(payload[0], payload[1])
             conn.send(("seq", seq.seq_id))
         elif cmd == "step":
-            conn.send(("step", core.step()))
+            completed = core.step()
+            # perf_counter uses the same monotonic clock across these local
+            # processes. Preserve replica completion time before frontend join.
+            conn.send(("step", completed, core.last_step_events))
         elif cmd == "finished":
             conn.send(("finished", core.is_finished()))
         elif cmd == "shutdown":
@@ -89,6 +92,7 @@ class DPFrontend:
         self._seq_core = {}     # seq_id → dp_rank（输出对齐用）
         self._local_to_global = {}
         self._next_seq_id = 0
+        self.last_step_events = []
         base_port = engine_kwargs.get("master_port", 29750)
         for i in range(dp_size):
             g = self.gpus[i * per:(i + 1) * per]
@@ -133,6 +137,7 @@ class DPFrontend:
         """并发驱动各进程一步，等齐后聚合；异常传播至调用线程。"""
         results = {}
         errors = []
+        self.last_step_events = []
 
         def _drive(i):
             try:
@@ -146,7 +151,13 @@ class DPFrontend:
             _, finished = conn.recv()
             if not finished:
                 conn.send(("step", None))
-                _, step_out = conn.recv()
+                reply = conn.recv()
+                step_out = reply[1]
+                events = reply[2] if len(reply) > 2 else []
+                for event in events:
+                    global_id = self._local_to_global[i, event["seq_id"]]
+                    self.last_step_events.append(dict(
+                        event, seq_id=global_id, dp_rank=i))
                 for seq_id, toks in step_out:
                     global_id = self._local_to_global.pop((i, seq_id))
                     self._seq_core.pop(global_id, None)

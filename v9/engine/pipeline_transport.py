@@ -43,7 +43,7 @@ class PipelineTransport:
     def __init__(self, pp_size: int, pp_rank: int, inner_size: int,
                  lanes: int = 2, credit: int = 4,
                  async_enabled: bool = True, trace_variant: str = "optimized",
-                 device: str = "cuda"):
+                 device: str = "cuda", recv_group=None, send_group=None):
         self.pp_size = int(pp_size)
         self.pp_rank = int(pp_rank)
         self.inner_size = int(inner_size)
@@ -51,6 +51,7 @@ class PipelineTransport:
         self.credit = max(1, int(credit))
         self.async_enabled = bool(async_enabled)
         self.trace_variant = str(trace_variant)
+        self.recv_group, self.send_group = recv_group, send_group
         self.device = torch.device(device)
         self.rank = dist.get_rank() if dist.is_initialized() else 0
         self.local_inner_rank = self.rank % self.inner_size
@@ -80,10 +81,10 @@ class PipelineTransport:
         """
         shape = torch.empty(4, dtype=torch.int64, device=self.device)
         if self.comm_stream is None:
-            request = dist.irecv(shape, src=self.src)
+            request = dist.irecv(shape, src=self.src, group=self.recv_group)
         else:
             with torch.cuda.stream(self.comm_stream):
-                request = dist.irecv(shape, src=self.src)
+                request = dist.irecv(shape, src=self.src, group=self.recv_group)
         self._recv[lane] = _RecvSlot(shape, request)
 
     @staticmethod
@@ -135,9 +136,9 @@ class PipelineTransport:
         ready_event = None
 
         if not self.async_enabled:
-            dist.send(header, dst=self.dst)
-            dist.send(hidden, dst=self.dst)
-            dist.send(residual, dst=self.dst)
+            dist.send(header, dst=self.dst, group=self.send_group)
+            dist.send(hidden, dst=self.dst, group=self.send_group)
+            dist.send(residual, dst=self.dst, group=self.send_group)
             self.trace.append({"kind": "send", "lane": lane,
                                "microbatch_id": int(microbatch_id),
                                "start": started, "end": time.perf_counter(),
@@ -146,9 +147,9 @@ class PipelineTransport:
 
         if self.comm_stream is None:
             requests = (
-                dist.isend(header, dst=self.dst),
-                dist.isend(hidden, dst=self.dst),
-                dist.isend(residual, dst=self.dst),
+                dist.isend(header, dst=self.dst, group=self.send_group),
+                dist.isend(hidden, dst=self.dst, group=self.send_group),
+                dist.isend(residual, dst=self.dst, group=self.send_group),
             )
         else:
             # The model writes hidden/residual on the current compute stream.
@@ -159,9 +160,9 @@ class PipelineTransport:
             with torch.cuda.stream(self.comm_stream):
                 self.comm_stream.wait_event(ready_event)
                 requests = (
-                    dist.isend(header, dst=self.dst),
-                    dist.isend(hidden, dst=self.dst),
-                    dist.isend(residual, dst=self.dst),
+                    dist.isend(header, dst=self.dst, group=self.send_group),
+                    dist.isend(hidden, dst=self.dst, group=self.send_group),
+                    dist.isend(residual, dst=self.dst, group=self.send_group),
                 )
 
         pending.append(_SendRecord(
@@ -181,14 +182,14 @@ class PipelineTransport:
         if not self.async_enabled:
             shape = torch.empty(4, dtype=torch.int64, device=self.device)
             started = time.perf_counter()
-            dist.recv(shape, src=self.src)
+            dist.recv(shape, src=self.src, group=self.recv_group)
             tokens, hidden_size, microbatch_id, msg_lane = map(
                 int, shape.cpu().tolist())
             hidden = torch.empty((tokens, hidden_size), dtype=torch.bfloat16,
                                  device=self.device)
             residual = torch.empty_like(hidden)
-            dist.recv(hidden, src=self.src)
-            dist.recv(residual, src=self.src)
+            dist.recv(hidden, src=self.src, group=self.recv_group)
+            dist.recv(residual, src=self.src, group=self.recv_group)
             self.trace.append({
                 "kind": "recv", "lane": msg_lane,
                 "microbatch_id": microbatch_id, "start": started,
@@ -216,12 +217,12 @@ class PipelineTransport:
         residual = torch.empty_like(hidden)
         started = time.perf_counter()
         if self.comm_stream is None:
-            requests = (dist.irecv(hidden, src=self.src),
-                        dist.irecv(residual, src=self.src))
+            requests = (dist.irecv(hidden, src=self.src, group=self.recv_group),
+                        dist.irecv(residual, src=self.src, group=self.recv_group))
         else:
             with torch.cuda.stream(self.comm_stream):
-                requests = (dist.irecv(hidden, src=self.src),
-                            dist.irecv(residual, src=self.src))
+                requests = (dist.irecv(hidden, src=self.src, group=self.recv_group),
+                            dist.irecv(residual, src=self.src, group=self.recv_group))
         # The worker loop is single-message-at-a-time. Posting another header
         # here would leave an unmatched irecv after the final message and can
         # make NCCL teardown hang. The next recv call posts its header before

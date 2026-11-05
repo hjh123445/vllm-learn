@@ -12,7 +12,8 @@ class Scheduler:
         self.max_num_batched_tokens = config.max_num_batched_tokens
         self.eos = config.eos
         self.block_size = config.kvcache_block_size
-        self.block_manager = BlockManager(config.num_kvcache_blocks, config.kvcache_block_size)
+        self.block_manager = BlockManager(config.num_kvcache_blocks, config.kvcache_block_size,
+                                          config.enable_prefix_caching)
         self.waiting: deque[Sequence] = deque()
         self.running: deque[Sequence] = deque()
 
@@ -55,8 +56,12 @@ class Scheduler:
                 self.block_manager.allocate(seq, num_cached_blocks)
             # 块预算检查（KV 不够则 preempt running 尾部, vLLM 同款）
             while not self.block_manager.can_append_chunk(seq, num_sched):
-                if self.running:
-                    self.preempt(self.running.pop())
+                # A previously scheduled request already owns this step's KV
+                # transaction. Never free/reuse those blocks before forward.
+                victim = next((s for s in reversed(self.running)
+                               if s is not seq and s not in scheduled_seqs), None)
+                if victim is not None:
+                    self.preempt(victim)
                 else:
                     self.preempt(seq)
                     return False
@@ -72,6 +77,8 @@ class Scheduler:
 
         # 第一遍: RUNNING（chunked 尾段 + decode 混跑）
         for seq in list(self.running):
+            if seq not in self.running:
+                continue
             if token_budget <= 0:
                 break
             _try_schedule(seq, in_waiting=False)
@@ -94,6 +101,10 @@ class Scheduler:
         return scheduled_seqs, has_prefill
 
     def preempt(self, seq: Sequence):
+        if seq in self.running:
+            self.running.remove(seq)
+        if seq in self.waiting:
+            self.waiting.remove(seq)
         seq.status = SequenceStatus.WAITING
         seq.is_prefill = True
         self.block_manager.deallocate(seq)

@@ -48,8 +48,10 @@ class SharedMemoryEndpoint:
         if wait_ack:
             self.wait_ack()
 
-    def wait_ack(self):
+    def wait_ack(self, wait=None):
         """Wait until the consumer has copied the current shared slot."""
+        if wait is not None:
+            wait(self.ack)
         self.ack.recv()
 
     def recv(self):
@@ -117,7 +119,7 @@ def make_channels(world_size: int):
     return bc, rc
 
 
-def broadcast(msg, bc_parents, ranks=None):
+def broadcast(msg, bc_parents, ranks=None, wait=None):
     """Send one scheduler message to a worker set."""
     if ranks is None:
         ranks = range(len(bc_parents))
@@ -129,4 +131,4 @@ def broadcast(msg, bc_parents, ranks=None):
     for endpoint in selected:
         endpoint.send(msg, wait_ack=False)
     for endpoint in selected:
-        endpoint.wait_ack()
+        endpoint.wait_ack(wait=wait)

@@ -1,0 +1,17 @@
+{
+  "model": "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+  "inputs": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/rollout_trace_056_20261104_152543/code/fixtures/inputs.json",
+  "output": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/rollout_trace_056_20261104_152543/trace_ep8",
+  "pp": 1,
+  "ep": 8,
+  "mode": "optimized",
+  "workload": "short64",
+  "requests": 8,
+  "messages": 8,
+  "start_message": 1,
+  "expert_counters": false,
+  "microbatch_tokens": 128,
+  "max_kv_blocks": 128,
+  "profiled": true,
+  "note": "GPU synchronization and trace export change scheduling; exclude from throughput tables"
+}

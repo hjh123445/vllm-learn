@@ -28,7 +28,9 @@ def main():
     cfg = SimpleNamespace(hidden_size=16, num_experts=8, num_experts_per_tok=2,
                           moe_intermediate_size=32, norm_topk_prob=True)
     records = []
-    for dtype in (torch.float32, torch.bfloat16):
+    backend = os.getenv('VLLM_LEARN_EXPERT_BACKEND', 'loop')
+    dtypes = (torch.bfloat16,) if backend == 'torch_grouped' else (torch.float32, torch.bfloat16)
+    for dtype in dtypes:
         torch.manual_seed(42)
         w13 = (torch.randn(8, 64, 16, device='cuda') * .1).to(dtype)
         w2 = (torch.randn(8, 16, 32, device='cuda') * .1).to(dtype)
@@ -44,6 +46,13 @@ def main():
             ids = ((torch.arange(sizes[ep]*2, device='cuda').view(-1, 2)*3 + ep) % 8).long()
             weights = torch.tensor([.3, .7], device='cuda', dtype=dtype).expand(sizes[ep], 2)
             actual = tp_allreduce(model._ep_forward_alltoallv(x, ids, weights))
+            # Multiplication at the source must preserve every route exactly;
+            # this also covers an empty origin and unequal peer message sizes.
+            original_policy = model.weight_at_source
+            model.weight_at_source = not original_policy
+            alternative = tp_allreduce(model._ep_forward_alltoallv(x, ids, weights))
+            model.weight_at_source = original_policy
+            assert torch.equal(actual, alternative), (rank, sizes, 'route-weight placement')
             reference = torch.zeros_like(x, dtype=torch.float32)
             # FP32 full-expert oracle, independent of sharding and collectives.
             for token in range(len(x)):
@@ -63,7 +72,10 @@ def main():
     gathered = [None]*4 if rank == 0 else None
     dist.gather_object(records, gathered, dst=0)
     if rank == 0:
-        print(json.dumps({'passed': True, 'scope': 'Synthetic TP2 x EP2 numerical oracle; not full-model HF parity',
+        print(json.dumps({'passed': True, 'backend': backend,
+                          'weight_at_source': model.weight_at_source,
+                          'weight_placement_bitwise_equal': True,
+                          'scope': 'Synthetic TP2 x EP2 numerical oracle; not full-model HF parity',
                           'records': gathered}), flush=True)
     dist.destroy_process_group()
 

@@ -1,0 +1,26 @@
+{
+  "case": "single",
+  "workload": "context1k8",
+  "fixture_index": 0,
+  "repeated_prompt": false,
+  "prefix_tokens": 1,
+  "input_lengths": [
+    1024
+  ],
+  "capture_rows": 1,
+  "token_budget": 4096,
+  "max_num_seqs": 1,
+  "ep": 8,
+  "pp": 1,
+  "serialize_requests": true,
+  "reference_math": true,
+  "router_logits_dtype": "model",
+  "attention_backend": "sdpa_reference",
+  "expert_backend": "torch_grouped",
+  "activation_hook_inputs": "captured by forward-pre-hook before in-place residual updates",
+  "shard_replicated_input": true,
+  "weight_at_source": true,
+  "activation_dir": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_201451/activation_single/activations",
+  "elapsed_seconds": 27.51225781440735,
+  "claim": "Decode activation capture with fixed teacher-forced prefix; synchronizing hooks; not throughput data"
+}

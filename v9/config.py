@@ -13,14 +13,23 @@ class Config:
     tensor_parallel_size: int = 1
     expert_parallel_size: int = 1
     enforce_eager: bool = False
+    enable_prefix_caching: bool = True
+    # "batched" maximizes GEMM fusion; "per_request" preserves the
+    # single-request shapes for reproducibility at a throughput cost.
+    batch_execution_mode: str = "batched"
     hf_config: AutoConfig | None = None
     eos: int = -1
     kvcache_block_size: int = 256
     num_kvcache_blocks: int = -1
+    max_kvcache_blocks: int | None = None
 
     def __post_init__(self):
         assert os.path.isdir(self.model)
         assert self.kvcache_block_size % 256 == 0
+        if self.max_kvcache_blocks is not None and self.max_kvcache_blocks <= 0:
+            raise ValueError('max_kvcache_blocks must be positive')
+        if self.batch_execution_mode not in ("batched", "per_request"):
+            raise ValueError("batch_execution_mode must be batched or per_request")
         assert 1 <= self.tensor_parallel_size <= 8
         self.hf_config = AutoConfig.from_pretrained(self.model)
         # 多模态/Omni 模型的 max_position_embeddings 在 thinker.text_config 里

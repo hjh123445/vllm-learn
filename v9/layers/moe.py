@@ -17,8 +17,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+def _reduce_routes(routes, expert_ids):
+    """Reduce returned top-k routes; the HF order is a diagnostic oracle."""
+    if os.getenv('VLLM_LEARN_MOE_REDUCTION', 'fp32') == 'hf_reference':
+        order = expert_ids.argsort(dim=-1)
+        routes = routes.gather(1, order[..., None].expand_as(routes))
+        output = torch.zeros_like(routes[:, 0])
+        for slot in range(routes.shape[1]):
+            output = output + routes[:, slot]
+        return output
+    return routes.float().sum(dim=1).to(routes.dtype)
+
+
 class MoERouter(nn.Module):
-    """FP32 logits/softmax + top-k；数学形式对齐，不承诺跨实现逐位一致。"""
+    """模型 dtype 的 logits、FP32 softmax 与 top-k；支持显式 FP32 消融。"""
 
     def __init__(self, hidden_size: int, num_experts: int, top_k: int,
                  norm_topk_prob: bool = True):
@@ -27,6 +39,11 @@ class MoERouter(nn.Module):
         self.top_k = top_k
         self.norm_topk_prob = norm_topk_prob
         self.num_experts = num_experts
+        # HF computes logits in model dtype before FP32 softmax. An explicit
+        # FP32 logits policy remains available for numerical ablations.
+        self.logits_dtype = os.getenv("VLLM_LEARN_ROUTER_LOGITS_DTYPE", "model")
+        if self.logits_dtype not in ("float32", "model"):
+            raise ValueError("router logits dtype must be float32 or model")
 
     def weight_loader(self, param, loaded, shard_id=None):
         """HF 名 mlp.gate.weight（loader 已映射到 router.weight）。直装。"""
@@ -35,8 +52,9 @@ class MoERouter(nn.Module):
 
     def forward(self, x: torch.Tensor):
         """x: [T, H] → (topk_idx [T,k], topk_w [T,k])。"""
-        logits = F.linear(x.float(), self.weight.float())
-        probs = logits.softmax(dim=-1)
+        logits = (F.linear(x, self.weight) if self.logits_dtype == "model"
+                  else F.linear(x.float(), self.weight.float()))
+        probs = logits.softmax(dim=-1, dtype=torch.float32)
         w, idx = probs.topk(self.top_k, dim=-1)
         if self.norm_topk_prob:
             w = w / w.sum(dim=-1, keepdim=True)
@@ -65,6 +83,14 @@ class GroupedExperts(nn.Module):
         self.inter = intermediate // STATE.tp_size       # I_local
         self.i_start = STATE.tp_rank * self.inter
         self.quantized = False
+        # Opt-in native grouped GEMM: two grouped API calls for local experts,
+        # without copying weights per route or reading expert counts on CPU.
+        # The backend determines the actual number of CUDA kernel launches.
+        # Keep the validated reference loop as the default.  ``auto`` is an
+        # explicit performance mode selected by the benchmark/serving policy.
+        self.backend = os.getenv('VLLM_LEARN_EXPERT_BACKEND', 'loop')
+        if self.backend not in ('auto', 'loop', 'torch_grouped'):
+            raise ValueError('expert backend must be auto, loop, or torch_grouped')
         # Optional experiment-only counters.  They stay disabled in normal
         # inference; enabling VLLM_LEARN_PROFILE_EXPERTS records token routing
         # and all-to-all volume for long-tail/hot-expert analysis.
@@ -140,28 +166,68 @@ class GroupedExperts(nn.Module):
         sorted_token = flat_token[order]
         sorted_w = flat_w[order]
 
-        off_list = offsets.tolist()                    # [E]（一次 CPU 同步）
+        xs = x[sorted_token]
+        out = self.compute_sorted(xs, offsets)
+        route_out[order] = out * sorted_w[:, None].to(out.dtype)
+        return _reduce_routes(route_out.view(T, k, H), topk_idx)
+
+    def compute_sorted(self, xs, offsets):
+        """Compute expert-contiguous routes using local weights only.
+
+        ``offsets[e]`` is the exclusive end of expert e, including empty
+        experts. Native grouped GEMM keeps this prefix sum on the GPU.
+        Explicit selection fails on unsupported platforms instead of silently
+        falling back to the Python loop and mislabelling measurements.
+        """
         if self.quantized:
             from layers.quantized import dequantize
             g = self.group
             # 平铺 [E*2I, H/2] → 按需 dequant（本版全量；v9.2 kernel 化后按 tile）
-            w13 = dequantize(self.w13_packed, self.w13_scales, g)                 .reshape(self.num_experts, -1, self.hidden).to(x.dtype)
-            w2 = dequantize(self.w2_packed, self.w2_scales, g)                 .reshape(self.num_experts, self.hidden, self.inter).to(x.dtype)
+            w13 = dequantize(self.w13_packed, self.w13_scales, g).reshape(self.num_experts, -1, self.hidden).to(xs.dtype)
+            w2 = dequantize(self.w2_packed, self.w2_scales, g).reshape(self.num_experts, self.hidden, self.inter).to(xs.dtype)
         else:
             w13, w2 = self.w13, self.w2
+        if xs.shape[0] == 0:
+            return xs.new_empty((0, self.hidden))
+        backend = self.resolve_backend(xs)
+        with torch.autograd.profiler.record_function(f'moe.experts.{backend}'):
+            return self._compute_sorted_backend(xs, offsets, w13, w2, backend)
+
+    def resolve_backend(self, xs):
+        """Select the grouped kernel for supported CUDA BF16 inputs.
+
+        Explicit ``torch_grouped`` stays strict for reproducible ablations;
+        ``auto`` falls back to the readable loop on unsupported platforms.
+        """
+        if self.backend != 'auto':
+            return self.backend
+        grouped_mm = getattr(F, 'grouped_mm', None) or getattr(torch, '_grouped_mm', None)
+        if xs.is_cuda and xs.dtype == torch.bfloat16 and grouped_mm is not None:
+            return 'torch_grouped'
+        return 'loop'
+
+    def _compute_sorted_backend(self, xs, offsets, w13, w2, backend):
+        if backend == 'torch_grouped':
+            grouped_mm = getattr(F, 'grouped_mm', None) or getattr(torch, '_grouped_mm', None)
+            if grouped_mm is None or not xs.is_cuda or xs.dtype != torch.bfloat16:
+                raise RuntimeError('torch_grouped requires CUDA BF16 and a compatible native grouped_mm')
+            offs = offsets.to(dtype=torch.int32)
+            h13 = grouped_mm(xs, w13.transpose(-2, -1), offs=offs)
+            gate, up = h13.chunk(2, dim=-1)
+            act = F.silu(gate) * up
+            return grouped_mm(act, w2.transpose(-2, -1), offs=offs)
+        output = xs.new_empty((xs.shape[0], self.hidden))
         start = 0
-        for e, end in enumerate(off_list):
+        for e, end in enumerate(offsets.tolist()):
             if end == start:                           # 本批没 token 命中该专家
                 continue
-            toks = sorted_token[start:end]             # 该专家的 token 索引
-            xs = x[toks]                               # [n_e, H]
-            h13 = xs @ w13[e].t()                      # [n_e, 2I]
+            h13 = xs[start:end] @ w13[e].t()           # [n_e, 2I]
             gate, up = h13.chunk(2, dim=-1)
             act = F.silu(gate) * up                    # [n_e, I]
             out = act @ w2[e].t()                      # [n_e, H]
-            route_out[order[start:end]] = out * sorted_w[start:end, None].to(out.dtype)
+            output[start:end] = out
             start = end
-        return route_out.view(T, k, H).float().sum(dim=1).to(x.dtype)
+        return output
 
 
 class MoEMLP(nn.Module):
@@ -176,6 +242,18 @@ class MoEMLP(nn.Module):
 
     def __init__(self, config):
         super().__init__()
+        # EngineCore broadcasts the same attention batch to every EP rank.
+        # Opt-in token ownership avoids computing those MoE routes EP times.
+        # Keep the general all-to-allv primitive valid for distinct source batches.
+        self.shard_replicated_input = os.getenv("VLLM_LEARN_EP_SHARD_REPLICATED_INPUT", "0") == "1"
+        # Routing probabilities are already known by the source. Keeping the
+        # BF16 multiply there removes one metadata collective per MoE layer.
+        self.weight_at_source = os.getenv('VLLM_LEARN_EP_WEIGHT_AT_SOURCE', '0') == '1'
+        # BF16 GEMM algorithms depend on M. Routing an ownership slice can
+        # round logits differently from the identical replicated attention
+        # batch, changing top-k weights and occasionally expert selection.
+        # Default to the same router shape as EP1; local routing is opt-in.
+        self.local_router = os.getenv('VLLM_LEARN_EP_LOCAL_ROUTER', '0') == '1'
         self.router = MoERouter(config.hidden_size, config.num_experts,
                                 config.num_experts_per_tok,
                                 getattr(config, "norm_topk_prob", True))
@@ -186,6 +264,8 @@ class MoEMLP(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         from layers.parallel import STATE, tp_allreduce
+        if STATE.ep_size > 1 and self.shard_replicated_input:
+            return self._forward_replicated_input(x)
         with torch.autograd.profiler.record_function("moe.router"):
             idx, w = self.router(x)
         if STATE.ep_size > 1:
@@ -199,10 +279,44 @@ class MoEMLP(nn.Module):
             return tp_allreduce(out)
         return tp_allreduce(self.experts(x, idx, w))
 
-    def _experts_local(self, xs, eids, ws):
+    def _forward_replicated_input(self, x):
+        """Shard routes for an identical input batch on every EP rank.
+
+        Attention remains replicated. Each EP origin owns a contiguous token
+        interval, so the distributed experts evaluate each top-k route once.
+        Gather restores the replicated output expected by the next layer.
+        This wrapper requires identical x and token order on all EP peers;
+        _ep_forward_alltoallv itself still supports arbitrary source lengths.
+        """
+        from layers.parallel import STATE, tp_allreduce
+        import torch.distributed as dist
+        tokens, hidden = x.shape
+        if tokens == 0:
+            return x
+        rows = (tokens + STATE.ep_size - 1) // STATE.ep_size
+        start = STATE.ep_rank * rows
+        local_x = x[start:min(start + rows, tokens)]
+        with torch.autograd.profiler.record_function("moe.router.local_tokens"):
+            if self.local_router:
+                ids, weights = self.router(local_x)
+            else:
+                all_ids, all_weights = self.router(x)
+                ids, weights = all_ids[start:start + rows], all_weights[start:start + rows]
+        local_out = tp_allreduce(self._ep_forward_alltoallv(local_x, ids, weights))
+        # NCCL all_gather_into_tensor requires equal sizes. This pads only the
+        # ownership boundary (at most ep_size-1 rows across the whole group),
+        # never expert activations to a hottest-expert capacity.
+        padded = torch.zeros((rows, hidden), device=x.device, dtype=x.dtype)
+        padded[:local_out.shape[0]].copy_(local_out)
+        output = torch.empty((rows * STATE.ep_size, hidden), device=x.device, dtype=x.dtype)
+        with torch.autograd.profiler.record_function("moe.restore_replicated_output"):
+            dist.all_gather_into_tensor(output, padded, group=STATE.ep_group)
+        return output[:tokens]
+
+    def _experts_local(self, xs, eids, ws=None):
         """本地专家子集的分组计算（eids 是本地编号）。"""
         E = self.experts.num_experts
-        final = torch.zeros_like(xs)
+        final = torch.empty_like(xs)
         counts = torch.bincount(eids, minlength=E)
         if self.experts._profile_enabled:
             c = counts.detach().cpu()
@@ -211,18 +325,9 @@ class MoEMLP(nn.Module):
                 else self.experts._profile_token_counts + c)
         offsets = counts.cumsum(0)
         order = torch.argsort(eids, stable=True)
-        xs_s, ws_s = xs[order], ws[order]
-        start = 0
-        for e, end in enumerate(offsets.tolist()):
-            if end == start:
-                continue
-            toks = order[start:end]
-            h13 = xs_s[start:end] @ self.experts.w13[e].t()
-            gate, up = h13.chunk(2, dim=-1)
-            act = torch.nn.functional.silu(gate) * up
-            out = act @ self.experts.w2[e].t()
-            final[toks] = out * ws_s[start:end, None].to(out.dtype)
-            start = end
+        xs_s = xs[order]
+        out = self.experts.compute_sorted(xs_s, offsets)
+        final[order] = out if ws is None else out * ws[order, None].to(out.dtype)
         return final
 
     def _ep_forward_alltoallv(self, x, idx, w):
@@ -270,7 +375,7 @@ class MoEMLP(nn.Module):
         with torch.autograd.profiler.record_function("moe.dispatch"):
             recv_x = a2a(send_x, (sum(rs), H), ss, rs)
         recv_e = a2a(send_e, (sum(rs),), ss, rs)
-        recv_w = a2a(send_w, (sum(rs),), ss, rs)
+        recv_w = None if self.weight_at_source else a2a(send_w, (sum(rs),), ss, rs)
         # Convert global expert ids to this rank's local interval.
         local_e = recv_e - STATE.ep_rank * experts_per_rank
         with torch.autograd.profiler.record_function("moe.expert"):
@@ -282,5 +387,6 @@ class MoEMLP(nn.Module):
         # accumulation order varies across launches and can change greedy
         # tokens when scores are close (and can diverge across EP replicas).
         route_out = torch.empty_like(returned)
-        route_out[order] = returned
-        return route_out.view(T, k, H).float().sum(dim=1).to(x.dtype)
+        route_out[order] = (returned * send_w[:, None].to(returned.dtype)
+                            if self.weight_at_source else returned)
+        return _reduce_routes(route_out.view(T, k, H), idx)

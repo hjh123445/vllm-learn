@@ -1,0 +1,340 @@
+{
+  "host": "172.28.30.56",
+  "expected_hostname": "task3-A800-056",
+  "code": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/repair_056_20261104_124844/code",
+  "output": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/repair_056_20261104_124844",
+  "local_output": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\repair_056_20261104_124844",
+  "model": "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+  "source": {
+    "v9/config.py": {
+      "bytes": 1630,
+      "sha256": "c10246c59d9a220e25df8a398f1d21fc006d81c3de9430726b60ed60476ab2e2"
+    },
+    "v9/DESIGN.md": {
+      "bytes": 20352,
+      "sha256": "61c13972c727efbe300801d28470e789d8205d809ed76e3de39c1e9edf5799dd"
+    },
+    "v9/example.py": {
+      "bytes": 1397,
+      "sha256": "d858b8f5e0b35079861ca03af7e37f0f0bf67b31958afd9c8b34de37e2c4cb5b"
+    },
+    "v9/PARALLELISM_COMPARISON.md": {
+      "bytes": 5187,
+      "sha256": "a306068ea899505bd9532ff3df50255030b9ad3cb723b1cedabc211105c32a6c"
+    },
+    "v9/PARALLEL_MATRIX.md": {
+      "bytes": 2544,
+      "sha256": "91c13032f06eece63fce3ec4f23822e101b5291cbe6893a1c6f9b6c817c3c01f"
+    },
+    "v9/PP_DESIGN.md": {
+      "bytes": 2704,
+      "sha256": "43f99a8dc2795886ca62aa3c2d9724f55933a3816c0242be0a2560146648feb9"
+    },
+    "v9/PP_EP_VIRTUAL_ENGINE.md": {
+      "bytes": 6193,
+      "sha256": "73effdecaafc25880023c1470cf74307d598640fa0191e235be7d856fb90c828"
+    },
+    "v9/samplingParams.py": {
+      "bytes": 414,
+      "sha256": "d267aa19631c2b691ff0ae829de18085fb42681204287d4cd46b95261d78424b"
+    },
+    "v9/server.py": {
+      "bytes": 8747,
+      "sha256": "ea41ea00098ae9edf9179e09ed4ba5dd4fa725cceda71689d4858a5425dd564d"
+    },
+    "v9/STRUCTURE_AUDIT.md": {
+      "bytes": 5556,
+      "sha256": "08f976a627f00b466c4fedcb203e1ec70747763ce1b4df301337371d1e8337b7"
+    },
+    "v9/VLLM_ARCH.md": {
+      "bytes": 6051,
+      "sha256": "3876f7432607b029cd4a7142d109db0230a45ed93ddbe4df9f25089f440510d9"
+    },
+    "v9/engine/async_engine.py": {
+      "bytes": 6935,
+      "sha256": "e7e02c68c0e0e9daf3c7ddac759c33851f516e0a429731ee29e161fe594dd734"
+    },
+    "v9/engine/block_manager.py": {
+      "bytes": 5652,
+      "sha256": "92de39578a3244272e4b533bb76d5860b521408f21c5e903f298368827d5ab1b"
+    },
+    "v9/engine/core.py": {
+      "bytes": 18368,
+      "sha256": "0b9b2dd4983dfa9f9088396dc0a91d7d53ad411e4ccdc9850418814a12afc021"
+    },
+    "v9/engine/frontend.py": {
+      "bytes": 8567,
+      "sha256": "79958c1ab4771dee2d831e576cba09a9773022a11089894cc9877d4bb0f8cb74"
+    },
+    "v9/engine/model_runner.py": {
+      "bytes": 16716,
+      "sha256": "d9b3121e1fafcf41f3389a8fa96486009570a64e049a96ec38077fc25ac0323f"
+    },
+    "v9/engine/mq.py": {
+      "bytes": 5071,
+      "sha256": "826bd14888cdeefaeb692c9b49f78b2e9e1b37f20d870ccf4a3df7299e8724ae"
+    },
+    "v9/engine/pipeline_schedule.py": {
+      "bytes": 7186,
+      "sha256": "7926ae1e178c3d0fae460506672e293555499eb1a9494036ae69793d06fe649f"
+    },
+    "v9/engine/pipeline_transport.py": {
+      "bytes": 10861,
+      "sha256": "f1464132ce17a303c91f533001b8511f276cfd50ac3fd7109a8f251fd0b556ad"
+    },
+    "v9/engine/process_groups.py": {
+      "bytes": 2082,
+      "sha256": "448cdb8a191768c44679e8d40c68bd9905e92b0798e3e8aee7e9d66a32750dee"
+    },
+    "v9/engine/sampler.py": {
+      "bytes": 1281,
+      "sha256": "140fcfee2db53d59f9ca10c55e1f8c0f4243ed82f122445a4d57c5c5fdca3ea1"
+    },
+    "v9/engine/scheduler.py": {
+      "bytes": 5958,
+      "sha256": "96c8644cf727435d9c31eddd8d11ca84d531c15fdb52f1ad9ac8ff2ad0983303"
+    },
+    "v9/engine/sequence.py": {
+      "bytes": 2809,
+      "sha256": "afdf8a49c90e03ef6052501ec405baf59b1562c830f181cfea347cc2a9baeac6"
+    },
+    "v9/engine/worker.py": {
+      "bytes": 19489,
+      "sha256": "4c9a1b9601db73fe0578743269bfedbe4935058af72c310798945b0bb85a6d96"
+    },
+    "v9/engine/worker_health.py": {
+      "bytes": 634,
+      "sha256": "3d5e4f5577b1a58f80787e68e0ee89b73f7886347d40afe92080781791627799"
+    },
+    "v9/layers/attention.py": {
+      "bytes": 8937,
+      "sha256": "4bd9e10340270170f66c207009bd34df3870ade1776e7cc061dfb25cba6ea06c"
+    },
+    "v9/layers/attention_reference.py": {
+      "bytes": 2444,
+      "sha256": "c39f52e4fd7f42059ad034db307f1ff1f7344ddc5d7d4b607366eea661a7cdab"
+    },
+    "v9/layers/dcp.py": {
+      "bytes": 5109,
+      "sha256": "120d8724fcc02e4cf9ed36d7e2065ee45804eee335e3b5c08f6ce0b48601f9da"
+    },
+    "v9/layers/dequant_gemm.py": {
+      "bytes": 6820,
+      "sha256": "af3345c7bfa6ab23e711eb1b8fda10d1ef19f74168c6edac3b3051f66fe0a0ff"
+    },
+    "v9/layers/embedding.py": {
+      "bytes": 2876,
+      "sha256": "9d8afca0dcfa590d2cf1311463831cf2fd6fd984cfaca9d6eaf990e684329cc5"
+    },
+    "v9/layers/flash_attn.py": {
+      "bytes": 6618,
+      "sha256": "baae0c422048366532df279fd3428d8a26ec5a49e341c11d3debd18ef6d48d07"
+    },
+    "v9/layers/kernels.py": {
+      "bytes": 8237,
+      "sha256": "38efce1692b5a6a16cd47307977d764e0feb2895377019b75343b7ad78141777"
+    },
+    "v9/layers/linear.py": {
+      "bytes": 5793,
+      "sha256": "1613eb2c270bfc26e5e2996015039559adf5e679ffaa2c90193bca3ffec94ecd"
+    },
+    "v9/layers/moe.py": {
+      "bytes": 20162,
+      "sha256": "6836cb252e8c7eba98095d5ebd43973bd1efe1d4969f11cb0aa53874eb64ad69"
+    },
+    "v9/layers/norm.py": {
+      "bytes": 904,
+      "sha256": "5a320b6d9bdd3760e287d8c37aa24799821c5340eb85d7b937dab6f24bb47de9"
+    },
+    "v9/layers/parallel.py": {
+      "bytes": 5891,
+      "sha256": "53add30bf0daef80b5002f5bce538d8ef3cc79798248248decf21426a7dee92c"
+    },
+    "v9/layers/quantized.py": {
+      "bytes": 7570,
+      "sha256": "74bbbcd441c36df346ae9dd889cba9a7836759953e7ace4dc7f28f4f25622954"
+    },
+    "v9/layers/rotary_embedding.py": {
+      "bytes": 2329,
+      "sha256": "6b30e75bcfb81b4051af0a4c254c42123daa811fd042cdf648cac58d9a42c2c1"
+    },
+    "v9/models/qwen3_moe.py": {
+      "bytes": 13448,
+      "sha256": "32b3e6b97f561c651575eebe1021722de33a9f638bf41042e77617b827b92de6"
+    },
+    "v9/tests/bench_dp_ep.py": {
+      "bytes": 2882,
+      "sha256": "afbdc1e4e76c37d06dc297af3246df1f499eec9b7518ffbf08980db2e519dbc0"
+    },
+    "v9/tests/bench_parallel_serving.py": {
+      "bytes": 8240,
+      "sha256": "db8c15c983c908c08fdf4add299287b14a6d653dc694e5889d9df7534ddeedfd"
+    },
+    "v9/tests/bench_workload_matrix.py": {
+      "bytes": 11050,
+      "sha256": "1d55646446bb46858648fe3ec79e2ded62b87cab70997ba1743decefd65230e2"
+    },
+    "v9/tests/capture_parallel_window.py": {
+      "bytes": 2785,
+      "sha256": "db8d8519995abc0dc601d6fcfe608dfd52d6f469ec898a624828487a5be686b1"
+    },
+    "v9/tests/comm_bench.py": {
+      "bytes": 2780,
+      "sha256": "214e378cc684dd8a3c82ecff81111723e33d51c14624970923faea69f2ee55ab"
+    },
+    "v9/tests/lse_merge_test.py": {
+      "bytes": 3359,
+      "sha256": "462fddcd8e628483786bf3e0e99f25a77c3f56159f1ec75c287ae7c08cdc2061"
+    },
+    "v9/tests/merge_pipeline_trace.py": {
+      "bytes": 2108,
+      "sha256": "c9227b40f7ef731fe0633d5a4ac69fafc78482a678afffc1eb82c43bc823805d"
+    },
+    "v9/tests/probe_grouped_experts.py": {
+      "bytes": 3886,
+      "sha256": "6ca69244e5058cf0728e2b72b2bd48b5c63acde3e1e982222190a57c96d0630e"
+    },
+    "v9/tests/probe_reference_generation.py": {
+      "bytes": 4034,
+      "sha256": "438ed86dc037d2aff3125eec0b9c151825db9066a05f6713519dba39c2e3b673"
+    },
+    "v9/tests/probe_teacher_forcing.py": {
+      "bytes": 3293,
+      "sha256": "9a5673022d6f84e7b2704b046bd2d29d531c891fa6646de34727ac9faaa21ff9"
+    },
+    "v9/tests/profile_trace.py": {
+      "bytes": 3340,
+      "sha256": "7100d4b217fee577df7006b194a07a8c7361bdd262df672a4d322a7ed25b6e88"
+    },
+    "v9/tests/quant_probe.py": {
+      "bytes": 5481,
+      "sha256": "83508002f42803125ab156e43000632ad4acf552fd6bd51fd97b14131d5801f3"
+    },
+    "v9/tests/test_attention_reference.py": {
+      "bytes": 1659,
+      "sha256": "994d46a762697f33d906a8abbbbfb252ce62e7ca01f8a6ca84f821b5cc43790f"
+    },
+    "v9/tests/test_context.py": {
+      "bytes": 2441,
+      "sha256": "80f23246d71f36470500f52020be33f71754d7d6dd8c4e051dd8a1f85414a912"
+    },
+    "v9/tests/test_distributed_moe.py": {
+      "bytes": 4504,
+      "sha256": "8d47e9c5fca435302eda2a1ecf8c420a4faf9d355e6834b68a14f3ee1ac1f7bb"
+    },
+    "v9/tests/test_dp.py": {
+      "bytes": 3321,
+      "sha256": "cce170aaa8079e56c1f3ed4fa05eb09f51edec5b00b8aeda230472f989b82167"
+    },
+    "v9/tests/test_dp_frontend.py": {
+      "bytes": 2249,
+      "sha256": "2703e62826580cab75606f44df0f1cd250ac0d206d874d7321b90b31612e66a1"
+    },
+    "v9/tests/test_engine_core.py": {
+      "bytes": 3794,
+      "sha256": "a5d8db6acb32af6e7fb8a1fa61f0d5c09aca4bcd65a8067ea6dc9752704338b0"
+    },
+    "v9/tests/test_ep_token_ownership.py": {
+      "bytes": 3402,
+      "sha256": "5c316768a6f41ac3f89c5fef125342d2af0806394ac4da6338d9cecf5da6a385"
+    },
+    "v9/tests/test_latency.py": {
+      "bytes": 4645,
+      "sha256": "5e98d74e85396546054dc5ce4d145ed4b8057abe9407ac2d7e5b72f70aee9ea8"
+    },
+    "v9/tests/test_matrix.py": {
+      "bytes": 6927,
+      "sha256": "c5bf9208236d9617a6f9e1e209c78be7f99a4990f7aaf53cd1e07334dc9c0840"
+    },
+    "v9/tests/test_mixed_batch.py": {
+      "bytes": 3307,
+      "sha256": "e11d9841841e4a8bb0320ddc4fee108ec9867b6df949be50e162aed547da06c7"
+    },
+    "v9/tests/test_parallel_components.py": {
+      "bytes": 11275,
+      "sha256": "6e6ca3148be924f5c2701d2753dc91541662656c8c6c9f2b05fea1938bcc4b27"
+    },
+    "v9/tests/test_pipeline_links.py": {
+      "bytes": 2884,
+      "sha256": "218a2ca1384bced339c467a8f68acb23ebf856e0cdc24306e0fe3b4e7dee62bd"
+    },
+    "v9/tests/test_pipeline_schedule.py": {
+      "bytes": 1539,
+      "sha256": "84a1fcee73d7a0f95bba8604231f3c2cf57e2fdee4db19b25c03e1987712ee49"
+    },
+    "v9/tests/test_pipeline_schedule_topology.py": {
+      "bytes": 1348,
+      "sha256": "8f6ff80a5b60506f3cdc86b37b23ad4644fec24791b44c98bb9db5dbe01da531"
+    },
+    "v9/tests/test_prefix_cache_switch.py": {
+      "bytes": 1051,
+      "sha256": "2573af0211ac9c6aa1b434066f01cffc65a0bde38a3f15b5c08b288d94e4ab5a"
+    },
+    "v9/tests/test_route_reduction.py": {
+      "bytes": 1456,
+      "sha256": "82549b5b34a00bb4dd9fe715d908849ed4b527d6cd51097d9bed385f8bc727c8"
+    },
+    "v9/tests/test_worker_health.py": {
+      "bytes": 2480,
+      "sha256": "37c5e4b17199da556b8723083e1360ef7c5c67a404f7c64356c76c2ca79173e2"
+    },
+    "v9/utils/activation_capture.py": {
+      "bytes": 2466,
+      "sha256": "4b6521e4e9d27d6efa7419784650326285bee1a94a52e929479de46fffe1ebf3"
+    },
+    "v9/utils/context.py": {
+      "bytes": 859,
+      "sha256": "ab719d3035a5c8beaa5aa69e25dcc253098f6e6f8bdefb8d296e2e55ff388426"
+    },
+    "v9/utils/loader.py": {
+      "bytes": 9086,
+      "sha256": "7e8c926a10b93bc3f4256227b8caf1ce37e586d81e8a5b590bb9bae2936699e0"
+    },
+    "work/hf_extended_reference.py": {
+      "bytes": 3793,
+      "sha256": "b08a7d5a1676360fd28f32d4b62e968224a1772010f27c161469fd14607882d0"
+    },
+    "work/analyze_numerical_diagnostics.py": {
+      "bytes": 5374,
+      "sha256": "39d9d53a07fc10462bb6976a89cdb947e50776eb7eed7a680385dd2166557f6c"
+    },
+    "work/correctness_056_runner.py": {
+      "bytes": 3711,
+      "sha256": "55dd8a38317b0f809128068e5047efd9a607e60e335e376154e95ee4775b5812"
+    },
+    "work/correctness_056_inventory.py": {
+      "bytes": 3199,
+      "sha256": "37415897693c012546bed495903981df834a0514704549914077411456208c8c"
+    },
+    "fixtures/inputs.json": {
+      "bytes": 1613935,
+      "sha256": "a6db89a949f402dc18da11259d46a3ea1d353bd3778670db0f554cf89dbc9584"
+    },
+    "work/probe_masked_sdpa.py": {
+      "bytes": 2367,
+      "sha256": "cd6a3fd9f9dceff1c509dee5e0071b372b6ea1502488c47b357907deb9c6571b"
+    },
+    "work/probe_layer_activations.py": {
+      "bytes": 4834,
+      "sha256": "c29208df21a968e27dda0164c3f401e45d4c985ecf936a9c8b178976672052e4"
+    },
+    "work/hf_fixed_prefix_reference.py": {
+      "bytes": 3302,
+      "sha256": "0aaad42b40f4d2e2544bc5e4e0ffa82edac3968e30cfb4bbbacf6527bf7e45ce"
+    },
+    "work/analyze_fixed_prefix_controls.py": {
+      "bytes": 804,
+      "sha256": "ed966328b73a00c30ed4bcfe411836ad21d8ee6a9d21834d9d0b145bce876f21"
+    },
+    "work/analyze_layer_activations.py": {
+      "bytes": 3335,
+      "sha256": "32b5086487d8e1383cd4d167df6bd031c75c95d84c374b8f6f1eff6c61358a0a"
+    },
+    "v9/tests/test_rotary_reference.py": {
+      "bytes": 1187,
+      "sha256": "8ca82edaa223545c931f788f8b9bdc416998383bd5d9afa50bb3a0736e508d35"
+    }
+  },
+  "parent_deployment": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/ablation_056_20261104_105934/deployment.json",
+  "note": "HF fresh-prefix self-control, EP1 bounded KV, failing-prefix layer capture; not throughput"
+}

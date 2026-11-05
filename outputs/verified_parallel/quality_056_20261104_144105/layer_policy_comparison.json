@@ -1,0 +1,1532 @@
+{
+  "layer_fused": [
+    {
+      "file": "stage0.embedding.pt",
+      "label": "embedding",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024
+        ],
+        "dtype_a": "torch.int64",
+        "dtype_b": "torch.int64",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 79148.2578125,
+        "equal_fraction": 1.0,
+        "cosine": 1.0
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.016239795833826065,
+        "equal_fraction": 1.0,
+        "cosine": 0.9999565482139587
+      }
+    },
+    {
+      "file": "stage0.layer0.attention.pt",
+      "label": "layer0.attention",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.00908200815320015,
+        "equal_fraction": 1.0,
+        "cosine": 1.0000767707824707
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.014802254736423492,
+        "equal_fraction": 1.0,
+        "cosine": 1.0001838207244873
+      }
+    },
+    {
+      "file": "stage0.layer0.k_proj.pt",
+      "label": "layer0.k_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.00908200815320015,
+        "equal_fraction": 1.0,
+        "cosine": 1.0000767707824707
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          512
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.016533395275473595,
+        "equal_fraction": 1.0,
+        "cosine": 0.9999674558639526
+      }
+    },
+    {
+      "file": "stage0.layer0.moe.pt",
+      "label": "layer0.moe",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.20682063698768616,
+        "equal_fraction": 1.0,
+        "cosine": 0.9999874830245972
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.011819194070994854,
+        "equal_fraction": 1.0,
+        "cosine": 0.9999718070030212
+      }
+    },
+    {
+      "file": "stage0.layer0.o_proj.pt",
+      "label": "layer0.o_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          4096
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.0038783918134868145,
+        "equal_fraction": 1.0,
+        "cosine": 1.0003890991210938
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.014802254736423492,
+        "equal_fraction": 1.0,
+        "cosine": 1.0001838207244873
+      }
+    },
+    {
+      "file": "stage0.layer0.q_proj.pt",
+      "label": "layer0.q_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.00908200815320015,
+        "equal_fraction": 1.0,
+        "cosine": 1.0000767707824707
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          4096
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.019598016515374184,
+        "equal_fraction": 1.0,
+        "cosine": 1.0000929832458496
+      }
+    },
+    {
+      "file": "stage0.layer0.router.pt",
+      "label": "layer0.router",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.20682063698768616,
+        "equal_fraction": 1.0,
+        "cosine": 0.9999874830245972
+      },
+      "router_index_equal_fraction": 1.0,
+      "router_set_equal_rows": 1.0,
+      "router_output_shapes": [
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.int64"
+        ],
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.bfloat16"
+        ]
+      ],
+      "custom_router_output_shapes": [
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.int64"
+        ],
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.bfloat16"
+        ]
+      ]
+    },
+    {
+      "file": "stage0.layer0.v_proj.pt",
+      "label": "layer0.v_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.00908200815320015,
+        "equal_fraction": 1.0,
+        "cosine": 1.0000767707824707
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          512
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.00691017834469676,
+        "equal_fraction": 1.0,
+        "cosine": 0.9999871253967285
+      }
+    },
+    {
+      "file": "stage0.layer1.attention.pt",
+      "label": "layer1.attention",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.013858184218406677,
+        "equal_fraction": 1.0,
+        "cosine": 1.0001180171966553
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.000244140625,
+        "rmse": 7.122765737221926e-07,
+        "reference_rms": 0.014785881154239178,
+        "equal_fraction": 0.9996109008789062,
+        "cosine": 0.9999821186065674
+      }
+    },
+    {
+      "file": "stage0.layer1.k_proj.pt",
+      "label": "layer1.k_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.013858184218406677,
+        "equal_fraction": 1.0,
+        "cosine": 1.0001180171966553
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          512
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.02848018705844879,
+        "equal_fraction": 1.0,
+        "cosine": 0.9999663233757019
+      }
+    },
+    {
+      "file": "stage0.layer1.moe.pt",
+      "label": "layer1.moe",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0078125,
+        "rmse": 1.3696705536858644e-05,
+        "reference_rms": 0.26585835218429565,
+        "equal_fraction": 0.9998712539672852,
+        "cosine": 0.9999375343322754
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.000244140625,
+        "rmse": 2.260022256450611e-06,
+        "reference_rms": 0.06559983640909195,
+        "equal_fraction": 0.9971160888671875,
+        "cosine": 1.00208580493927
+      }
+    },
+    {
+      "file": "stage0.layer1.o_proj.pt",
+      "label": "layer1.o_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          4096
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.00018310546875,
+        "rmse": 1.8261025047650037e-07,
+        "reference_rms": 0.006648967042565346,
+        "equal_fraction": 0.9999551773071289,
+        "cosine": 1.0002188682556152
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.000244140625,
+        "rmse": 7.122765737221926e-07,
+        "reference_rms": 0.014785881154239178,
+        "equal_fraction": 0.9996109008789062,
+        "cosine": 0.9999821186065674
+      }
+    },
+    {
+      "file": "stage0.layer1.q_proj.pt",
+      "label": "layer1.q_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.013858184218406677,
+        "equal_fraction": 1.0,
+        "cosine": 1.0001180171966553
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          4096
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.03103064000606537,
+        "equal_fraction": 1.0,
+        "cosine": 1.0002561807632446
+      }
+    },
+    {
+      "file": "stage0.layer1.router.pt",
+      "label": "layer1.router",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0078125,
+        "rmse": 1.3696705536858644e-05,
+        "reference_rms": 0.26585835218429565,
+        "equal_fraction": 0.9998712539672852,
+        "cosine": 0.9999375343322754
+      },
+      "router_index_equal_fraction": 1.0,
+      "router_set_equal_rows": 1.0,
+      "router_output_shapes": [
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.int64"
+        ],
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.bfloat16"
+        ]
+      ],
+      "custom_router_output_shapes": [
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.int64"
+        ],
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.bfloat16"
+        ]
+      ]
+    },
+    {
+      "file": "stage0.layer1.v_proj.pt",
+      "label": "layer1.v_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.013858184218406677,
+        "equal_fraction": 1.0,
+        "cosine": 1.0001180171966553
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          512
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.013287951238453388,
+        "equal_fraction": 1.0,
+        "cosine": 0.9999690055847168
+      }
+    },
+    {
+      "file": "stage0.layer2.attention.pt",
+      "label": "layer2.attention",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0009765625,
+        "rmse": 1.844974462983373e-06,
+        "reference_rms": 0.016189344227313995,
+        "equal_fraction": 0.9987277984619141,
+        "cosine": 1.0000574588775635
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.001953125,
+        "rmse": 1.787218207027763e-05,
+        "reference_rms": 0.015736063942313194,
+        "equal_fraction": 0.8784618377685547,
+        "cosine": 0.9999729990959167
+      }
+    },
+    {
+      "file": "stage0.layer2.k_proj.pt",
+      "label": "layer2.k_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0009765625,
+        "rmse": 1.844974462983373e-06,
+        "reference_rms": 0.016189344227313995,
+        "equal_fraction": 0.9987277984619141,
+        "cosine": 1.0000574588775635
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          512
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0009765625,
+        "rmse": 4.622366759576835e-06,
+        "reference_rms": 0.0319385789334774,
+        "equal_fraction": 0.9978656768798828,
+        "cosine": 0.9999584555625916
+      }
+    },
+    {
+      "file": "stage0.layer2.moe.pt",
+      "label": "layer2.moe",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.03125,
+        "rmse": 0.00027642861823551357,
+        "reference_rms": 0.30212539434432983,
+        "equal_fraction": 0.9495334625244141,
+        "cosine": 0.9999547004699707
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.021484375,
+        "rmse": 0.00018144868954550475,
+        "reference_rms": 0.3900268077850342,
+        "equal_fraction": 0.5065264701843262,
+        "cosine": 1.0001716613769531
+      }
+    },
+    {
+      "file": "stage0.layer2.o_proj.pt",
+      "label": "layer2.o_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          4096
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.000732421875,
+        "rmse": 3.989905962953344e-06,
+        "reference_rms": 0.008323032408952713,
+        "equal_fraction": 0.9724266529083252,
+        "cosine": 1.0001980066299438
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.001953125,
+        "rmse": 1.787218207027763e-05,
+        "reference_rms": 0.015736063942313194,
+        "equal_fraction": 0.8784618377685547,
+        "cosine": 0.9999729990959167
+      }
+    },
+    {
+      "file": "stage0.layer2.q_proj.pt",
+      "label": "layer2.q_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0009765625,
+        "rmse": 1.844974462983373e-06,
+        "reference_rms": 0.016189344227313995,
+        "equal_fraction": 0.9987277984619141,
+        "cosine": 1.0000574588775635
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          4096
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0009765625,
+        "rmse": 4.7942121454980224e-06,
+        "reference_rms": 0.039759956300258636,
+        "equal_fraction": 0.9976711273193359,
+        "cosine": 1.000234842300415
+      }
+    },
+    {
+      "file": "stage0.layer2.router.pt",
+      "label": "layer2.router",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.03125,
+        "rmse": 0.00027642861823551357,
+        "reference_rms": 0.30212539434432983,
+        "equal_fraction": 0.9495334625244141,
+        "cosine": 0.9999547004699707
+      },
+      "router_index_equal_fraction": 0.9951171875,
+      "router_set_equal_rows": 0.9951171875,
+      "router_output_shapes": [
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.int64"
+        ],
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.bfloat16"
+        ]
+      ],
+      "custom_router_output_shapes": [
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.int64"
+        ],
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.bfloat16"
+        ]
+      ]
+    },
+    {
+      "file": "stage0.layer2.v_proj.pt",
+      "label": "layer2.v_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0009765625,
+        "rmse": 1.844974462983373e-06,
+        "reference_rms": 0.016189344227313995,
+        "equal_fraction": 0.9987277984619141,
+        "cosine": 1.0000574588775635
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          512
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.000244140625,
+        "rmse": 2.8740284960804274e-06,
+        "reference_rms": 0.015553098171949387,
+        "equal_fraction": 0.9967250823974609,
+        "cosine": 0.9999597072601318
+      }
+    }
+  ],
+  "layer_triton": [
+    {
+      "file": "stage0.embedding.pt",
+      "label": "embedding",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024
+        ],
+        "dtype_a": "torch.int64",
+        "dtype_b": "torch.int64",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 79148.2578125,
+        "equal_fraction": 1.0,
+        "cosine": 1.0
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.016239795833826065,
+        "equal_fraction": 1.0,
+        "cosine": 0.9999565482139587
+      }
+    },
+    {
+      "file": "stage0.layer0.attention.pt",
+      "label": "layer0.attention",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.00908200815320015,
+        "equal_fraction": 1.0,
+        "cosine": 1.0000767707824707
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.00390625,
+        "rmse": 1.6959707863861695e-05,
+        "reference_rms": 0.014802254736423492,
+        "equal_fraction": 0.7708182334899902,
+        "cosine": 1.0001838207244873
+      }
+    },
+    {
+      "file": "stage0.layer0.k_proj.pt",
+      "label": "layer0.k_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.00908200815320015,
+        "equal_fraction": 1.0,
+        "cosine": 1.0000767707824707
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          512
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.016533395275473595,
+        "equal_fraction": 1.0,
+        "cosine": 0.9999674558639526
+      }
+    },
+    {
+      "file": "stage0.layer0.moe.pt",
+      "label": "layer0.moe",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0234375,
+        "rmse": 0.00028932836721651256,
+        "reference_rms": 0.20682063698768616,
+        "equal_fraction": 0.9085979461669922,
+        "cosine": 0.9999867677688599
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0224609375,
+        "rmse": 0.00011678012378979474,
+        "reference_rms": 0.011819194070994854,
+        "equal_fraction": 0.4528794288635254,
+        "cosine": 0.9999220371246338
+      }
+    },
+    {
+      "file": "stage0.layer0.o_proj.pt",
+      "label": "layer0.o_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          4096
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.000244140625,
+        "rmse": 3.4646639051061356e-06,
+        "reference_rms": 0.0038783918134868145,
+        "equal_fraction": 0.8888680934906006,
+        "cosine": 1.0003886222839355
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.00390625,
+        "rmse": 1.6959707863861695e-05,
+        "reference_rms": 0.014802254736423492,
+        "equal_fraction": 0.7708182334899902,
+        "cosine": 1.0001838207244873
+      }
+    },
+    {
+      "file": "stage0.layer0.q_proj.pt",
+      "label": "layer0.q_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.00908200815320015,
+        "equal_fraction": 1.0,
+        "cosine": 1.0000767707824707
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          4096
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.019598016515374184,
+        "equal_fraction": 1.0,
+        "cosine": 1.0000929832458496
+      }
+    },
+    {
+      "file": "stage0.layer0.router.pt",
+      "label": "layer0.router",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0234375,
+        "rmse": 0.00028932836721651256,
+        "reference_rms": 0.20682063698768616,
+        "equal_fraction": 0.9085979461669922,
+        "cosine": 0.9999867677688599
+      },
+      "router_index_equal_fraction": 0.9884033203125,
+      "router_set_equal_rows": 0.984375,
+      "router_output_shapes": [
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.int64"
+        ],
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.bfloat16"
+        ]
+      ],
+      "custom_router_output_shapes": [
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.int64"
+        ],
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.bfloat16"
+        ]
+      ]
+    },
+    {
+      "file": "stage0.layer0.v_proj.pt",
+      "label": "layer0.v_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.00908200815320015,
+        "equal_fraction": 1.0,
+        "cosine": 1.0000767707824707
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          512
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.00691017834469676,
+        "equal_fraction": 1.0,
+        "cosine": 0.9999871253967285
+      }
+    },
+    {
+      "file": "stage0.layer1.attention.pt",
+      "label": "layer1.attention",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0087890625,
+        "rmse": 5.9656344092218205e-05,
+        "reference_rms": 0.013858184218406677,
+        "equal_fraction": 0.6561059951782227,
+        "cosine": 1.000110387802124
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0078125,
+        "rmse": 7.939466740936041e-05,
+        "reference_rms": 0.014785881154239178,
+        "equal_fraction": 0.32273006439208984,
+        "cosine": 0.9999661445617676
+      }
+    },
+    {
+      "file": "stage0.layer1.k_proj.pt",
+      "label": "layer1.k_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0087890625,
+        "rmse": 5.9656344092218205e-05,
+        "reference_rms": 0.013858184218406677,
+        "equal_fraction": 0.6561059951782227,
+        "cosine": 1.000110387802124
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          512
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0045166015625,
+        "rmse": 8.829485159367323e-05,
+        "reference_rms": 0.02848018705844879,
+        "equal_fraction": 0.6025161743164062,
+        "cosine": 0.99996018409729
+      }
+    },
+    {
+      "file": "stage0.layer1.moe.pt",
+      "label": "layer1.moe",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0732421875,
+        "rmse": 0.0016701044514775276,
+        "reference_rms": 0.26585835218429565,
+        "equal_fraction": 0.4871044158935547,
+        "cosine": 0.9999185800552368
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.01953125,
+        "rmse": 0.0004139193915762007,
+        "reference_rms": 0.06559983640909195,
+        "equal_fraction": 0.21472549438476562,
+        "cosine": 1.0020664930343628
+      }
+    },
+    {
+      "file": "stage0.layer1.o_proj.pt",
+      "label": "layer1.o_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          4096
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0032958984375,
+        "rmse": 3.878586721839383e-05,
+        "reference_rms": 0.006648967042565346,
+        "equal_fraction": 0.37981081008911133,
+        "cosine": 1.000199794769287
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0078125,
+        "rmse": 7.939466740936041e-05,
+        "reference_rms": 0.014785881154239178,
+        "equal_fraction": 0.32273006439208984,
+        "cosine": 0.9999661445617676
+      }
+    },
+    {
+      "file": "stage0.layer1.q_proj.pt",
+      "label": "layer1.q_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0087890625,
+        "rmse": 5.9656344092218205e-05,
+        "reference_rms": 0.013858184218406677,
+        "equal_fraction": 0.6561059951782227,
+        "cosine": 1.000110387802124
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          4096
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0078125,
+        "rmse": 8.989239722723141e-05,
+        "reference_rms": 0.03103064000606537,
+        "equal_fraction": 0.5739731788635254,
+        "cosine": 1.000252366065979
+      }
+    },
+    {
+      "file": "stage0.layer1.router.pt",
+      "label": "layer1.router",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0732421875,
+        "rmse": 0.0016701044514775276,
+        "reference_rms": 0.26585835218429565,
+        "equal_fraction": 0.4871044158935547,
+        "cosine": 0.9999185800552368
+      },
+      "router_index_equal_fraction": 0.9718017578125,
+      "router_set_equal_rows": 0.93359375,
+      "router_output_shapes": [
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.int64"
+        ],
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.bfloat16"
+        ]
+      ],
+      "custom_router_output_shapes": [
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.int64"
+        ],
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.bfloat16"
+        ]
+      ]
+    },
+    {
+      "file": "stage0.layer1.v_proj.pt",
+      "label": "layer1.v_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0087890625,
+        "rmse": 5.9656344092218205e-05,
+        "reference_rms": 0.013858184218406677,
+        "equal_fraction": 0.6561059951782227,
+        "cosine": 1.000110387802124
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          512
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.003173828125,
+        "rmse": 6.768688763258979e-05,
+        "reference_rms": 0.013287951238453388,
+        "equal_fraction": 0.4724712371826172,
+        "cosine": 0.9999563694000244
+      }
+    },
+    {
+      "file": "stage0.layer2.attention.pt",
+      "label": "layer2.attention",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.01416015625,
+        "rmse": 0.00019652182527352124,
+        "reference_rms": 0.016189344227313995,
+        "equal_fraction": 0.36180925369262695,
+        "cosine": 0.9999841451644897
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.013671875,
+        "rmse": 0.00018500039004720747,
+        "reference_rms": 0.015736063942313194,
+        "equal_fraction": 0.1959238052368164,
+        "cosine": 0.9999045729637146
+      }
+    },
+    {
+      "file": "stage0.layer2.k_proj.pt",
+      "label": "layer2.k_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.01416015625,
+        "rmse": 0.00019652182527352124,
+        "reference_rms": 0.016189344227313995,
+        "equal_fraction": 0.36180925369262695,
+        "cosine": 0.9999841451644897
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          512
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0087890625,
+        "rmse": 0.0002702907659113407,
+        "reference_rms": 0.0319385789334774,
+        "equal_fraction": 0.4134349822998047,
+        "cosine": 0.9999234676361084
+      }
+    },
+    {
+      "file": "stage0.layer2.moe.pt",
+      "label": "layer2.moe",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.4154052734375,
+        "rmse": 0.004505993332713842,
+        "reference_rms": 0.30212539434432983,
+        "equal_fraction": 0.27726125717163086,
+        "cosine": 0.999845027923584
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0263671875,
+        "rmse": 0.0005884018028154969,
+        "reference_rms": 0.3900268077850342,
+        "equal_fraction": 0.15600872039794922,
+        "cosine": 1.0001704692840576
+      }
+    },
+    {
+      "file": "stage0.layer2.o_proj.pt",
+      "label": "layer2.o_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          4096
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.0101318359375,
+        "rmse": 0.00010450606350786984,
+        "reference_rms": 0.008323032408952713,
+        "equal_fraction": 0.25311756134033203,
+        "cosine": 1.0001201629638672
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.013671875,
+        "rmse": 0.00018500039004720747,
+        "reference_rms": 0.015736063942313194,
+        "equal_fraction": 0.1959238052368164,
+        "cosine": 0.9999045729637146
+      }
+    },
+    {
+      "file": "stage0.layer2.q_proj.pt",
+      "label": "layer2.q_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.01416015625,
+        "rmse": 0.00019652182527352124,
+        "reference_rms": 0.016189344227313995,
+        "equal_fraction": 0.36180925369262695,
+        "cosine": 0.9999841451644897
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          4096
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.011474609375,
+        "rmse": 0.0002694259164854884,
+        "reference_rms": 0.039759956300258636,
+        "equal_fraction": 0.38257360458374023,
+        "cosine": 1.0002127885818481
+      }
+    },
+    {
+      "file": "stage0.layer2.router.pt",
+      "label": "layer2.router",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.4154052734375,
+        "rmse": 0.004505993332713842,
+        "reference_rms": 0.30212539434432983,
+        "equal_fraction": 0.27726125717163086,
+        "cosine": 0.999845027923584
+      },
+      "router_index_equal_fraction": 0.948486328125,
+      "router_set_equal_rows": 0.951171875,
+      "router_output_shapes": [
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.int64"
+        ],
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.bfloat16"
+        ]
+      ],
+      "custom_router_output_shapes": [
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.int64"
+        ],
+        [
+          [
+            1024,
+            8
+          ],
+          "torch.bfloat16"
+        ]
+      ]
+    },
+    {
+      "file": "stage0.layer2.v_proj.pt",
+      "label": "layer2.v_proj",
+      "input": {
+        "comparable": true,
+        "shape": [
+          1024,
+          2048
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.01416015625,
+        "rmse": 0.00019652182527352124,
+        "reference_rms": 0.016189344227313995,
+        "equal_fraction": 0.36180925369262695,
+        "cosine": 0.9999841451644897
+      },
+      "output": {
+        "comparable": true,
+        "shape": [
+          1024,
+          512
+        ],
+        "dtype_a": "torch.bfloat16",
+        "dtype_b": "torch.bfloat16",
+        "max_abs": 0.00494384765625,
+        "rmse": 0.00026219343999400735,
+        "reference_rms": 0.015553098171949387,
+        "equal_fraction": 0.2703819274902344,
+        "cosine": 0.9998186826705933
+      }
+    }
+  ]
+}

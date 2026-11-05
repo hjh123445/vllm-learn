@@ -1,0 +1,100 @@
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_section', 'interleaved'}
+Loading weights:   0%|          | 0/1407 [00:00<?, ?it/s]Loading weights:  28%|██▊       | 393/1407 [00:00<00:00, 3926.68it/s]Loading weights:  56%|█████▌    | 786/1407 [00:09<00:08, 72.66it/s]  Loading weights:  68%|██████▊   | 951/1407 [00:15<00:08, 50.76it/s]Loading weights:  74%|███████▍  | 1042/1407 [00:18<00:08, 44.74it/s]Loading weights:  78%|███████▊  | 1098/1407 [00:18<00:06, 49.23it/s]Loading weights:  86%|████████▋ | 1215/1407 [00:18<00:02, 67.26it/s]Loading weights:  95%|█████████▍| 1335/1407 [00:19<00:00, 92.70it/s]Loading weights: 100%|██████████| 1407/1407 [00:19<00:00, 73.48it/s]
+[transformers] [1mQwen3OmniMoeThinkerForConditionalGeneration LOAD REPORT[0m from: /data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct
+Key                                                                                      | Status     |  | 
+-----------------------------------------------------------------------------------------+------------+--+-
+talker.model.layers.{0...19}.input_layernorm.weight                                      | UNEXPECTED |  | 
+code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.self_attn.v_proj.weight         | UNEXPECTED |  | 
+code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.post_attention_layernorm.weight | UNEXPECTED |  | 
+talker.model.layers.{0...19}.post_attention_layernorm.weight                             | UNEXPECTED |  | 
+talker.model.layers.{0...19}.self_attn.k_norm.weight                                     | UNEXPECTED |  | 
+talker.model.layers.{0...19}.mlp.shared_expert.down_proj.weight                          | UNEXPECTED |  | 
+talker.model.layers.{0...19}.mlp.shared_expert.up_proj.weight                            | UNEXPECTED |  | 
+talker.model.layers.{0...19}.mlp.gate.weight                                             | UNEXPECTED |  | 
+talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.input_layernorm.weight                | UNEXPECTED |  | 
+code2wav.decoder.{1, 2, 3, 4}.block.0.beta                                               | UNEXPECTED |  | 
+talker.model.layers.{0...19}.mlp.experts.down_proj                                       | UNEXPECTED |  | 
+code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.conv1.conv.weight                          | UNEXPECTED |  | 
+talker.model.layers.{0...19}.self_attn.q_proj.weight                                     | UNEXPECTED |  | 
+code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.input_layernorm.weight          | UNEXPECTED |  | 
+code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.act1.alpha                                 | UNEXPECTED |  | 
+talker.model.layers.{0...19}.mlp.shared_expert_gate.weight                               | UNEXPECTED |  | 
+talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.self_attn.v_proj.weight               | UNEXPECTED |  | 
+talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.mlp.gate_proj.weight                  | UNEXPECTED |  | 
+talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.mlp.up_proj.weight                    | UNEXPECTED |  | 
+talker.model.layers.{0...19}.self_attn.v_proj.weight                                     | UNEXPECTED |  | 
+talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.self_attn.k_proj.weight               | UNEXPECTED |  | 
+code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.conv2.conv.bias                            | UNEXPECTED |  | 
+talker.model.layers.{0...19}.mlp.experts.gate_up_proj                                    | UNEXPECTED |  | 
+code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.mlp_layer_scale.scale           | UNEXPECTED |  | 
+talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.self_attn.q_proj.weight               | UNEXPECTED |  | 
+talker.model.layers.{0...19}.self_attn.k_proj.weight                                     | UNEXPECTED |  | 
+code2wav.upsample.{0, 1}.1.pwconv1.bias                                                  | UNEXPECTED |  | 
+talker.code_predictor.model.codec_embedding.{0...14}.weight                              | UNEXPECTED |  | 
+code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.self_attn_layer_scale.scale     | UNEXPECTED |  | 
+code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.act1.beta                                  | UNEXPECTED |  | 
+talker.model.layers.{0...19}.self_attn.o_proj.weight                                     | UNEXPECTED |  | 
+talker.text_projection.linear_fc2.weight                                                 | UNEXPECTED |  | 
+talker.model.layers.{0...19}.self_attn.q_norm.weight                                     | UNEXPECTED |  | 
+code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.self_attn.k_proj.weight         | UNEXPECTED |  | 
+code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.mlp.gate_proj.weight            | UNEXPECTED |  | 
+code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.act2.alpha                                 | UNEXPECTED |  | 
+code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.act2.beta                                  | UNEXPECTED |  | 
+talker.code_predictor.lm_head.{0...14}.weight                                            | UNEXPECTED |  | 
+code2wav.decoder.{1, 2, 3, 4}.block.0.alpha                                              | UNEXPECTED |  | 
+code2wav.decoder.5.beta                                                                  | UNEXPECTED |  | 
+code2wav.upsample.{0, 1}.1.dwconv.conv.bias                                              | UNEXPECTED |  | 
+talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.post_attention_layernorm.weight       | UNEXPECTED |  | 
+talker.model.layers.{0...19}.mlp.shared_expert.gate_proj.weight                          | UNEXPECTED |  | 
+talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.self_attn.k_norm.weight               | UNEXPECTED |  | 
+talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.mlp.down_proj.weight                  | UNEXPECTED |  | 
+code2wav.upsample.{0, 1}.0.conv.bias                                                     | UNEXPECTED |  | 
+code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.conv1.conv.bias                            | UNEXPECTED |  | 
+code2wav.decoder.{1, 2, 3, 4}.block.1.conv.bias                                          | UNEXPECTED |  | 
+code2wav.upsample.{0, 1}.1.dwconv.conv.weight                                            | UNEXPECTED |  | 
+talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.self_attn.q_norm.weight               | UNEXPECTED |  | 
+code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.self_attn.q_proj.weight         | UNEXPECTED |  | 
+code2wav.decoder.{1, 2, 3, 4}.block.1.conv.weight                                        | UNEXPECTED |  | 
+code2wav.upsample.{0, 1}.0.conv.weight                                                   | UNEXPECTED |  | 
+code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.conv2.conv.weight                          | UNEXPECTED |  | 
+code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.self_attn.o_proj.weight         | UNEXPECTED |  | 
+code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.mlp.up_proj.weight              | UNEXPECTED |  | 
+code2wav.decoder.{0, 6}.conv.bias                                                        | UNEXPECTED |  | 
+code2wav.upsample.{0, 1}.1.gamma                                                         | UNEXPECTED |  | 
+code2wav.upsample.{0, 1}.1.pwconv1.weight                                                | UNEXPECTED |  | 
+code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.mlp.down_proj.weight            | UNEXPECTED |  | 
+code2wav.upsample.{0, 1}.1.norm.bias                                                     | UNEXPECTED |  | 
+talker.model.codec_embedding.weight                                                      | UNEXPECTED |  | 
+code2wav.upsample.{0, 1}.1.pwconv2.bias                                                  | UNEXPECTED |  | 
+talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.self_attn.o_proj.weight               | UNEXPECTED |  | 
+talker.model.norm.weight                                                                 | UNEXPECTED |  | 
+talker.hidden_projection.linear_fc2.weight                                               | UNEXPECTED |  | 
+talker.text_projection.linear_fc1.bias                                                   | UNEXPECTED |  | 
+code2wav.decoder.{0, 6}.conv.weight                                                      | UNEXPECTED |  | 
+talker.hidden_projection.linear_fc2.bias                                                 | UNEXPECTED |  | 
+talker.codec_head.weight                                                                 | UNEXPECTED |  | 
+code2wav.upsample.{0, 1}.1.pwconv2.weight                                                | UNEXPECTED |  | 
+talker.code_predictor.model.norm.weight                                                  | UNEXPECTED |  | 
+code2wav.upsample.{0, 1}.1.norm.weight                                                   | UNEXPECTED |  | 
+talker.hidden_projection.linear_fc1.bias                                                 | UNEXPECTED |  | 
+code2wav.pre_transformer.norm.weight                                                     | UNEXPECTED |  | 
+code2wav.decoder.5.alpha                                                                 | UNEXPECTED |  | 
+code2wav.code_embedding.weight                                                           | UNEXPECTED |  | 
+talker.text_projection.linear_fc1.weight                                                 | UNEXPECTED |  | 
+talker.hidden_projection.linear_fc1.weight                                               | UNEXPECTED |  | 
+talker.text_projection.linear_fc2.bias                                                   | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+short64 0 [75882, 108704, 17714, 35926, 78808, 9370, 104811, 72448, 102111, 101042, 43815, 3837, 99558, 104075, 34187, 49891, 18493, 104001, 101925, 87267, 104011, 9370, 101287, 109212, 5122, 104516, 109212, 5373, 107415, 109212, 33108, 111390]
+short64 1 [75882, 108704, 17714, 35926, 78808, 9370, 104811, 72448, 102111, 101042, 43815, 3837, 99558, 102074, 49891, 9370, 104516, 5373, 107415, 57218, 111390, 114524, 104324, 104075, 1773, 101042, 103988, 3837, 49891, 104516, 109212, 102119]
+short64 2 [75882, 72448, 102111, 101042, 108704, 99558, 102074, 49891, 9370, 104516, 5373, 107415, 57218, 111390, 114524, 104324, 104075, 1773, 18493, 49891, 104516, 99522, 3837, 101042, 34187, 101044, 17881, 20074, 107468, 101991, 3837, 103988]
+short64 3 [75882, 72448, 102111, 101042, 108704, 99558, 102074, 49891, 9370, 104516, 5373, 107415, 57218, 111390, 114524, 104324, 104075, 1773, 18493, 49891, 104516, 99522, 3837, 101042, 34187, 42140, 49891, 17881, 20074, 107468, 101991, 3837]
+context1k8 0 [75882, 34859, 43815, 105444, 104183, 3837, 100185, 20412, 101882, 32664, 2073, 35926, 43959, 9370, 104811, 72448, 102111, 101042, 108704, 854, 71817, 104075, 3837, 99887, 101042, 49891, 9370, 104516, 5373, 107415, 57218, 111390]
+context1k8 1 [75882, 108704, 105444, 34859, 32664, 2073, 49891, 104516, 5373, 107415, 57218, 111390, 109212, 854, 71817, 104075, 3837, 43815, 17714, 35926, 78808, 9370, 104811, 72448, 102111, 101042, 108704, 1773, 101887, 108704, 38342, 99553]
+context1k8 2 [75882, 108704, 105444, 34859, 32664, 2073, 49891, 104516, 5373, 107415, 57218, 111390, 109212, 854, 71817, 104075, 3837, 43815, 17714, 35926, 78808, 9370, 104811, 72448, 102111, 101042, 108704, 1773, 101887, 108704, 38342, 99553]
+context4k8 0 [75882, 34859, 43815, 105444, 104183, 3837, 100185, 20412, 101882, 32664, 2073, 49891, 104516, 5373, 107415, 57218, 111390, 109212, 854, 71817, 104075, 1773, 87752, 106273, 75882, 34859, 9370, 104811, 109193, 48443, 34859, 43815]
+context4k8 1 [75882, 34859, 105444, 104183, 101882, 32664, 2073, 35926, 43959, 9370, 104811, 72448, 102111, 101042, 108704, 854, 71817, 104075, 3837, 99887, 104536, 34204, 49891, 9370, 101287, 102111, 109212, 5122, 334, 104516, 5373, 107415]
+mixed64 0 [75882, 34859, 105444, 34187, 100722, 102486, 104597, 3837, 100185, 20412, 101882, 32664, 2073, 49891, 104516, 5373, 107415, 57218, 111390, 109212, 854, 71817, 104075, 1773, 114566, 104270, 34859, 9370, 104811, 109193, 48443, 75882]
+mixed64 1 [75882, 108704, 17714, 35926, 78808, 9370, 104811, 72448, 102111, 101042, 43815, 3837, 99558, 102074, 49891, 9370, 104516, 5373, 107415, 57218, 111390, 114524, 104324, 104075, 1773, 101042, 103988, 3837, 49891, 104516, 109212, 102119]
+mixed64 4 [75882, 108704, 105444, 34859, 32664, 2073, 49891, 104516, 5373, 107415, 57218, 111390, 109212, 854, 71817, 104075, 3837, 43815, 17714, 35926, 78808, 9370, 104811, 72448, 102111, 101042, 108704, 1773, 101887, 108704, 38342, 99553]

@@ -1,0 +1,43 @@
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+[worker-device] rank=2 gpu_id=2 visible='0,1,2,3,4,5,6,7' count=8 current=2[worker-device] rank=6 gpu_id=6 visible='0,1,2,3,4,5,6,7' count=8 current=6
+
+[worker-device] rank=7 gpu_id=7 visible='0,1,2,3,4,5,6,7' count=8 current=7
+[worker-device] rank=1 gpu_id=1 visible='0,1,2,3,4,5,6,7' count=8 current=1
+[worker-device] rank=5 gpu_id=5 visible='0,1,2,3,4,5,6,7' count=8 current=5
+[worker-device] rank=4 gpu_id=4 visible='0,1,2,3,4,5,6,7' count=8 current=4
+[worker-device] rank=0 gpu_id=0 visible='0,1,2,3,4,5,6,7' count=8 current=0
+[worker-device] rank=3 gpu_id=3 visible='0,1,2,3,4,5,6,7' count=8 current=3
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_section', 'interleaved'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_section', 'interleaved'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_section', 'interleaved'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8269 组
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8269 组
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8269 组
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8269 组
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8269 组
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8269 组
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8269 组
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8269 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.9
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.9  → KV 池 128 blocks × 256 tok (3.22 GB, 每 block 25.17 MB, 激活预算 实测 0.04 GB)
+
+  → KV 池 128 blocks × 256 tok (3.22 GB, 每 block 25.17 MB, 激活预算 实测 0.05 GB)
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.9
+  → KV 池 128 blocks × 256 tok (3.22 GB, 每 block 25.17 MB, 激活预算 实测 0.04 GB)
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.9
+  → KV 池 128 blocks × 256 tok (3.22 GB, 每 block 25.17 MB, 激活预算 实测 0.04 GB)
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.9
+  → KV 池 128 blocks × 256 tok (3.22 GB, 每 block 25.17 MB, 激活预算 实测 0.03 GB)
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.9
+  → KV 池 128 blocks × 256 tok (3.22 GB, 每 block 25.17 MB, 激活预算 实测 0.05 GB)
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.9
+  → KV 池 128 blocks × 256 tok (3.22 GB, 每 block 25.17 MB, 激活预算 实测 0.05 GB)
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.9
+  → KV 池 128 blocks × 256 tok (3.22 GB, 每 block 25.17 MB, 激活预算 实测 0.05 GB)
+{"cases": 48, "greedy_matches": 45}

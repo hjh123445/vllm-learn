@@ -1,0 +1,357 @@
+{
+  "host": "task3-A800-056",
+  "run": "batch_shape_probe_056_20261104_194535",
+  "purpose": "Selected raw tensors/logs; full unfiltered captures remain on host 056",
+  "files": [
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/deployment.json",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\deployment.json",
+      "bytes": 1651,
+      "sha256": "b860b476b79b2ae3366aee28de1962fcf7f7c6e2f2c45e028b3c46c8bd968819",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/queue.json",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\queue.json",
+      "bytes": 3879,
+      "sha256": "f78f672ec9e2e93980ca3fd5a1cbde785428dbe820eba6ab2734c683b19d6a94",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/status.json",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\status.json",
+      "bytes": 4300,
+      "sha256": "ea9faadbf89afff230c6a0560f535d960eb3d4f57ebd6e11b6d2f96e7983dc54",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_comparison.json",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_comparison.json",
+      "bytes": 5210,
+      "sha256": "df1e987c399f3244fc293e69133324b5438808c7a6c50b1479c9d75649fed21f",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/replay_diagnostics.json",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\replay_diagnostics.json",
+      "bytes": 14951,
+      "sha256": "6531e3fd94e89828cc63879fc5856ffd512ed7549d9bfda412b1fe2282c29d92",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/gpu_snapshots.log",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\gpu_snapshots.log",
+      "bytes": 12795,
+      "sha256": "6b05cd844c0b75eea54cd3e394b9f04e60460c6da83cdfb1cfb0ed23a29be873",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/supervisor.log",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\supervisor.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/config.json",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\config.json",
+      "bytes": 878,
+      "sha256": "3e9e0d3776f92aa5bf82a2323d899b0a02c668a199dbb0401284a5dada3e4c07",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/requests.json",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\requests.json",
+      "bytes": 371,
+      "sha256": "caf6b0e804c0e71068ed4a8cc75fd47b5a44391a9799e83ea8c2b2921e96aad9",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single.log",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single.log",
+      "bytes": 3853,
+      "sha256": "fef3e6e13075449e706ea936f48521fa5c324fdeb6790df3177bb9fdbb856173",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/config.json",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\config.json",
+      "bytes": 931,
+      "sha256": "2edaa23b83bd0098ad5aa4e17954e01f37218cd81b70a873915e40b3da787716",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/requests.json",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\requests.json",
+      "bytes": 698,
+      "sha256": "70a953ccf113e514b0b9a0751d760f1951b0de7efffa3b23119281eb6b13e7d2",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch.log",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch.log",
+      "bytes": 3852,
+      "sha256": "dc8acf45046c58191b8f427f2e9ec663b5a134fd148614a19fa3fc28fdab6886",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/compare_activations.log",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\compare_activations.log",
+      "bytes": 250,
+      "sha256": "6c340f59a763906b5767c5bac3174fc5c3232d5035568f545775a112f79e3054",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/activations/stage0.embedding.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\activations\\stage0.embedding.pt",
+      "bytes": 194861,
+      "sha256": "ca5e6c1133e72d62adf6f1aa4e8b62f063825a97528079bf40a61cd2958ae658",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/activations/stage0.layer0.q_proj.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\activations\\stage0.layer0.q_proj.pt",
+      "bytes": 17357014,
+      "sha256": "f61bf692fec7dbce9f6c50e1390d792297c5119d8181752318bb32325981da5f",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/activations/stage0.layer0.k_proj.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\activations\\stage0.layer0.k_proj.pt",
+      "bytes": 242637,
+      "sha256": "350b5a98a4fb5deff7f668e3ec1c49cd2db11eace5e1ebb3a845a6dbae406c4a",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/activations/stage0.layer0.v_proj.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\activations\\stage0.layer0.v_proj.pt",
+      "bytes": 242637,
+      "sha256": "d277592eb9b5fea6b41a9753a9204560109175b8ffb34461962fc3fee5915186",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/activations/stage0.layer0.o_proj.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\activations\\stage0.layer0.o_proj.pt",
+      "bytes": 17357014,
+      "sha256": "98adb7188d0be11a1aed192597facdb46746b9140c4de611db189dd0609a4587",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/activations/stage0.layer0.attention.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\activations\\stage0.layer0.attention.pt",
+      "bytes": 387761,
+      "sha256": "544a1c6349042cab5c4898ee8800ea6b20a4fabac0003dfd1cc040b177a38b7c",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/activations/stage0.layer0.router.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\activations\\stage0.layer0.router.pt",
+      "bytes": 198486,
+      "sha256": "da15c99c65e9638ddf66cf9a075bad751a1a601ce004f4eb827a3b9eb06bb792",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/activations/stage0.layer0.moe.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\activations\\stage0.layer0.moe.pt",
+      "bytes": 386997,
+      "sha256": "18b84617e734880199e6158595b73e9a7bf360e68824e816bae05b8f99885aea",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/activations/stage0.layer0.block.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\activations\\stage0.layer0.block.pt",
+      "bytes": 773213,
+      "sha256": "344a01d69876a672f74adf9eb7826767ae6ed48910a166ba626d634ca787f62c",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/activations/stage0.lm_head.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\activations\\stage0.lm_head.pt",
+      "bytes": 310173,
+      "sha256": "2fbca42d4cc41e2e718a3bde764d36ac49d2cc9f9f0e11a390db6b4d0ebad213",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/activations/stage0.embedding.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\activations\\stage0.embedding.pt",
+      "bytes": 194861,
+      "sha256": "ca5e6c1133e72d62adf6f1aa4e8b62f063825a97528079bf40a61cd2958ae658",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/activations/stage0.layer0.q_proj.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\activations\\stage0.layer0.q_proj.pt",
+      "bytes": 17357014,
+      "sha256": "f61bf692fec7dbce9f6c50e1390d792297c5119d8181752318bb32325981da5f",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/activations/stage0.layer0.k_proj.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\activations\\stage0.layer0.k_proj.pt",
+      "bytes": 242637,
+      "sha256": "350b5a98a4fb5deff7f668e3ec1c49cd2db11eace5e1ebb3a845a6dbae406c4a",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/activations/stage0.layer0.v_proj.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\activations\\stage0.layer0.v_proj.pt",
+      "bytes": 242637,
+      "sha256": "d277592eb9b5fea6b41a9753a9204560109175b8ffb34461962fc3fee5915186",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/activations/stage0.layer0.o_proj.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\activations\\stage0.layer0.o_proj.pt",
+      "bytes": 17357014,
+      "sha256": "98adb7188d0be11a1aed192597facdb46746b9140c4de611db189dd0609a4587",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/activations/stage0.layer0.attention.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\activations\\stage0.layer0.attention.pt",
+      "bytes": 387761,
+      "sha256": "544a1c6349042cab5c4898ee8800ea6b20a4fabac0003dfd1cc040b177a38b7c",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/activations/stage0.layer0.router.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\activations\\stage0.layer0.router.pt",
+      "bytes": 198486,
+      "sha256": "da15c99c65e9638ddf66cf9a075bad751a1a601ce004f4eb827a3b9eb06bb792",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/activations/stage0.layer0.moe.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\activations\\stage0.layer0.moe.pt",
+      "bytes": 386997,
+      "sha256": "18b84617e734880199e6158595b73e9a7bf360e68824e816bae05b8f99885aea",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/activations/stage0.layer0.block.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\activations\\stage0.layer0.block.pt",
+      "bytes": 773213,
+      "sha256": "344a01d69876a672f74adf9eb7826767ae6ed48910a166ba626d634ca787f62c",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/activations/stage0.lm_head.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\activations\\stage0.lm_head.pt",
+      "bytes": 310173,
+      "sha256": "2fbca42d4cc41e2e718a3bde764d36ac49d2cc9f9f0e11a390db6b4d0ebad213",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/sdpa_capture/layer0.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\sdpa_capture\\layer0.pt",
+      "bytes": 116947,
+      "sha256": "e05328106061c4b7644ce75666f6d1c59a52d1832c4b6fd43ed1d54d41ae1186",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/sdpa_capture/layer1.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\sdpa_capture\\layer1.pt",
+      "bytes": 116947,
+      "sha256": "89ec47f2ac9d423b5b888438c49841fed9141cbf7aa6837636822ebe1c3c986c",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/sdpa_capture/layer2.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\sdpa_capture\\layer2.pt",
+      "bytes": 116947,
+      "sha256": "a5a5fe44aff8a70f402aa3d679f21849bb5e0df791bd799a8b2463a45f148ff4",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/sdpa_capture/layer3.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\sdpa_capture\\layer3.pt",
+      "bytes": 116947,
+      "sha256": "a4fa336a0dc611faae22063bde70e0855d3c19b4d59debd8a7d35e43048c21cd",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/sdpa_capture/layer4.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\sdpa_capture\\layer4.pt",
+      "bytes": 116947,
+      "sha256": "d4bc29bb9a22a2d7946472003a96ea304a878a32d530c3707ed3a275fc24c5bb",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/sdpa_capture/layer5.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\sdpa_capture\\layer5.pt",
+      "bytes": 116947,
+      "sha256": "6907bb2f71fd65d8e5bc8732b75a77e97d82b2ff0225999a95354388a840128e",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/sdpa_capture/layer6.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\sdpa_capture\\layer6.pt",
+      "bytes": 116947,
+      "sha256": "d579d8f3258f24872197977b87ee52cd6b560871b7a88faa439419371bc5a5b1",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_single/sdpa_capture/layer7.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_single\\sdpa_capture\\layer7.pt",
+      "bytes": 116947,
+      "sha256": "497253f14bdf03af869adf9aa107d6a439d54123163a6994f587d2517a772313",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/sdpa_capture/layer0.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\sdpa_capture\\layer0.pt",
+      "bytes": 116947,
+      "sha256": "e05328106061c4b7644ce75666f6d1c59a52d1832c4b6fd43ed1d54d41ae1186",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/sdpa_capture/layer1.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\sdpa_capture\\layer1.pt",
+      "bytes": 116947,
+      "sha256": "89ec47f2ac9d423b5b888438c49841fed9141cbf7aa6837636822ebe1c3c986c",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/sdpa_capture/layer2.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\sdpa_capture\\layer2.pt",
+      "bytes": 116947,
+      "sha256": "a5a5fe44aff8a70f402aa3d679f21849bb5e0df791bd799a8b2463a45f148ff4",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/sdpa_capture/layer3.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\sdpa_capture\\layer3.pt",
+      "bytes": 116947,
+      "sha256": "a4fa336a0dc611faae22063bde70e0855d3c19b4d59debd8a7d35e43048c21cd",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/sdpa_capture/layer4.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\sdpa_capture\\layer4.pt",
+      "bytes": 116947,
+      "sha256": "d4bc29bb9a22a2d7946472003a96ea304a878a32d530c3707ed3a275fc24c5bb",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/sdpa_capture/layer5.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\sdpa_capture\\layer5.pt",
+      "bytes": 116947,
+      "sha256": "6907bb2f71fd65d8e5bc8732b75a77e97d82b2ff0225999a95354388a840128e",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/sdpa_capture/layer6.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\sdpa_capture\\layer6.pt",
+      "bytes": 116947,
+      "sha256": "d579d8f3258f24872197977b87ee52cd6b560871b7a88faa439419371bc5a5b1",
+      "local_matches_remote": true
+    },
+    {
+      "remote": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_shape_probe_056_20261104_194535/activation_batch/sdpa_capture/layer7.pt",
+      "path": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\batch_shape_probe_056_20261104_194535\\activation_batch\\sdpa_capture\\layer7.pt",
+      "bytes": 116947,
+      "sha256": "497253f14bdf03af869adf9aa107d6a439d54123163a6994f587d2517a772313",
+      "local_matches_remote": true
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "model": "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+  "inputs": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/batch_controls_056_20261104_150337/code/fixtures/inputs.json",
+  "output": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/batch_controls_056_20261104_150337/vllm_tp4pp2_ep",
+  "tp": 4,
+  "pp": 2,
+  "ep": true,
+  "workloads": "short128,context4k8,mixed64",
+  "repeats": 3,
+  "max_kv_blocks": 4096,
+  "engine": {
+    "model": "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+    "dtype": "bfloat16",
+    "tensor_parallel_size": 4,
+    "pipeline_parallel_size": 2,
+    "enable_expert_parallel": true,
+    "enforce_eager": true,
+    "enable_prefix_caching": false,
+    "max_model_len": 8192,
+    "max_num_batched_tokens": 512,
+    "max_num_seqs": 128,
+    "gpu_memory_utilization": 0.7,
+    "enable_chunked_prefill": true,
+    "seed": 0,
+    "num_gpu_blocks_override": 4096,
+    "block_size": 16,
+    "limit_mm_per_prompt": {
+      "image": 0,
+      "audio": 0,
+      "video": 0
+    }
+  },
+  "torch": "2.9.1+cu130",
+  "vllm": "0.14.1",
+  "transformers": "4.57.6",
+  "architectures": [
+    "Qwen3OmniMoeForConditionalGeneration"
+  ],
+  "inputs_sha256": "6dfb53d73aa8de3405afa0d8f29382f1cacd046639c9df382f2de3a745e6a9bf",
+  "comparison": "same BF16/eager/APC-off/token budget/exact input IDs; different implementation and attention parallelism",
+  "timing": "local engine output observations; repeated observation time for a multi-token update; no HTTP",
+  "attention_parallelism": "TP; custom engine EP baseline uses replicated attention",
+  "arrival64_excluded": "engine-step arrival is not portable across engine schedulers"
+}

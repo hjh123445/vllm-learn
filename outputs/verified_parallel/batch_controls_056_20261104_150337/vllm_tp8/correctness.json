@@ -1,0 +1,21 @@
+{
+  "scope": "vLLM repeat parity, not custom-engine or HF parity",
+  "checks": [
+    {
+      "workload": "short128",
+      "runs": 3,
+      "passed": true
+    },
+    {
+      "workload": "context4k8",
+      "runs": 3,
+      "passed": true
+    },
+    {
+      "workload": "mixed64",
+      "runs": 3,
+      "passed": true
+    }
+  ],
+  "passed": true
+}

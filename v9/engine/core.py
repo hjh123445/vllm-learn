@@ -109,6 +109,10 @@ class EngineCore:
                  pipeline_lanes=2, pipeline_credit=4,
                  pipeline_microbatch_tokens=2048, pipeline_mode="optimized",
                  pipeline_stage_map=None):
+        self._closed = False
+        self._worker_timeout = float(os.getenv("VLLM_LEARN_WORKER_TIMEOUT_S", "1200"))
+        if self._worker_timeout <= 0:
+            raise ValueError("worker timeout must be positive")
         cpu_threads = max(1, int(os.getenv("VLLM_LEARN_CPU_THREADS", "4")))
         os.environ.setdefault("OMP_NUM_THREADS", str(cpu_threads))
         os.environ.setdefault("MKL_NUM_THREADS", str(cpu_threads))
@@ -205,6 +209,7 @@ class EngineCore:
                        for s in range(pp_size) for e in range(ep_size)]
             blocks = []
             for r in senders:
+                self._wait_for_worker(self.response_q[r].notify)
                 m = self.response_q[r].recv()
                 if self.debug:
                     print(f"[core-ready] rank={r} blocks={m.get('num_kvcache_blocks')}", flush=True)
@@ -265,6 +270,7 @@ class EngineCore:
             in_flight = 0
 
             def collect():
+                self._wait_for_worker(self.response_q[resp_rank].notify)
                 out = self.response_q[resp_rank].recv()
                 by_id.update(zip(out.get("seq_ids", []), out["tokens"]))
                 self.virtual_engine_pool.complete(out.get("microbatch_id", 0))
@@ -282,7 +288,7 @@ class EngineCore:
                     microbatch_id=mb_id,
                     virtual_engine=mb_id % self.virtual_engine_pool.size)
                 msg["pipeline_mode"] = self.pipeline_mode
-                broadcast(msg, self.broadcast_q)
+                broadcast(msg, self.broadcast_q, wait=self._wait_for_worker)
                 in_flight += 1
                 if in_flight >= window:
                     collect()
@@ -317,6 +323,19 @@ class EngineCore:
     def is_finished(self):
         return self.scheduler.is_finished()
 
+    def abort_request(self, seq_id):
+        """Release a cancelled request at an owner-thread step boundary."""
+        from engine.sequence import SequenceStatus
+        for pending in (self.scheduler.waiting, self.scheduler.running):
+            for seq in list(pending):
+                if seq.seq_id == seq_id:
+                    pending.remove(seq)
+                    self.scheduler.block_manager.deallocate(seq)
+                    seq.num_scheduled_tokens = 0
+                    seq.status = SequenceStatus.FINISHED
+                    return True
+        return False
+
     def generate(self, prompts_ids, sampling_params=None):
         """批推理便捷入口（与 LLMEngine.generate 对齐）。"""
         if not isinstance(prompts_ids, list):
@@ -334,13 +353,37 @@ class EngineCore:
         return [(seq.seq_id, list(seq.completion_token_ids))
                 for seq in requested]
 
+    def _wait_for_worker(self, connection):
+        from engine.worker_health import wait_for_workers
+        try:
+            wait_for_workers(connection, self.procs, self._worker_timeout)
+        except (RuntimeError, TimeoutError):
+            self._abort_workers()
+            raise
+
+    def _abort_workers(self):
+        """Release only this EngineCore's children and shared-memory slots."""
+        self._closed = True
+        for p in self.procs:
+            if p.is_alive():
+                p.terminate()
+        for p in self.procs:
+            p.join(timeout=2)
+            if p.is_alive():
+                p.kill()
+                p.join(timeout=2)
+        for endpoint in (*(self.broadcast_q or []), *(self.response_q or [])):
+            endpoint.close()
+
     def shutdown(self):
+        if getattr(self, "_closed", False):
+            return
         if self.broadcast_q is not None:
             from engine.mq import broadcast
-            broadcast(SHUTDOWN, self.broadcast_q)
-            for p in self.procs:
-                p.join(timeout=120)
-                if p.is_alive():
-                    p.terminate()
-            for endpoint in (*self.broadcast_q, *self.response_q):
-                endpoint.close()
+            try:
+                broadcast(SHUTDOWN, self.broadcast_q, wait=self._wait_for_worker)
+                for p in self.procs:
+                    p.join(timeout=5)
+            finally:
+                self._abort_workers()
+        self._closed = True

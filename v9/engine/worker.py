@@ -83,6 +83,11 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     from layers.parallel import configure_parallel, STATE
     from engine.process_groups import create_groups
     groups = create_groups(rank, tp_size, cp_size, ep_size, pp_size)
+    pp_recv_group, pp_send_group = None, None
+    if pp_size > 1 and os.getenv("VLLM_LEARN_PP_P2P_GROUPS", "world") == "dedicated":
+        from engine.process_groups import create_pipeline_edge_groups
+        pp_recv_group, pp_send_group = create_pipeline_edge_groups(rank, inner, pp_size)
+        groups.update(pp_recv=pp_recv_group, pp_send=pp_send_group)
     tp_group, ep_group, cp_group = (groups[k] for k in ("tp", "ep", "cp"))
     for group in groups.values():
         if group is not None:
@@ -105,7 +110,7 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
             credit=int(engine_kwargs.get("pipeline_credit", 4)),
             async_enabled=engine_kwargs.get("pipeline_mode", "optimized") != "baseline",
             trace_variant=engine_kwargs.get("pipeline_mode", "optimized"),
-            device="cuda")
+            device="cuda", recv_group=pp_recv_group, send_group=pp_send_group)
 
     # ---- DCP 注入（v8.2 的 set_dcp，worker 内生效）----
     if cp_size > 1:
@@ -134,17 +139,26 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         print(f"[worker-runner-after] rank={rank} blocks={config.num_kvcache_blocks}", flush=True)
 
     profiler = None
+    profile_open = False
+    profile_window = os.getenv("VLLM_LEARN_PROFILE_MODE", "scheduled") == "window"
+    profile_start = max(1, int(os.getenv("VLLM_LEARN_PROFILE_START_MESSAGE", "1")))
+    profile_messages = max(1, int(os.getenv("VLLM_LEARN_PROFILE_MESSAGES", "4")))
+    captured_messages = []
     if os.getenv("VLLM_LEARN_CUDA_PROFILE", "0") == "1" and torch.cuda.is_available():
         profile_dir = os.getenv("VLLM_LEARN_TRACE_DIR", "/tmp")
         os.makedirs(profile_dir, exist_ok=True)
         profiler = torch.profiler.profile(
             activities=[torch.profiler.ProfilerActivity.CPU,
                        torch.profiler.ProfilerActivity.CUDA],
-            schedule=torch.profiler.schedule(wait=1, warmup=1, active=int(os.getenv("VLLM_LEARN_PROFILE_STEPS", "2")), repeat=1),
+            schedule=(None if profile_window else torch.profiler.schedule(
+                wait=1, warmup=1, active=int(os.getenv("VLLM_LEARN_PROFILE_STEPS", "2")), repeat=1)),
             on_trace_ready=lambda p: p.export_chrome_trace(
                 os.path.join(profile_dir, f"cuda_rank{rank}.json")),
-            record_shapes=True, with_stack=False, profile_memory=False)
-        profiler.__enter__()
+            record_shapes=os.getenv("VLLM_LEARN_PROFILE_RECORD_SHAPES", "1") == "1",
+            with_stack=False, profile_memory=False)
+        if not profile_window:
+            profiler.__enter__()
+            profile_open = True
 
     from engine.mq import SHUTDOWN
     # PP response 路由：采样在 last stage——只有 last stage 的 inner-rank0
@@ -182,6 +196,14 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         from engine.core import rebuild_specs
         specs = rebuild_specs(msg)
         message_index += 1
+        # Profile-only bounded capture: drain GPU activity before entering and
+        # before exporting. A whole worker message is captured, including every
+        # local decoder layer. No collective barrier is inserted: PP peers may
+        # be at different messages and must keep servicing activation receives.
+        if profiler is not None and profile_window and message_index == profile_start:
+            torch.cuda.synchronize()
+            profiler.__enter__()
+            profile_open = True
         if STATE.pipeline_transport is not None:
             STATE.pipeline_transport.async_enabled = msg.get(
                 "pipeline_mode", "optimized") != "baseline"
@@ -213,8 +235,18 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
                 "message_index": message_index, "is_prefill": is_prefill,
                 "variant": msg.get("pipeline_mode", "optimized"),
             })
-        if profiler is not None:
-            profiler.step()
+        if profiler is not None and profile_open:
+            if profile_window:
+                captured_messages.append({"message_index": message_index,
+                    "microbatch_id": msg.get("microbatch_id", 0),
+                    "lane": msg.get("pipeline_lane", 0), "is_prefill": is_prefill,
+                    "scheduled_sequences": len(specs)})
+                if len(captured_messages) >= profile_messages:
+                    torch.cuda.synchronize()
+                    profiler.__exit__(None, None, None)
+                    profile_open = False
+            else:
+                profiler.step()
         if is_resp_rank:
             if response_pending:
                 response_conn.wait_ack()
@@ -242,8 +274,16 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
                        "kv_cache_bytes": runner.kv_cache.numel() * runner.kv_cache.element_size(),
                        "local_parameter_bytes": sum(t.numel() * t.element_size()
                                                     for t in runner.model.parameters())}, f)
-    if profiler is not None:
+    if profiler is not None and profile_open:
+        torch.cuda.synchronize()
         profiler.__exit__(None, None, None)
+    if profiler is not None and profile_window:
+        import json
+        with open(os.path.join(profile_dir, f"capture_rank{rank}.json"), "w") as f:
+            json.dump({"rank": rank, "mode": "window", "start_message": profile_start,
+                "requested_messages": profile_messages, "captured_messages": captured_messages,
+                "cuda_drained_before_export": True,
+                "measurement": "profile-only; synchronization and export distort throughput"}, f)
     if pp_size > 1 and STATE.pipeline_transport is not None:
         STATE.pipeline_transport.shutdown()
     trace_dir = os.getenv("VLLM_LEARN_TRACE_DIR")
