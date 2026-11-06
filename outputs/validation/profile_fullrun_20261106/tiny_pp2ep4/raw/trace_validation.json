@@ -1,0 +1,4735 @@
+{
+  "passed": true,
+  "ranks": 8,
+  "errors": [],
+  "audits": [
+    {
+      "file": "outputs\\validation\\profile_fullrun_20261106\\tiny_pp2ep4\\raw\\cuda_rank0.json.gz",
+      "duration_categories": {
+        "user_annotation": 768,
+        "cpu_op": 38091,
+        "overhead": 17,
+        "gpu_memcpy": 1378,
+        "cuda_runtime": 20269,
+        "kernel": 8941,
+        "cuda_driver": 718,
+        "gpu_user_annotation": 768,
+        "Trace": 1
+      },
+      "event_count": 70951,
+      "cpu_ops": 38091,
+      "cuda_runtime": 20269,
+      "gpu_kernels": 8941,
+      "nccl_kernels": 496,
+      "cuda_streams": [
+        "35",
+        "7"
+      ],
+      "module_labels": [
+        "stage0.layer0",
+        "stage0.layer0.attention",
+        "stage0.layer0.moe",
+        "stage0.layer0.moe.router",
+        "stage0.layer1",
+        "stage0.layer1.attention",
+        "stage0.layer1.moe",
+        "stage0.layer1.moe.router",
+        "stage0.layer2",
+        "stage0.layer2.attention",
+        "stage0.layer2.moe",
+        "stage0.layer2.moe.router",
+        "stage0.layer3",
+        "stage0.layer3.attention",
+        "stage0.layer3.moe",
+        "stage0.layer3.moe.router"
+      ],
+      "cuda_verified": true,
+      "completeness_verified": true,
+      "errors": [],
+      "message_coverage": [
+        {
+          "message": "rank0.stage0.message1.mb0.prefill",
+          "kernel_count": 623,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 11456.6552734375,
+          "moe_union_us": 21259.24267578125,
+          "nccl_union_us": 40665.56787109375,
+          "unassigned_union_us": 9812.43310546875
+        },
+        {
+          "message": "rank0.stage0.message2.mb1.prefill",
+          "kernel_count": 545,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 8447.83984375,
+          "moe_union_us": 11672.50244140625,
+          "nccl_union_us": 29520.04248046875,
+          "unassigned_union_us": 10969.84765625
+        },
+        {
+          "message": "rank0.stage0.message3.mb2.decode",
+          "kernel_count": 580,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 11262.515625,
+          "moe_union_us": 11685.265625,
+          "nccl_union_us": 23049.96240234375,
+          "unassigned_union_us": 1783.3212890625
+        },
+        {
+          "message": "rank0.stage0.message4.mb3.decode",
+          "kernel_count": 506,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 9552.7275390625,
+          "moe_union_us": 9390.06640625,
+          "nccl_union_us": 18896.0478515625,
+          "unassigned_union_us": 1317.08544921875
+        },
+        {
+          "message": "rank0.stage0.message5.mb4.decode",
+          "kernel_count": 593,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 12785.49560546875,
+          "moe_union_us": 11953.4951171875,
+          "nccl_union_us": 24375.88525390625,
+          "unassigned_union_us": 1368.314453125
+        },
+        {
+          "message": "rank0.stage0.message6.mb5.decode",
+          "kernel_count": 519,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 10055.27880859375,
+          "moe_union_us": 9179.31396484375,
+          "nccl_union_us": 19282.12939453125,
+          "unassigned_union_us": 1459.99755859375
+        },
+        {
+          "message": "rank0.stage0.message7.mb6.decode",
+          "kernel_count": 593,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 4809.13671875,
+          "moe_union_us": 3464.73583984375,
+          "nccl_union_us": 8001.98095703125,
+          "unassigned_union_us": 1444.69970703125
+        },
+        {
+          "message": "rank0.stage0.message8.mb7.decode",
+          "kernel_count": 506,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1586.1572265625,
+          "moe_union_us": 2508.08251953125,
+          "nccl_union_us": 3037.46826171875,
+          "unassigned_union_us": 313.28125
+        },
+        {
+          "message": "rank0.stage0.message9.mb8.decode",
+          "kernel_count": 607,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1024.54150390625,
+          "moe_union_us": 1229.31201171875,
+          "nccl_union_us": 712.8310546875,
+          "unassigned_union_us": 234.4599609375
+        },
+        {
+          "message": "rank0.stage0.message10.mb9.decode",
+          "kernel_count": 519,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1176.44970703125,
+          "moe_union_us": 1579.5888671875,
+          "nccl_union_us": 1670.7822265625,
+          "unassigned_union_us": 209.15087890625
+        },
+        {
+          "message": "rank0.stage0.message11.mb10.decode",
+          "kernel_count": 593,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1564.23046875,
+          "moe_union_us": 4456.34130859375,
+          "nccl_union_us": 5517.94921875,
+          "unassigned_union_us": 888.1884765625
+        },
+        {
+          "message": "rank0.stage0.message12.mb11.decode",
+          "kernel_count": 519,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1398.15478515625,
+          "moe_union_us": 2885.7587890625,
+          "nccl_union_us": 3850.2666015625,
+          "unassigned_union_us": 705.60107421875
+        },
+        {
+          "message": "rank0.stage0.message13.mb12.decode",
+          "kernel_count": 608,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2197.6875,
+          "moe_union_us": 1892.21826171875,
+          "nccl_union_us": 3703.7431640625,
+          "unassigned_union_us": 1067.54833984375
+        },
+        {
+          "message": "rank0.stage0.message14.mb13.decode",
+          "kernel_count": 532,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 714.42919921875,
+          "moe_union_us": 680.6025390625,
+          "nccl_union_us": 523.13330078125,
+          "unassigned_union_us": 294.01171875
+        },
+        {
+          "message": "rank0.stage0.message15.mb14.decode",
+          "kernel_count": 592,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2427.26953125,
+          "moe_union_us": 2992.3515625,
+          "nccl_union_us": 5459.00537109375,
+          "unassigned_union_us": 1416.990234375
+        },
+        {
+          "message": "rank0.stage0.message16.mb15.decode",
+          "kernel_count": 506,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1050.26953125,
+          "moe_union_us": 2066.84619140625,
+          "nccl_union_us": 2249.14892578125,
+          "unassigned_union_us": 240.22021484375
+        }
+      ],
+      "note": "Checks executed-message inventory, CPU/GPU Attention+MoE coverage and launch correlation; not proof of zero dropped events, numerical correctness or performance."
+    },
+    {
+      "file": "outputs\\validation\\profile_fullrun_20261106\\tiny_pp2ep4\\raw\\cuda_rank1.json.gz",
+      "duration_categories": {
+        "user_annotation": 768,
+        "cpu_op": 37516,
+        "overhead": 17,
+        "gpu_memcpy": 1196,
+        "cuda_runtime": 19579,
+        "kernel": 8462,
+        "cuda_driver": 708,
+        "gpu_user_annotation": 768,
+        "Trace": 1
+      },
+      "event_count": 69015,
+      "cpu_ops": 37516,
+      "cuda_runtime": 19579,
+      "gpu_kernels": 8462,
+      "nccl_kernels": 496,
+      "cuda_streams": [
+        "35",
+        "7"
+      ],
+      "module_labels": [
+        "stage0.layer0",
+        "stage0.layer0.attention",
+        "stage0.layer0.moe",
+        "stage0.layer0.moe.router",
+        "stage0.layer1",
+        "stage0.layer1.attention",
+        "stage0.layer1.moe",
+        "stage0.layer1.moe.router",
+        "stage0.layer2",
+        "stage0.layer2.attention",
+        "stage0.layer2.moe",
+        "stage0.layer2.moe.router",
+        "stage0.layer3",
+        "stage0.layer3.attention",
+        "stage0.layer3.moe",
+        "stage0.layer3.moe.router"
+      ],
+      "cuda_verified": true,
+      "completeness_verified": true,
+      "errors": [],
+      "message_coverage": [
+        {
+          "message": "rank1.stage0.message1.mb0.prefill",
+          "kernel_count": 609,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 5054.11474609375,
+          "moe_union_us": 14744.31884765625,
+          "nccl_union_us": 20450.2216796875,
+          "unassigned_union_us": 2419.388671875
+        },
+        {
+          "message": "rank1.stage0.message2.mb1.prefill",
+          "kernel_count": 532,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1085.0595703125,
+          "moe_union_us": 2355.14013671875,
+          "nccl_union_us": 29157.10595703125,
+          "unassigned_union_us": 27222.47998046875
+        },
+        {
+          "message": "rank1.stage0.message3.mb2.decode",
+          "kernel_count": 594,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2476.1982421875,
+          "moe_union_us": 2584.92822265625,
+          "nccl_union_us": 5005.4111328125,
+          "unassigned_union_us": 1662.5029296875
+        },
+        {
+          "message": "rank1.stage0.message4.mb3.decode",
+          "kernel_count": 455,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 715.8564453125,
+          "moe_union_us": 874.6875,
+          "nccl_union_us": 675.13037109375,
+          "unassigned_union_us": 226.205078125
+        },
+        {
+          "message": "rank1.stage0.message5.mb4.decode",
+          "kernel_count": 593,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 982.7294921875,
+          "moe_union_us": 2091.7451171875,
+          "nccl_union_us": 1606.14306640625,
+          "unassigned_union_us": 235.25927734375
+        },
+        {
+          "message": "rank1.stage0.message6.mb5.decode",
+          "kernel_count": 442,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1400.49609375,
+          "moe_union_us": 2011.13720703125,
+          "nccl_union_us": 3260.19482421875,
+          "unassigned_union_us": 954.9443359375
+        },
+        {
+          "message": "rank1.stage0.message7.mb6.decode",
+          "kernel_count": 605,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1902.81201171875,
+          "moe_union_us": 1028.09521484375,
+          "nccl_union_us": 2233.25244140625,
+          "unassigned_union_us": 1037.017578125
+        },
+        {
+          "message": "rank1.stage0.message8.mb7.decode",
+          "kernel_count": 442,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1827.64404296875,
+          "moe_union_us": 3232.35302734375,
+          "nccl_union_us": 4181.28369140625,
+          "unassigned_union_us": 223.64501953125
+        },
+        {
+          "message": "rank1.stage0.message9.mb8.decode",
+          "kernel_count": 605,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1999.58935546875,
+          "moe_union_us": 2315.4833984375,
+          "nccl_union_us": 4388.57568359375,
+          "unassigned_union_us": 1797.43505859375
+        },
+        {
+          "message": "rank1.stage0.message10.mb9.decode",
+          "kernel_count": 468,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 812.85595703125,
+          "moe_union_us": 2333.818359375,
+          "nccl_union_us": 2220.896484375,
+          "unassigned_union_us": 259.361328125
+        },
+        {
+          "message": "rank1.stage0.message11.mb10.decode",
+          "kernel_count": 606,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2775.490234375,
+          "moe_union_us": 3040.13427734375,
+          "nccl_union_us": 4881.5400390625,
+          "unassigned_union_us": 815.73974609375
+        },
+        {
+          "message": "rank1.stage0.message12.mb11.decode",
+          "kernel_count": 455,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1317.4736328125,
+          "moe_union_us": 3363.87646484375,
+          "nccl_union_us": 3760.4169921875,
+          "unassigned_union_us": 225.46630859375
+        },
+        {
+          "message": "rank1.stage0.message13.mb12.decode",
+          "kernel_count": 579,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 3091.01318359375,
+          "moe_union_us": 4095.9658203125,
+          "nccl_union_us": 7458.88427734375,
+          "unassigned_union_us": 1927.896484375
+        },
+        {
+          "message": "rank1.stage0.message14.mb13.decode",
+          "kernel_count": 429,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2339.7470703125,
+          "moe_union_us": 5216.9404296875,
+          "nccl_union_us": 7204.5205078125,
+          "unassigned_union_us": 697.41015625
+        },
+        {
+          "message": "rank1.stage0.message15.mb14.decode",
+          "kernel_count": 606,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1923.77294921875,
+          "moe_union_us": 1442.8154296875,
+          "nccl_union_us": 3464.7021484375,
+          "unassigned_union_us": 1845.27978515625
+        },
+        {
+          "message": "rank1.stage0.message16.mb15.decode",
+          "kernel_count": 442,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1806.013671875,
+          "moe_union_us": 3682.27099609375,
+          "nccl_union_us": 4608.0634765625,
+          "unassigned_union_us": 225.9501953125
+        }
+      ],
+      "note": "Checks executed-message inventory, CPU/GPU Attention+MoE coverage and launch correlation; not proof of zero dropped events, numerical correctness or performance."
+    },
+    {
+      "file": "outputs\\validation\\profile_fullrun_20261106\\tiny_pp2ep4\\raw\\cuda_rank2.json.gz",
+      "duration_categories": {
+        "user_annotation": 768,
+        "cpu_op": 36513,
+        "overhead": 22,
+        "gpu_memcpy": 941,
+        "cuda_runtime": 18608,
+        "kernel": 7824,
+        "cuda_driver": 690,
+        "gpu_user_annotation": 768,
+        "Trace": 1
+      },
+      "event_count": 66135,
+      "cpu_ops": 36513,
+      "cuda_runtime": 18608,
+      "gpu_kernels": 7824,
+      "nccl_kernels": 496,
+      "cuda_streams": [
+        "35",
+        "7"
+      ],
+      "module_labels": [
+        "stage0.layer0",
+        "stage0.layer0.attention",
+        "stage0.layer0.moe",
+        "stage0.layer0.moe.router",
+        "stage0.layer1",
+        "stage0.layer1.attention",
+        "stage0.layer1.moe",
+        "stage0.layer1.moe.router",
+        "stage0.layer2",
+        "stage0.layer2.attention",
+        "stage0.layer2.moe",
+        "stage0.layer2.moe.router",
+        "stage0.layer3",
+        "stage0.layer3.attention",
+        "stage0.layer3.moe",
+        "stage0.layer3.moe.router"
+      ],
+      "cuda_verified": true,
+      "completeness_verified": true,
+      "errors": [],
+      "message_coverage": [
+        {
+          "message": "rank2.stage0.message1.mb0.prefill",
+          "kernel_count": 595,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 10839.12646484375,
+          "moe_union_us": 16445.7548828125,
+          "nccl_union_us": 53206.79248046875,
+          "unassigned_union_us": 27570.5791015625
+        },
+        {
+          "message": "rank2.stage0.message2.mb1.prefill",
+          "kernel_count": 454,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 8101.97509765625,
+          "moe_union_us": 11340.68994140625,
+          "nccl_union_us": 18266.64453125,
+          "unassigned_union_us": 277.52734375
+        },
+        {
+          "message": "rank2.stage0.message3.mb2.decode",
+          "kernel_count": 529,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 7564.5361328125,
+          "moe_union_us": 9442.396484375,
+          "nccl_union_us": 16739.67431640625,
+          "unassigned_union_us": 1476.8603515625
+        },
+        {
+          "message": "rank2.stage0.message4.mb3.decode",
+          "kernel_count": 442,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 7895.51806640625,
+          "moe_union_us": 8535.19970703125,
+          "nccl_union_us": 16467.357421875,
+          "unassigned_union_us": 1362.30126953125
+        },
+        {
+          "message": "rank2.stage0.message5.mb4.decode",
+          "kernel_count": 514,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 12692.3671875,
+          "moe_union_us": 12460.21044921875,
+          "nccl_union_us": 24859.23291015625,
+          "unassigned_union_us": 1376.216796875
+        },
+        {
+          "message": "rank2.stage0.message6.mb5.decode",
+          "kernel_count": 429,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 10299.640625,
+          "moe_union_us": 9937.5908203125,
+          "nccl_union_us": 20464.046875,
+          "unassigned_union_us": 1509.5615234375
+        },
+        {
+          "message": "rank2.stage0.message7.mb6.decode",
+          "kernel_count": 540,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 4831.88916015625,
+          "moe_union_us": 4101.10546875,
+          "nccl_union_us": 8669.1181640625,
+          "unassigned_union_us": 1497.17919921875
+        },
+        {
+          "message": "rank2.stage0.message8.mb7.decode",
+          "kernel_count": 442,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2088.2919921875,
+          "moe_union_us": 3707.44091796875,
+          "nccl_union_us": 4887.9482421875,
+          "unassigned_union_us": 409.8193359375
+        },
+        {
+          "message": "rank2.stage0.message9.mb8.decode",
+          "kernel_count": 515,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 3803.57763671875,
+          "moe_union_us": 5672.1376953125,
+          "nccl_union_us": 9347.80517578125,
+          "unassigned_union_us": 1557.11083984375
+        },
+        {
+          "message": "rank2.stage0.message10.mb9.decode",
+          "kernel_count": 429,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2612.52587890625,
+          "moe_union_us": 5054.79150390625,
+          "nccl_union_us": 6720.13232421875,
+          "unassigned_union_us": 335.22900390625
+        },
+        {
+          "message": "rank2.stage0.message11.mb10.decode",
+          "kernel_count": 527,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 3379.41552734375,
+          "moe_union_us": 6759.8134765625,
+          "nccl_union_us": 8881.59765625,
+          "unassigned_union_us": 248.83154296875
+        },
+        {
+          "message": "rank2.stage0.message12.mb11.decode",
+          "kernel_count": 442,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2320.87841796875,
+          "moe_union_us": 3081.78076171875,
+          "nccl_union_us": 5169.00341796875,
+          "unassigned_union_us": 838.49560546875
+        },
+        {
+          "message": "rank2.stage0.message13.mb12.decode",
+          "kernel_count": 528,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2860.7470703125,
+          "moe_union_us": 4854.9873046875,
+          "nccl_union_us": 6544.8984375,
+          "unassigned_union_us": 225.568359375
+        },
+        {
+          "message": "rank2.stage0.message14.mb13.decode",
+          "kernel_count": 455,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1661.72021484375,
+          "moe_union_us": 4238.7685546875,
+          "nccl_union_us": 5005.29150390625,
+          "unassigned_union_us": 213.8271484375
+        },
+        {
+          "message": "rank2.stage0.message15.mb14.decode",
+          "kernel_count": 528,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1548.224609375,
+          "moe_union_us": 3044.1904296875,
+          "nccl_union_us": 3421.71484375,
+          "unassigned_union_us": 223.45654296875
+        },
+        {
+          "message": "rank2.stage0.message16.mb15.decode",
+          "kernel_count": 455,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1874.9755859375,
+          "moe_union_us": 3563.63427734375,
+          "nccl_union_us": 5144.111328125,
+          "unassigned_union_us": 816.50732421875
+        }
+      ],
+      "note": "Checks executed-message inventory, CPU/GPU Attention+MoE coverage and launch correlation; not proof of zero dropped events, numerical correctness or performance."
+    },
+    {
+      "file": "outputs\\validation\\profile_fullrun_20261106\\tiny_pp2ep4\\raw\\cuda_rank3.json.gz",
+      "duration_categories": {
+        "user_annotation": 768,
+        "cpu_op": 35770,
+        "overhead": 22,
+        "gpu_memcpy": 826,
+        "cuda_runtime": 18247,
+        "kernel": 7590,
+        "cuda_driver": 688,
+        "gpu_user_annotation": 768,
+        "Trace": 1
+      },
+      "event_count": 64680,
+      "cpu_ops": 35770,
+      "cuda_runtime": 18247,
+      "gpu_kernels": 7590,
+      "nccl_kernels": 496,
+      "cuda_streams": [
+        "35",
+        "7"
+      ],
+      "module_labels": [
+        "stage0.layer0",
+        "stage0.layer0.attention",
+        "stage0.layer0.moe",
+        "stage0.layer0.moe.router",
+        "stage0.layer1",
+        "stage0.layer1.attention",
+        "stage0.layer1.moe",
+        "stage0.layer1.moe.router",
+        "stage0.layer2",
+        "stage0.layer2.attention",
+        "stage0.layer2.moe",
+        "stage0.layer2.moe.router",
+        "stage0.layer3",
+        "stage0.layer3.attention",
+        "stage0.layer3.moe",
+        "stage0.layer3.moe.router"
+      ],
+      "cuda_verified": true,
+      "completeness_verified": true,
+      "errors": [],
+      "message_coverage": [
+        {
+          "message": "rank3.stage0.message1.mb0.prefill",
+          "kernel_count": 546,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1042.81494140625,
+          "moe_union_us": 6694.89306640625,
+          "nccl_union_us": 6421.25927734375,
+          "unassigned_union_us": 250.39501953125
+        },
+        {
+          "message": "rank3.stage0.message2.mb1.prefill",
+          "kernel_count": 481,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1195.55126953125,
+          "moe_union_us": 2548.73876953125,
+          "nccl_union_us": 8837.0439453125,
+          "unassigned_union_us": 6413.064453125
+        },
+        {
+          "message": "rank3.stage0.message3.mb2.decode",
+          "kernel_count": 501,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1951.45263671875,
+          "moe_union_us": 5155.30517578125,
+          "nccl_union_us": 5983.8154296875,
+          "unassigned_union_us": 235.326171875
+        },
+        {
+          "message": "rank3.stage0.message4.mb3.decode",
+          "kernel_count": 429,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2547.59716796875,
+          "moe_union_us": 3836.23583984375,
+          "nccl_union_us": 6502.28271484375,
+          "unassigned_union_us": 1194.36669921875
+        },
+        {
+          "message": "rank3.stage0.message5.mb4.decode",
+          "kernel_count": 528,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2680.22412109375,
+          "moe_union_us": 4795.14208984375,
+          "nccl_union_us": 6991.91162109375,
+          "unassigned_union_us": 978.13818359375
+        },
+        {
+          "message": "rank3.stage0.message6.mb5.decode",
+          "kernel_count": 442,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 1480.61328125,
+          "moe_union_us": 2028.9541015625,
+          "nccl_union_us": 2617.28271484375,
+          "unassigned_union_us": 226.59423828125
+        },
+        {
+          "message": "rank3.stage0.message7.mb6.decode",
+          "kernel_count": 514,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2177.63037109375,
+          "moe_union_us": 4284.48486328125,
+          "nccl_union_us": 5293.25537109375,
+          "unassigned_union_us": 233.98681640625
+        },
+        {
+          "message": "rank3.stage0.message8.mb7.decode",
+          "kernel_count": 442,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2095.10791015625,
+          "moe_union_us": 3778.78759765625,
+          "nccl_union_us": 5641.451171875,
+          "unassigned_union_us": 871.36376953125
+        },
+        {
+          "message": "rank3.stage0.message9.mb8.decode",
+          "kernel_count": 501,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 3414.2138671875,
+          "moe_union_us": 6138.44091796875,
+          "nccl_union_us": 9657.93408203125,
+          "unassigned_union_us": 1466.37158203125
+        },
+        {
+          "message": "rank3.stage0.message10.mb9.decode",
+          "kernel_count": 416,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 3216.14111328125,
+          "moe_union_us": 6223.78662109375,
+          "nccl_union_us": 9278.76708984375,
+          "unassigned_union_us": 880.578125
+        },
+        {
+          "message": "rank3.stage0.message11.mb10.decode",
+          "kernel_count": 514,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 3270.1123046875,
+          "moe_union_us": 7039.75439453125,
+          "nccl_union_us": 9147.89111328125,
+          "unassigned_union_us": 236.703125
+        },
+        {
+          "message": "rank3.stage0.message12.mb11.decode",
+          "kernel_count": 416,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 3204.31396484375,
+          "moe_union_us": 6902.763671875,
+          "nccl_union_us": 10150.38525390625,
+          "unassigned_union_us": 1086.52783203125
+        },
+        {
+          "message": "rank3.stage0.message13.mb12.decode",
+          "kernel_count": 501,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2391.8173828125,
+          "moe_union_us": 4775.1435546875,
+          "nccl_union_us": 7920.04833984375,
+          "unassigned_union_us": 2115.23583984375
+        },
+        {
+          "message": "rank3.stage0.message14.mb13.decode",
+          "kernel_count": 416,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 3201.70849609375,
+          "moe_union_us": 6618.1533203125,
+          "nccl_union_us": 9758.865234375,
+          "unassigned_union_us": 979.552734375
+        },
+        {
+          "message": "rank3.stage0.message15.mb14.decode",
+          "kernel_count": 514,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2902.6298828125,
+          "moe_union_us": 5035.400390625,
+          "nccl_union_us": 7381.38916015625,
+          "unassigned_union_us": 784.1591796875
+        },
+        {
+          "message": "rank3.stage0.message16.mb15.decode",
+          "kernel_count": 429,
+          "global_layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "cpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "gpu_components": [
+            "stage0.layer0.attention",
+            "stage0.layer0.moe",
+            "stage0.layer1.attention",
+            "stage0.layer1.moe",
+            "stage0.layer2.attention",
+            "stage0.layer2.moe",
+            "stage0.layer3.attention",
+            "stage0.layer3.moe"
+          ],
+          "attention_union_us": 2835.7490234375,
+          "moe_union_us": 5168.64697265625,
+          "nccl_union_us": 7345.0693359375,
+          "unassigned_union_us": 352.2041015625
+        }
+      ],
+      "note": "Checks executed-message inventory, CPU/GPU Attention+MoE coverage and launch correlation; not proof of zero dropped events, numerical correctness or performance."
+    },
+    {
+      "file": "outputs\\validation\\profile_fullrun_20261106\\tiny_pp2ep4\\raw\\cuda_rank4.json.gz",
+      "duration_categories": {
+        "user_annotation": 768,
+        "cpu_op": 39314,
+        "overhead": 13,
+        "gpu_memcpy": 1454,
+        "cuda_runtime": 20420,
+        "kernel": 9254,
+        "cuda_driver": 724,
+        "gpu_user_annotation": 768,
+        "Trace": 1
+      },
+      "event_count": 72716,
+      "cpu_ops": 39314,
+      "cuda_runtime": 20420,
+      "gpu_kernels": 9254,
+      "nccl_kernels": 496,
+      "cuda_streams": [
+        "35",
+        "7"
+      ],
+      "module_labels": [
+        "stage1.layer4",
+        "stage1.layer4.attention",
+        "stage1.layer4.moe",
+        "stage1.layer4.moe.router",
+        "stage1.layer5",
+        "stage1.layer5.attention",
+        "stage1.layer5.moe",
+        "stage1.layer5.moe.router",
+        "stage1.layer6",
+        "stage1.layer6.attention",
+        "stage1.layer6.moe",
+        "stage1.layer6.moe.router",
+        "stage1.layer7",
+        "stage1.layer7.attention",
+        "stage1.layer7.moe",
+        "stage1.layer7.moe.router"
+      ],
+      "cuda_verified": true,
+      "completeness_verified": true,
+      "errors": [],
+      "message_coverage": [
+        {
+          "message": "rank4.stage1.message1.mb0.prefill",
+          "kernel_count": 635,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 29523.4638671875,
+          "moe_union_us": 36675.4765625,
+          "nccl_union_us": 65915.78857421875,
+          "unassigned_union_us": 1609.458984375
+        },
+        {
+          "message": "rank4.stage1.message2.mb1.prefill",
+          "kernel_count": 570,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 12907.17529296875,
+          "moe_union_us": 6256.84423828125,
+          "nccl_union_us": 17844.9130859375,
+          "unassigned_union_us": 300.509765625
+        },
+        {
+          "message": "rank4.stage1.message3.mb2.decode",
+          "kernel_count": 617,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2723.869140625,
+          "moe_union_us": 3642.67822265625,
+          "nccl_union_us": 8340.58544921875,
+          "unassigned_union_us": 3668.7353515625
+        },
+        {
+          "message": "rank4.stage1.message4.mb3.decode",
+          "kernel_count": 541,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1683.20556640625,
+          "moe_union_us": 1834.0390625,
+          "nccl_union_us": 10765.8291015625,
+          "unassigned_union_us": 8634.4677734375
+        },
+        {
+          "message": "rank4.stage1.message5.mb4.decode",
+          "kernel_count": 603,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2671.44970703125,
+          "moe_union_us": 4047.98095703125,
+          "nccl_union_us": 22721.1845703125,
+          "unassigned_union_us": 17657.64697265625
+        },
+        {
+          "message": "rank4.stage1.message6.mb5.decode",
+          "kernel_count": 528,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2148.845703125,
+          "moe_union_us": 2767.3798828125,
+          "nccl_union_us": 12210.94384765625,
+          "unassigned_union_us": 8650.69189453125
+        },
+        {
+          "message": "rank4.stage1.message7.mb6.decode",
+          "kernel_count": 616,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1442.58984375,
+          "moe_union_us": 1716.31591796875,
+          "nccl_union_us": 7949.96240234375,
+          "unassigned_union_us": 6484.75146484375
+        },
+        {
+          "message": "rank4.stage1.message8.mb7.decode",
+          "kernel_count": 541,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1130.13818359375,
+          "moe_union_us": 1664.83349609375,
+          "nccl_union_us": 1682.04052734375,
+          "unassigned_union_us": 277.6953125
+        },
+        {
+          "message": "rank4.stage1.message9.mb8.decode",
+          "kernel_count": 616,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1412.65576171875,
+          "moe_union_us": 1707.326171875,
+          "nccl_union_us": 5790.5771484375,
+          "unassigned_union_us": 4329.81640625
+        },
+        {
+          "message": "rank4.stage1.message10.mb9.decode",
+          "kernel_count": 541,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1426.806640625,
+          "moe_union_us": 1833.55859375,
+          "nccl_union_us": 2287.86767578125,
+          "unassigned_union_us": 243.29052734375
+        },
+        {
+          "message": "rank4.stage1.message11.mb10.decode",
+          "kernel_count": 616,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2404.962890625,
+          "moe_union_us": 4927.7626953125,
+          "nccl_union_us": 11497.7607421875,
+          "unassigned_union_us": 5642.22705078125
+        },
+        {
+          "message": "rank4.stage1.message12.mb11.decode",
+          "kernel_count": 541,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 3995.89013671875,
+          "moe_union_us": 4055.28955078125,
+          "nccl_union_us": 7078.28515625,
+          "unassigned_union_us": 243.47802734375
+        },
+        {
+          "message": "rank4.stage1.message13.mb12.decode",
+          "kernel_count": 617,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1308.63525390625,
+          "moe_union_us": 1642.88232421875,
+          "nccl_union_us": 3777.9423828125,
+          "unassigned_union_us": 2324.79833984375
+        },
+        {
+          "message": "rank4.stage1.message14.mb13.decode",
+          "kernel_count": 541,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1116.67236328125,
+          "moe_union_us": 1518.62158203125,
+          "nccl_union_us": 1664.15771484375,
+          "unassigned_union_us": 243.9033203125
+        },
+        {
+          "message": "rank4.stage1.message15.mb14.decode",
+          "kernel_count": 603,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1936.57275390625,
+          "moe_union_us": 3019.900390625,
+          "nccl_union_us": 7010.15771484375,
+          "unassigned_union_us": 3504.9169921875
+        },
+        {
+          "message": "rank4.stage1.message16.mb15.decode",
+          "kernel_count": 528,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1725.05517578125,
+          "moe_union_us": 3066.70263671875,
+          "nccl_union_us": 3851.8271484375,
+          "unassigned_union_us": 242.14111328125
+        }
+      ],
+      "note": "Checks executed-message inventory, CPU/GPU Attention+MoE coverage and launch correlation; not proof of zero dropped events, numerical correctness or performance."
+    },
+    {
+      "file": "outputs\\validation\\profile_fullrun_20261106\\tiny_pp2ep4\\raw\\cuda_rank5.json.gz",
+      "duration_categories": {
+        "user_annotation": 768,
+        "cpu_op": 38428,
+        "overhead": 13,
+        "gpu_memcpy": 1230,
+        "cuda_runtime": 19590,
+        "kernel": 8696,
+        "cuda_driver": 712,
+        "gpu_user_annotation": 768,
+        "Trace": 1
+      },
+      "event_count": 70206,
+      "cpu_ops": 38428,
+      "cuda_runtime": 19590,
+      "gpu_kernels": 8696,
+      "nccl_kernels": 496,
+      "cuda_streams": [
+        "35",
+        "7"
+      ],
+      "module_labels": [
+        "stage1.layer4",
+        "stage1.layer4.attention",
+        "stage1.layer4.moe",
+        "stage1.layer4.moe.router",
+        "stage1.layer5",
+        "stage1.layer5.attention",
+        "stage1.layer5.moe",
+        "stage1.layer5.moe.router",
+        "stage1.layer6",
+        "stage1.layer6.attention",
+        "stage1.layer6.moe",
+        "stage1.layer6.moe.router",
+        "stage1.layer7",
+        "stage1.layer7.attention",
+        "stage1.layer7.moe",
+        "stage1.layer7.moe.router"
+      ],
+      "cuda_verified": true,
+      "completeness_verified": true,
+      "errors": [],
+      "message_coverage": [
+        {
+          "message": "rank5.stage1.message1.mb0.prefill",
+          "kernel_count": 636,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 42347.64013671875,
+          "moe_union_us": 37837.98046875,
+          "nccl_union_us": 79916.5146484375,
+          "unassigned_union_us": 1630.009765625
+        },
+        {
+          "message": "rank5.stage1.message2.mb1.prefill",
+          "kernel_count": 570,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 14248.8125,
+          "moe_union_us": 6623.85595703125,
+          "nccl_union_us": 19646.240234375,
+          "unassigned_union_us": 343.0380859375
+        },
+        {
+          "message": "rank5.stage1.message3.mb2.decode",
+          "kernel_count": 602,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2842.94873046875,
+          "moe_union_us": 4318.80712890625,
+          "nccl_union_us": 9940.81787109375,
+          "unassigned_union_us": 4422.55419921875
+        },
+        {
+          "message": "rank5.stage1.message4.mb3.decode",
+          "kernel_count": 464,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1928.4462890625,
+          "moe_union_us": 3709.3388671875,
+          "nccl_union_us": 13864.744140625,
+          "unassigned_union_us": 9353.46044921875
+        },
+        {
+          "message": "rank5.stage1.message5.mb4.decode",
+          "kernel_count": 629,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1575.01025390625,
+          "moe_union_us": 1449.59765625,
+          "nccl_union_us": 19094.98046875,
+          "unassigned_union_us": 17807.49267578125
+        },
+        {
+          "message": "rank5.stage1.message6.mb5.decode",
+          "kernel_count": 477,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1903.80615234375,
+          "moe_union_us": 2961.56494140625,
+          "nccl_union_us": 12597.32470703125,
+          "unassigned_union_us": 8897.81494140625
+        },
+        {
+          "message": "rank5.stage1.message7.mb6.decode",
+          "kernel_count": 603,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2062.64697265625,
+          "moe_union_us": 3599.5703125,
+          "nccl_union_us": 10765.93798828125,
+          "unassigned_union_us": 6757.75439453125
+        },
+        {
+          "message": "rank5.stage1.message8.mb7.decode",
+          "kernel_count": 464,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2181.18408203125,
+          "moe_union_us": 4359.28515625,
+          "nccl_union_us": 5888.59619140625,
+          "unassigned_union_us": 439.419921875
+        },
+        {
+          "message": "rank5.stage1.message9.mb8.decode",
+          "kernel_count": 615,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1627.48779296875,
+          "moe_union_us": 2331.99267578125,
+          "nccl_union_us": 7126.2255859375,
+          "unassigned_union_us": 4592.31103515625
+        },
+        {
+          "message": "rank5.stage1.message10.mb9.decode",
+          "kernel_count": 451,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1968.064453125,
+          "moe_union_us": 4044.96142578125,
+          "nccl_union_us": 5761.9189453125,
+          "unassigned_union_us": 674.36474609375
+        },
+        {
+          "message": "rank5.stage1.message11.mb10.decode",
+          "kernel_count": 602,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 3182.0791015625,
+          "moe_union_us": 3074.2314453125,
+          "nccl_union_us": 11474.12451171875,
+          "unassigned_union_us": 6612.62451171875
+        },
+        {
+          "message": "rank5.stage1.message12.mb11.decode",
+          "kernel_count": 451,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 5209.173828125,
+          "moe_union_us": 6257.45703125,
+          "nccl_union_us": 11221.80712890625,
+          "unassigned_union_us": 679.0703125
+        },
+        {
+          "message": "rank5.stage1.message13.mb12.decode",
+          "kernel_count": 602,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2242.39404296875,
+          "moe_union_us": 3906.46142578125,
+          "nccl_union_us": 6986.5791015625,
+          "unassigned_union_us": 2238.62255859375
+        },
+        {
+          "message": "rank5.stage1.message14.mb13.decode",
+          "kernel_count": 464,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1995.80859375,
+          "moe_union_us": 4421.1767578125,
+          "nccl_union_us": 5833.27001953125,
+          "unassigned_union_us": 371.291015625
+        },
+        {
+          "message": "rank5.stage1.message15.mb14.decode",
+          "kernel_count": 602,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1535.4775390625,
+          "moe_union_us": 2756.29736328125,
+          "nccl_union_us": 7003.57421875,
+          "unassigned_union_us": 4115.517578125
+        },
+        {
+          "message": "rank5.stage1.message16.mb15.decode",
+          "kernel_count": 464,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1962.2138671875,
+          "moe_union_us": 3861.55859375,
+          "nccl_union_us": 5537.04931640625,
+          "unassigned_union_us": 670.20703125
+        }
+      ],
+      "note": "Checks executed-message inventory, CPU/GPU Attention+MoE coverage and launch correlation; not proof of zero dropped events, numerical correctness or performance."
+    },
+    {
+      "file": "outputs\\validation\\profile_fullrun_20261106\\tiny_pp2ep4\\raw\\cuda_rank6.json.gz",
+      "duration_categories": {
+        "user_annotation": 768,
+        "cpu_op": 37984,
+        "overhead": 17,
+        "gpu_memcpy": 1052,
+        "cuda_runtime": 18872,
+        "kernel": 8214,
+        "cuda_driver": 720,
+        "gpu_user_annotation": 768,
+        "Trace": 1
+      },
+      "event_count": 68396,
+      "cpu_ops": 37984,
+      "cuda_runtime": 18872,
+      "gpu_kernels": 8214,
+      "nccl_kernels": 496,
+      "cuda_streams": [
+        "35",
+        "7"
+      ],
+      "module_labels": [
+        "stage1.layer4",
+        "stage1.layer4.attention",
+        "stage1.layer4.moe",
+        "stage1.layer4.moe.router",
+        "stage1.layer5",
+        "stage1.layer5.attention",
+        "stage1.layer5.moe",
+        "stage1.layer5.moe.router",
+        "stage1.layer6",
+        "stage1.layer6.attention",
+        "stage1.layer6.moe",
+        "stage1.layer6.moe.router",
+        "stage1.layer7",
+        "stage1.layer7.attention",
+        "stage1.layer7.moe",
+        "stage1.layer7.moe.router"
+      ],
+      "cuda_verified": true,
+      "completeness_verified": true,
+      "errors": [],
+      "message_coverage": [
+        {
+          "message": "rank6.stage1.message1.mb0.prefill",
+          "kernel_count": 636,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1051.90283203125,
+          "moe_union_us": 1794.77587890625,
+          "nccl_union_us": 1981.11767578125,
+          "unassigned_union_us": 1041.20751953125
+        },
+        {
+          "message": "rank6.stage1.message2.mb1.prefill",
+          "kernel_count": 493,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 835.77880859375,
+          "moe_union_us": 1160.79541015625,
+          "nccl_union_us": 1127.1982421875,
+          "unassigned_union_us": 495.87451171875
+        },
+        {
+          "message": "rank6.stage1.message3.mb2.decode",
+          "kernel_count": 552,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1687.47607421875,
+          "moe_union_us": 2440.63916015625,
+          "nccl_union_us": 6358.525390625,
+          "unassigned_union_us": 3776.72705078125
+        },
+        {
+          "message": "rank6.stage1.message4.mb3.decode",
+          "kernel_count": 464,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2240.76318359375,
+          "moe_union_us": 4171.29296875,
+          "nccl_union_us": 14461.623046875,
+          "unassigned_union_us": 9238.5537109375
+        },
+        {
+          "message": "rank6.stage1.message5.mb4.decode",
+          "kernel_count": 539,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2736.67041015625,
+          "moe_union_us": 4914.4912109375,
+          "nccl_union_us": 24462.5146484375,
+          "unassigned_union_us": 18321.97265625
+        },
+        {
+          "message": "rank6.stage1.message6.mb5.decode",
+          "kernel_count": 464,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2319.962890625,
+          "moe_union_us": 3613.8837890625,
+          "nccl_union_us": 14101.7802734375,
+          "unassigned_union_us": 9359.79736328125
+        },
+        {
+          "message": "rank6.stage1.message7.mb6.decode",
+          "kernel_count": 539,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2230.68701171875,
+          "moe_union_us": 4357.56103515625,
+          "nccl_union_us": 12157.87841796875,
+          "unassigned_union_us": 7080.85009765625
+        },
+        {
+          "message": "rank6.stage1.message8.mb7.decode",
+          "kernel_count": 464,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2022.52734375,
+          "moe_union_us": 4399.2001953125,
+          "nccl_union_us": 6000.76318359375,
+          "unassigned_union_us": 768.37939453125
+        },
+        {
+          "message": "rank6.stage1.message9.mb8.decode",
+          "kernel_count": 551,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2181.8203125,
+          "moe_union_us": 4072.5732421875,
+          "nccl_union_us": 9391.5126953125,
+          "unassigned_union_us": 4668.48095703125
+        },
+        {
+          "message": "rank6.stage1.message10.mb9.decode",
+          "kernel_count": 477,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2429.56396484375,
+          "moe_union_us": 3570.11669921875,
+          "nccl_union_us": 5093.6943359375,
+          "unassigned_union_us": 285.21240234375
+        },
+        {
+          "message": "rank6.stage1.message11.mb10.decode",
+          "kernel_count": 553,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 4555.0498046875,
+          "moe_union_us": 6983.29248046875,
+          "nccl_union_us": 16130.10009765625,
+          "unassigned_union_us": 5856.09130859375
+        },
+        {
+          "message": "rank6.stage1.message12.mb11.decode",
+          "kernel_count": 477,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2333.0556640625,
+          "moe_union_us": 3905.306640625,
+          "nccl_union_us": 5629.658203125,
+          "unassigned_union_us": 381.7294921875
+        },
+        {
+          "message": "rank6.stage1.message13.mb12.decode",
+          "kernel_count": 538,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1961.1494140625,
+          "moe_union_us": 4121.3154296875,
+          "nccl_union_us": 7890.65234375,
+          "unassigned_union_us": 3017.53466796875
+        },
+        {
+          "message": "rank6.stage1.message14.mb13.decode",
+          "kernel_count": 451,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2331.2548828125,
+          "moe_union_us": 5013.8818359375,
+          "nccl_union_us": 7091.70703125,
+          "unassigned_union_us": 674.07861328125
+        },
+        {
+          "message": "rank6.stage1.message15.mb14.decode",
+          "kernel_count": 552,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2285.89013671875,
+          "moe_union_us": 4010.3603515625,
+          "nccl_union_us": 8591.48046875,
+          "unassigned_union_us": 3558.90576171875
+        },
+        {
+          "message": "rank6.stage1.message16.mb15.decode",
+          "kernel_count": 464,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2603.6806640625,
+          "moe_union_us": 4947.12841796875,
+          "nccl_union_us": 7010.103515625,
+          "unassigned_union_us": 427.19580078125
+        }
+      ],
+      "note": "Checks executed-message inventory, CPU/GPU Attention+MoE coverage and launch correlation; not proof of zero dropped events, numerical correctness or performance."
+    },
+    {
+      "file": "outputs\\validation\\profile_fullrun_20261106\\tiny_pp2ep4\\raw\\cuda_rank7.json.gz",
+      "duration_categories": {
+        "user_annotation": 768,
+        "cpu_op": 37352,
+        "overhead": 17,
+        "gpu_memcpy": 951,
+        "cuda_runtime": 18555,
+        "kernel": 7999,
+        "cuda_driver": 704,
+        "gpu_user_annotation": 768,
+        "Trace": 1
+      },
+      "event_count": 67115,
+      "cpu_ops": 37352,
+      "cuda_runtime": 18555,
+      "gpu_kernels": 7999,
+      "nccl_kernels": 496,
+      "cuda_streams": [
+        "35",
+        "7"
+      ],
+      "module_labels": [
+        "stage1.layer4",
+        "stage1.layer4.attention",
+        "stage1.layer4.moe",
+        "stage1.layer4.moe.router",
+        "stage1.layer5",
+        "stage1.layer5.attention",
+        "stage1.layer5.moe",
+        "stage1.layer5.moe.router",
+        "stage1.layer6",
+        "stage1.layer6.attention",
+        "stage1.layer6.moe",
+        "stage1.layer6.moe.router",
+        "stage1.layer7",
+        "stage1.layer7.attention",
+        "stage1.layer7.moe",
+        "stage1.layer7.moe.router"
+      ],
+      "cuda_verified": true,
+      "completeness_verified": true,
+      "errors": [],
+      "message_coverage": [
+        {
+          "message": "rank7.stage1.message1.mb0.prefill",
+          "kernel_count": 572,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 11190.90673828125,
+          "moe_union_us": 14265.7705078125,
+          "nccl_union_us": 24127.39697265625,
+          "unassigned_union_us": 331.48486328125
+        },
+        {
+          "message": "rank7.stage1.message2.mb1.prefill",
+          "kernel_count": 491,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1823.19970703125,
+          "moe_union_us": 2214.564453125,
+          "nccl_union_us": 3257.82666015625,
+          "unassigned_union_us": 555.70556640625
+        },
+        {
+          "message": "rank7.stage1.message3.mb2.decode",
+          "kernel_count": 525,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2142.84619140625,
+          "moe_union_us": 3868.6083984375,
+          "nccl_union_us": 8662.970703125,
+          "unassigned_union_us": 4112.78955078125
+        },
+        {
+          "message": "rank7.stage1.message4.mb3.decode",
+          "kernel_count": 451,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2164.32763671875,
+          "moe_union_us": 4311.9619140625,
+          "nccl_union_us": 14573.64794921875,
+          "unassigned_union_us": 9249.20556640625
+        },
+        {
+          "message": "rank7.stage1.message5.mb4.decode",
+          "kernel_count": 537,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1557.92578125,
+          "moe_union_us": 3035.86962890625,
+          "nccl_union_us": 21836.07177734375,
+          "unassigned_union_us": 18723.74951171875
+        },
+        {
+          "message": "rank7.stage1.message6.mb5.decode",
+          "kernel_count": 451,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1570.26806640625,
+          "moe_union_us": 3191.67333984375,
+          "nccl_union_us": 13478.5439453125,
+          "unassigned_union_us": 9871.38134765625
+        },
+        {
+          "message": "rank7.stage1.message7.mb6.decode",
+          "kernel_count": 538,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1872.02880859375,
+          "moe_union_us": 3726.775390625,
+          "nccl_union_us": 10816.4658203125,
+          "unassigned_union_us": 6712.27294921875
+        },
+        {
+          "message": "rank7.stage1.message8.mb7.decode",
+          "kernel_count": 451,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1871.64404296875,
+          "moe_union_us": 3896.15185546875,
+          "nccl_union_us": 5389.40380859375,
+          "unassigned_union_us": 768.4521484375
+        },
+        {
+          "message": "rank7.stage1.message9.mb8.decode",
+          "kernel_count": 538,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1822.9462890625,
+          "moe_union_us": 3553.66162109375,
+          "nccl_union_us": 8483.634765625,
+          "unassigned_union_us": 4606.85302734375
+        },
+        {
+          "message": "rank7.stage1.message10.mb9.decode",
+          "kernel_count": 451,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2563.14501953125,
+          "moe_union_us": 4365.82080078125,
+          "nccl_union_us": 6500.5029296875,
+          "unassigned_union_us": 722.876953125
+        },
+        {
+          "message": "rank7.stage1.message11.mb10.decode",
+          "kernel_count": 537,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 4140.53662109375,
+          "moe_union_us": 6627.259765625,
+          "nccl_union_us": 15547.794921875,
+          "unassigned_union_us": 6259.9287109375
+        },
+        {
+          "message": "rank7.stage1.message12.mb11.decode",
+          "kernel_count": 451,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 2889.2197265625,
+          "moe_union_us": 2667.93505859375,
+          "nccl_union_us": 5128.0927734375,
+          "unassigned_union_us": 723.1318359375
+        },
+        {
+          "message": "rank7.stage1.message13.mb12.decode",
+          "kernel_count": 539,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1817.7685546875,
+          "moe_union_us": 3553.84765625,
+          "nccl_union_us": 6575.12646484375,
+          "unassigned_union_us": 2612.38427734375
+        },
+        {
+          "message": "rank7.stage1.message14.mb13.decode",
+          "kernel_count": 464,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1248.8271484375,
+          "moe_union_us": 3423.30224609375,
+          "nccl_union_us": 4284.5712890625,
+          "unassigned_union_us": 699.4609375
+        },
+        {
+          "message": "rank7.stage1.message15.mb14.decode",
+          "kernel_count": 539,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1558.22509765625,
+          "moe_union_us": 3127.54833984375,
+          "nccl_union_us": 7288.0234375,
+          "unassigned_union_us": 3997.7646484375
+        },
+        {
+          "message": "rank7.stage1.message16.mb15.decode",
+          "kernel_count": 464,
+          "global_layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "cpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "gpu_components": [
+            "stage1.layer4.attention",
+            "stage1.layer4.moe",
+            "stage1.layer5.attention",
+            "stage1.layer5.moe",
+            "stage1.layer6.attention",
+            "stage1.layer6.moe",
+            "stage1.layer7.attention",
+            "stage1.layer7.moe"
+          ],
+          "attention_union_us": 1404.2919921875,
+          "moe_union_us": 2879.84423828125,
+          "nccl_union_us": 3889.37255859375,
+          "unassigned_union_us": 695.70849609375
+        }
+      ],
+      "note": "Checks executed-message inventory, CPU/GPU Attention+MoE coverage and launch correlation; not proof of zero dropped events, numerical correctness or performance."
+    }
+  ]
+}

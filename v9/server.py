@@ -203,7 +203,7 @@ def main():
     ap.add_argument("--model", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "Qwen3-0.6B"))
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=8000)
-    ap.add_argument("--max-num-seqs", type=int, default=8)
+    ap.add_argument("--max-num-seqs", "--max-batch-size", type=int, default=8)
     ap.add_argument("--max-model-len", type=int, default=4096)
     ap.add_argument("--gpu-mem-util", type=float, default=0.3)
     ap.add_argument('--max-num-batched-tokens',type=int,default=2048)
@@ -217,10 +217,10 @@ def main():
     ap.add_argument('--request-timeout',type=float,default=300.)
     ap.add_argument('--metrics-path',default=None)
     ap.add_argument('--profile', action='store_true',
-                    help='diagnostic run: bounded CPU/CUDA trace; timings are not benchmark results')
-    ap.add_argument('--profile-dir', default='outputs/server_profile')
-    ap.add_argument('--profile-start-message', type=int, default=3)
-    ap.add_argument('--profile-messages', type=int, default=16)
+                    help='record worker CPU/CUDA trace until graceful shutdown; timings are diagnostic')
+    ap.add_argument('--profile-dir', help='default: a new outputs/server_profile_TIMESTAMP directory')
+    ap.add_argument('--profile-start-message', type=int, default=1)
+    ap.add_argument('--profile-messages', type=int, default=0, help='0 = all forwards until shutdown (default)')
     ap.add_argument("--tensor-parallel-size", type=int, default=1)
     ap.add_argument("--enable-expert-parallel", action="store_true",
                     help="shard experts over DP x TP; no independent EP axis")
@@ -235,8 +235,11 @@ def main():
     if args.profile:
         from utils.observation_config import configure_observation
         from utils.observed_runner import ObservedModelRunner, ObservedPipelineTransport
+        if args.profile_dir is None:
+            args.profile_dir = 'outputs/server_profile_' + time.strftime('%Y%m%d_%H%M%S') + '_' + uuid.uuid4().hex[:6]
         configure_observation(args.profile_dir, profile=True,
             start_message=args.profile_start_message, messages=args.profile_messages)
+        print(f'[profile] traces will be exported to {args.profile_dir}/trace on graceful shutdown', flush=True)
         implementations = dict(runner_cls=ObservedModelRunner, transport_cls=ObservedPipelineTransport)
 
     from transformers import AutoTokenizer
@@ -288,6 +291,10 @@ def main():
     finally:
         engine.stop()                      # 幂等：stop 走两遍安全
         srv.server_close()
+        if args.profile:
+            from utils.trace_audit import finish_profile
+            finish_profile(args.profile_dir,
+                expected_ranks=args.tensor_parallel_size * args.pipeline_parallel_size)
         print("[server] 已退出", flush=True)
 
 

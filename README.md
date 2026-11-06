@@ -6,7 +6,7 @@
 
 | 你想做什么 | 入口 |
 |---|---|
-| 采八卡 CPU / CUDA / NCCL / 每层轨迹 | `v9/tools/profile_capture.py` |
+| 普通服务/离线运行顺便采各卡 CPU / CUDA / NCCL / 每层轨迹 | `v9/server.py --profile` 或 `v9/bench.py offline --profile` |
 | 检查漏卡、漏 CUDA、尾层缺失，统计热点与重叠 | `v9/tools/profile_analyze.py` |
 | 把八卡叠在同一时间轴，交给 Perfetto | `v9/tools/profile_merge.py` |
 | 不开 profiler 测吞吐、TTFT、P95/P99 | `v9/bench.py offline` 或 `serve` |
@@ -17,16 +17,16 @@
 # 在仓库根目录执行，Linux + CUDA，MODEL 指向已有权重目录。
 export MODEL=/path/to/Qwen3-Omni-30B-A3B-Instruct
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
-python v9/tools/profile_capture.py --model "$MODEL" --output outputs/my_pp2ep4 \
-  --tp 4 --pp 2 --enable-expert-parallel --requests 32 \
-  --prompt-tokens 64 --max-tokens 16 --messages 8 --record-shapes
+python v9/bench.py offline --model "$MODEL" --output outputs/my_pp2ep4 \
+  --tp 4 --pp 2 --enable-expert-parallel --max-batch-size 128 \
+  --workloads short128 --repeats 1 --profile
 python v9/tools/profile_analyze.py --input-dir outputs/my_pp2ep4/trace \
   --output outputs/my_pp2ep4/analysis --expected-ranks 8 --layers 48 --require-nccl --same-host
 python v9/tools/profile_merge.py --input-dir outputs/my_pp2ep4/trace \
   --same-host --output outputs/my_pp2ep4/trace.json.gz
 ```
 
-用 [Perfetto](https://ui.perfetto.dev/) 打开 `trace.json.gz`。想先看小文件，请打开 [清理后八卡小模型轨迹](outputs/validation/runtime_cleanup_20261106/final/tiny_pp2ep4/trace.json.gz)；30B 的历史八卡轨迹见 [输出索引](outputs/README.md)。文件齐全与采样完整是两件事，旧轨迹存在尾层缺失，索引中已标明。
+用 [Perfetto](https://ui.perfetto.dev/) 打开 `trace.json.gz`。最新样例是 [八卡全程小模型轨迹](outputs/validation/profile_fullrun_20261106/tiny_pp2ep4/trace.json.gz)，各卡16条消息逐条验收通过；30B 的历史八卡轨迹见 [输出索引](outputs/README.md)。文件齐全与采样完整是两件事，旧轨迹存在尾层缺失，索引中已标明。
 
 其他阅读：[架构与代码顺序](docs/架构.md)、[精度排查过程](docs/精度排查.md)、[环境](ENVIRONMENT.md)、[测试分类](v9/tests/README.md)、[整理与备份](docs/整理说明.md)。
 

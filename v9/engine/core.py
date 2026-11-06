@@ -401,8 +401,13 @@ class EngineCore:
                 self._complete_batch()
             if self.executor is not None:
                 self.executor.shutdown()
+                deadline = perf_counter() + self._worker_timeout
                 for p in self.procs:
-                    p.join(timeout=5)
+                    p.join(timeout=max(0, deadline - perf_counter()))
+                if any(p.is_alive() for p in self.procs):
+                    raise TimeoutError("Worker cleanup did not finish before the worker deadline")
+                if any(p.exitcode != 0 for p in self.procs):
+                    raise RuntimeError("Worker exited unsuccessfully during cleanup")
             runner = getattr(self, "inproc_runner", None)
             if runner is not None:
                 runner.shutdown()

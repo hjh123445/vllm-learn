@@ -64,7 +64,9 @@ class _WorkerCapture:
         self.trace_dir = os.getenv("VLLM_LEARN_TRACE_DIR")
         self.window = os.getenv("VLLM_LEARN_PROFILE_MODE", "scheduled") == "window"
         self.start_message = max(1, int(os.getenv("VLLM_LEARN_PROFILE_START_MESSAGE", "1")))
-        self.limit = max(1, int(os.getenv("VLLM_LEARN_PROFILE_MESSAGES", "4")))
+        self.limit = int(os.getenv("VLLM_LEARN_PROFILE_MESSAGES", "0"))
+        if self.limit < 0:
+            raise ValueError("profile messages must be >= 0; 0 records until shutdown")
         self.messages = []
         self.events = []
         self.index = 0
@@ -73,6 +75,7 @@ class _WorkerCapture:
         self.profiler = None
         self.audit = None
         self.flush_status = None
+        self.collection_error = None
         self.ranges = ModuleProfileRanges(runner.model, stage=self.stage)
         if os.getenv("VLLM_LEARN_CUDA_PROFILE", "0") == "1":
             activities = [torch.profiler.ProfilerActivity.CPU]
@@ -91,10 +94,9 @@ class _WorkerCapture:
         directory = Path(self.trace_dir or "/tmp")
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / f"cuda_rank{self.rank}.json"
-        profiler.export_chrome_trace(str(path))
-        from utils.trace_audit import audit_trace
-        self.audit = audit_trace(path)
-        _write(directory / f"audit_rank{self.rank}.json", self.audit)
+        partial = path.with_suffix('.partial')
+        profiler.export_chrome_trace(str(partial))
+        partial.replace(path)
 
     def _start(self):
         self.profiler.__enter__()
@@ -104,15 +106,21 @@ class _WorkerCapture:
     def _stop(self):
         if not self.open:
             return
-        if self.cuda:
-            torch.cuda.synchronize()
-            from utils.cupti_flush import flush_cuda_activity
-            self.flush_status = flush_cuda_activity()
-        self.ranges.remove()
         try:
-            self.profiler.__exit__(None, None, None)
+            if self.cuda:
+                torch.cuda.synchronize()
+                from utils.cupti_flush import flush_cuda_activity
+                self.flush_status = flush_cuda_activity()
+        except Exception as error:
+            self.collection_error = f'{type(error).__name__}: {error}'
         finally:
-            self.open = False
+            self.ranges.remove()
+            try:
+                self.profiler.__exit__(None, None, None)
+            except Exception as error:
+                self.collection_error = f'{type(error).__name__}: {error}'
+            finally:
+                self.open = False
 
     def before(self, seqs, prefill, batch):
         self.index += 1
@@ -128,7 +136,8 @@ class _WorkerCapture:
                 f"{'prefill' if prefill else 'decode'}")
         return nullcontext()
 
-    def after(self, started):
+    def after(self, started, *, succeeded):
+        self.current['succeeded'] = succeeded
         if self.trace_dir:
             self.events.append(dict(name=f"stage{self.stage}.forward", cat="forward", ph="X",
                 ts=started * 1e6, dur=(time.perf_counter() - started) * 1e6,
@@ -136,7 +145,7 @@ class _WorkerCapture:
         if self.open:
             if self.window:
                 self.messages.append(self.current.copy())
-                if len(self.messages) >= self.limit:
+                if self.limit and len(self.messages) >= self.limit:
                     self._stop()
             else:
                 if self.cuda:
@@ -148,13 +157,21 @@ class _WorkerCapture:
     def close(self):
         self._stop()
         if self.profiler is not None and self.window:
-            _write(Path(self.trace_dir or "/tmp") / f"capture_rank{self.rank}.json",
-                dict(rank=self.rank, world_rank=self.world_rank, mode="window",
+            directory = Path(self.trace_dir or "/tmp")
+            capture = dict(rank=self.rank, world_rank=self.world_rank, stage=self.stage,
+                     layer_range=[self.runner.model.model.pp_start, self.runner.model.model.pp_end],
+                     mode="window", executed_messages=self.index,
                      start_message=self.start_message, requested_messages=self.limit,
                      captured_messages=self.messages, cuda_activities=self.cuda,
-                     cuda_verified=bool(self.audit and self.audit['cuda_verified']),
+                     closed_cleanly=self.collection_error is None, collection_error=self.collection_error,
                      cupti_flush=self.flush_status,
-                     measurement="profile-only; synchronization/export distort throughput"))
+                     measurement="profile-only; synchronization/export distort throughput")
+            _write(directory / f"capture_rank{self.rank}.json", capture)
+            path = directory / f"cuda_rank{self.rank}.json"
+            if path.exists():
+                from utils.trace_audit import audit_trace
+                self.audit = audit_trace(path, capture)
+                _write(directory / f"audit_rank{self.rank}.json", self.audit)
         if self.trace_dir:
             _write(Path(self.trace_dir) / f"pipeline_rank{self.rank}.json",
                 dict(displayTimeUnit="ms", traceEvents=self.events,
@@ -195,11 +212,14 @@ class ObservedModelRunner(ModelRunner):
                 return super().run(seqs, is_prefill, microbatch_id=microbatch_id)
             scope = self._observation.before(seqs, is_prefill, microbatch_id)
             started = time.perf_counter()
+            succeeded = False
             try:
                 with scope:
-                    return super().run(seqs, is_prefill, microbatch_id=microbatch_id)
+                    result = super().run(seqs, is_prefill, microbatch_id=microbatch_id)
+                    succeeded = True
+                    return result
             finally:
-                self._observation.after(started)
+                self._observation.after(started, succeeded=succeeded)
         finally:
             self._current = previous
 

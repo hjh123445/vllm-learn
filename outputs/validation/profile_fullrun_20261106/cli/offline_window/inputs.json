@@ -1,0 +1,134 @@
+{
+  "tiny": [
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    },
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    },
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    },
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    },
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    },
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    },
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    },
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    }
+  ],
+  "tiny_alt": [
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    },
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    },
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    },
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    },
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    },
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    },
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    },
+    {
+      "input_ids": [
+        1,
+        2
+      ],
+      "max_tokens": 4,
+      "arrival_step": 0
+    }
+  ]
+}

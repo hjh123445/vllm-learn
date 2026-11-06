@@ -155,7 +155,7 @@ class AsyncEngine:
         self._stop.set()
         self._wake.set()
         if self._thread is not None:
-            self._thread.join(timeout=10)
+            self._thread.join(timeout=getattr(self.engine, '_worker_timeout', 10))
             if self._thread.is_alive():
                 raise TimeoutError("Engine step has not returned; shutdown stays with the owner thread")
         else:

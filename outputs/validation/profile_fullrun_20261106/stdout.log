@@ -1,0 +1,90 @@
+......................[Gloo] Rank 1 is connected to 1 peer ranks. Expected number of connected peer ranks is : 1
+[Gloo] Rank 0 is connected to 1 peer ranks. Expected number of connected peer ranks is : 1
+.[Gloo] Rank 0 is connected to 1 peer ranks. Expected number of connected peer ranks is : 1
+[Gloo] Rank 1 is connected to 1 peer ranks. Expected number of connected peer ranks is : 1
+.........[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+.[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+.[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+.......
+41 passed in 141.71s (0:02:21)

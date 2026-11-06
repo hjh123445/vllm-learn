@@ -1,0 +1,16 @@
+{
+  "host": "172.28.30.56",
+  "remote": "/tmp/vllm-learn-profile-fullrun-20261106-202007",
+  "exit_code": 1,
+  "gpu_ids": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "scope": "tiny synthetic TP2/PP2TP2/PP2TP4 EP full-run capture, real HTTP; not30B throughput"
+}

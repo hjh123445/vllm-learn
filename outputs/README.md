@@ -4,6 +4,8 @@
 
 ## 当前工具验证：先打开这个
 
+最新全程采集见 [profile_fullrun_20261106](validation/profile_fullrun_20261106/README.md)：普通 serve/bench 只加 `--profile`，默认首 forward 到关闭；41项主回归通过，另补独立CLI验收回归。八卡各16消息逐条检查 Attention/MoE 的 CPU/GPU 覆盖。先打开 [八卡完整trace](validation/profile_fullrun_20261106/tiny_pp2ep4/trace.json.gz) 或 [概览](validation/profile_fullrun_20261106/tiny_pp2ep4/analysis/timeline.html)。这是自生成小模型工具验证；旧30B缺尾仍标为不完整。
+
 最新精度排查见 [DP2×TP2/EP4 cached generation](correctness/ep_diagnosis_20261106/README.md)：
 逐层捕获、32 个层批次逐 route 重放和精度消融。仅专家 FP32 消除合成反例；
 默认 BF16 的原严格生成回归仍失败。这里是数值证据，不是 profile 或 30B 性能成绩。

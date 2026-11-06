@@ -128,9 +128,46 @@ def test_window_exports_cpu_trace_and_removes_hooks(cpu_runner, monkeypatch, tmp
     metadata = json.loads((tmp_path / "capture_rank0.json").read_text())
     assert metadata["cuda_activities"] is False
     assert [m["microbatch_id"] for m in metadata["captured_messages"]] == [12]
+    assert json.loads((tmp_path / 'audit_rank0.json').read_text())['completeness_verified']
     timeline = json.loads((tmp_path / "pipeline_rank0.json").read_text())
     assert len(timeline["traceEvents"]) == 3
     assert timeline["metadata"]["measurement"] == "CPU calls, not GPU duration"
+
+
+def test_default_profile_captures_first_through_last_forward(cpu_runner, monkeypatch, tmp_path):
+    from utils.observation_config import configure_observation
+    configure_observation(tmp_path, profile=True)
+    runner = ObservedModelRunner(SimpleNamespace())
+    try:
+        for batch in range(5):
+            runner.run([seq()], batch == 0, microbatch_id=batch)
+    finally:
+        runner.shutdown()
+    capture = json.loads((tmp_path / 'trace/capture_rank0.json').read_text())
+    audit = json.loads((tmp_path / 'trace/audit_rank0.json').read_text())
+    assert capture['requested_messages'] == 0 and capture['executed_messages'] == 5
+    assert [m['message_index'] for m in capture['captured_messages']] == list(range(1, 6))
+    assert audit['completeness_verified'], audit['errors']
+    assert len(audit['message_coverage']) == 5
+    assert all(not m._forward_hooks for m in runner.model.modules())
+
+
+def test_failed_forward_is_not_certified_complete(cpu_runner, monkeypatch, tmp_path):
+    from utils.observation_config import configure_observation
+    configure_observation(tmp_path, profile=True)
+    runner = ObservedModelRunner(SimpleNamespace())
+    def fail(_module, _inputs):
+        raise RuntimeError('injected model error')
+    handle = runner.model.model.layers[0].mlp.register_forward_pre_hook(fail)
+    try:
+        with pytest.raises(RuntimeError, match='injected model error'):
+            runner.run([seq()], True)
+    finally:
+        handle.remove()
+        runner.shutdown()
+    audit = json.loads((tmp_path / 'trace/audit_rank0.json').read_text())
+    assert not audit['completeness_verified']
+    assert any('forward failed' in e for e in audit['errors'])
 
 
 def test_logits_per_request_and_independent_dp_namespace(cpu_runner, monkeypatch, tmp_path):

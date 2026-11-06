@@ -1,0 +1,290 @@
+{
+  "displayTimeUnit": "ms",
+  "traceEvents": [
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877448685258.167,
+      "dur": 323662.5030403957,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 1,
+        "microbatch_id": 0,
+        "is_prefill": true,
+        "scheduled_sequences": 2,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449009074.203,
+      "dur": 38156.40404354781,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 2,
+        "microbatch_id": 1,
+        "is_prefill": true,
+        "scheduled_sequences": 1,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449110496.44,
+      "dur": 37140.00107720494,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 3,
+        "microbatch_id": 2,
+        "is_prefill": false,
+        "scheduled_sequences": 2,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449147760.06,
+      "dur": 31997.486017644405,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 4,
+        "microbatch_id": 3,
+        "is_prefill": false,
+        "scheduled_sequences": 1,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449179871.4769,
+      "dur": 38389.74505197257,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 5,
+        "microbatch_id": 4,
+        "is_prefill": false,
+        "scheduled_sequences": 2,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449218364.841,
+      "dur": 31266.540056094527,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 6,
+        "microbatch_id": 5,
+        "is_prefill": false,
+        "scheduled_sequences": 1,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449249736.843,
+      "dur": 24853.674927726388,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 7,
+        "microbatch_id": 6,
+        "is_prefill": false,
+        "scheduled_sequences": 2,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449274669.785,
+      "dur": 20153.997000306845,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 8,
+        "microbatch_id": 7,
+        "is_prefill": false,
+        "scheduled_sequences": 1,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449298344.299,
+      "dur": 23895.43002936989,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 9,
+        "microbatch_id": 8,
+        "is_prefill": false,
+        "scheduled_sequences": 2,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449322314.9089,
+      "dur": 20492.97501798719,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 10,
+        "microbatch_id": 9,
+        "is_prefill": false,
+        "scheduled_sequences": 1,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449346434.151,
+      "dur": 23658.096906729043,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 11,
+        "microbatch_id": 10,
+        "is_prefill": false,
+        "scheduled_sequences": 2,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449370175.349,
+      "dur": 23172.299028374255,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 12,
+        "microbatch_id": 11,
+        "is_prefill": false,
+        "scheduled_sequences": 1,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449399028.16,
+      "dur": 24772.085016593337,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 13,
+        "microbatch_id": 12,
+        "is_prefill": false,
+        "scheduled_sequences": 2,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449423886.1609,
+      "dur": 20925.337099470198,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 14,
+        "microbatch_id": 13,
+        "is_prefill": false,
+        "scheduled_sequences": 1,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449448097.265,
+      "dur": 23233.977030031383,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 15,
+        "microbatch_id": 14,
+        "is_prefill": false,
+        "scheduled_sequences": 2,
+        "stage": 0,
+        "succeeded": true
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 877449471411.4089,
+      "dur": 20395.77707182616,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 16,
+        "microbatch_id": 15,
+        "is_prefill": false,
+        "scheduled_sequences": 1,
+        "stage": 0,
+        "succeeded": true
+      }
+    }
+  ],
+  "metadata": {
+    "rank": 3,
+    "world_rank": 3,
+    "pp_stage": 0,
+    "clock": "host_monotonic_us",
+    "measurement": "CPU calls, not GPU duration",
+    "tp_rank": 3,
+    "ep_rank": 3,
+    "layer_range": [
+      0,
+      4
+    ]
+  }
+}

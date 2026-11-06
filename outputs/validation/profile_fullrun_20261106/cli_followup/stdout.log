@@ -1,0 +1,15 @@
+................F.
+=================================== FAILURES ===================================
+________________ test_trace_check_direct_cli_without_pythonpath ________________
+v9/tests/test_profile_tools.py:185: in test_trace_check_direct_cli_without_pythonpath
+    assert json.loads(result.stdout)['passed']
+/home/ifly_jyhe23/env/miniconda3/lib/python3.10/json/__init__.py:346: in loads
+    return _default_decoder.decode(s)
+/home/ifly_jyhe23/env/miniconda3/lib/python3.10/json/decoder.py:337: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+/home/ifly_jyhe23/env/miniconda3/lib/python3.10/json/decoder.py:355: in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+E   json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+=========================== short test summary info ============================
+FAILED v9/tests/test_profile_tools.py::test_trace_check_direct_cli_without_pythonpath
+1 failed, 17 passed in 55.65s

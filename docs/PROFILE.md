@@ -1,19 +1,8 @@
-# Profile：只用三步采集、分析、合并
+# Profile：正常运行时加一个 --profile
 
-更新：2026-11-06。以下命令在仓库根目录执行，GPU 采集使用 Linux/CUDA 环境。分析与合并只依赖 Python 标准库，可在没有 GPU 的 Windows 上运行。
+更新：2026-11-06。命令在仓库根目录运行。采集需要 Linux/CUDA；分析、合并只需 Python 标准库。
 
-## 1. 四个入口各负责什么
-
-| 文件 | 输入 | 输出 | 不负责什么 |
-|---|---|---|---|
-| `v9/tools/profile_capture.py` | 模型、并行拓扑、合成输入长度/数量、采集窗口 | 每 worker 的完整 Chrome trace、输入、配置、运行日志、源码 SHA256、环境清单 | 不提供可信吞吐；不采 HTTP/媒体前端 |
-| `v9/tools/profile_analyze.py` | 同次运行的 `cuda_rank*.json[.gz]` | `summary.json`、中文 `report.md`、八卡 `timeline.html` | 不从 CPU range 猜 GPU 时长；不自动判定空白就是 PP 气泡 |
-| `v9/tools/profile_merge.py` | 同机同次运行的多 rank trace | 保留全事件的 `trace.json.gz`，各 rank 的 CPU/GPU/stream 独立显示 | 不逐 rank 归零，不首尾串接；不校准跨机器时钟 |
-| `v9/tools/kernel_bench.py` | 算子 shape、dtype、重复次数 | 无 profiler 计时 JSON；可选另采算子 trace | 不测整模型吞吐；Graph 结果不代表引擎有整模 Graph |
-
-`trace_io.py` 是流式读文件的内部辅助，不需要操作。`bench.py offline` 调用 `tools/benchmark.py`，`bench.py serve` 调用 HTTP 压测客户端。`check_logits.py`、`check_generation.py`、`compare_logits.py` 是数值诊断工具，不是 profile 入口。
-
-## 2. 第一份八卡轨迹
+## 1. 正常 serve 顺便采集
 
 ```bash
 export MODEL=/path/to/Qwen3-Omni-30B-A3B-Instruct
@@ -21,204 +10,115 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 export OMP_NUM_THREADS=4
 export MKL_NUM_THREADS=4
 
-# Attention TP8，专家 EP8，共8卡。EP不再是额外设备轴。
-python v9/tools/profile_capture.py --model "$MODEL" --output outputs/run_tp8ep8 \
-  --tp 8 --pp 1 --dp 1 --enable-expert-parallel \
-  --scenario short --requests 32 --prompt-tokens 64 --max-tokens 16 \
-  --budget 512 --start-message 1 --messages 8 --record-shapes
+# 终端1：普通服务参数照常设置；额外加 --profile 即开始记录。
+python v9/server.py --model "$MODEL" --tensor-parallel-size 4 \
+  --pipeline-parallel-size 2 --enable-expert-parallel \
+  --max-batch-size 128 --max-num-batched-tokens 512 \
+  --pipeline-microbatch-tokens 128 --max-concurrent-batches 2 \
+  --port 8000 --profile --profile-dir outputs/http_pp2ep4
 
-python v9/tools/profile_analyze.py --input-dir outputs/run_tp8ep8/trace \
-  --output outputs/run_tp8ep8/analysis --expected-ranks 8 --layers 48 --require-nccl --same-host
-
-python v9/tools/profile_merge.py --input-dir outputs/run_tp8ep8/trace \
-  --same-host --output outputs/run_tp8ep8/trace.json.gz
-```
-
-总 worker 数为 `DP×PP×TP`。采集入口提前检查可见 GPU 数，不足就报错，防止多个 rank 被错误放到同一卡。`--output` 必须是新目录或空目录，避免把不同实验的 rank 混起来。
-
-合成输入直接构造 token IDs，不应用聊天模板，也不以生成内容评价质量。每条输入的实际长度保存在 `manifest.json` 和 `inputs.json`；固定使用贪心采样，忽略 EOS，确保指定的生成长度。当前模型层数是48；分析其他模型时修改 `--layers`。
-
-### 关键参数
-
-| 参数 | 含义 |
-|---|---|
-| `--requests` | 同时注入的请求总数，不等于每个 GPU forward 的 batch size |
-| `--prompt-tokens` / `--long-tokens` | 合成短/长输入的 token 数 |
-| `--scenario short/long/mixed` | 全短、全长、或每4条中1条长输入 |
-| `--max-tokens` | 每请求生成长度；决定是否有足够 decode 工作 |
-| `--budget` | 每调度批次最大 token 预算 |
-| `--microbatch-tokens` | PP调度批次预算，默认128；实际还受 `--budget` 约束 |
-| `--max-concurrent-batches` | PP在途批次上限，默认 PP size；不是模型虚拟stage数 |
-| `--start-message` | 每个 worker 从第几次运行消息开始采，1-based |
-| `--messages` | 每个 worker 最多采多少条消息，不是 token 数/请求数/层数 |
-| `--record-shapes` | 记录 ATen 输入形状；额外消耗 CPU 和内存 |
-| `--max-model-len` / `--max-num-seqs` | 上下文与单批请求上限，默认8192/128 |
-| `--max-kv-blocks` | 显式限制 KV 池；根据实际显存设置，太小会触发抢占/重算 |
-
-窗口到达后结束采样；若请求先结束，则在关闭时导出较短窗口。`start-message` 太大可能根本采不到有效消息。长输入的第8条消息可能仍是 prefill，不要仅凭参数认定已经采到 decode。查看 `capture_rankN.json` 的 `is_prefill`、batch ID、请求数，再核对真实 CUDA 层覆盖。扩大窗口会产生很大的八卡文件，并显著干扰调度。
-
-## 3. 八卡流水线和并行对照
-
-分别启动新进程、写不同目录。每行都是8卡，EP开关只改变专家分片方式：
-
-| 方案 | capture 参数 | 看到什么 |
-|---|---|---|
-| TP8 | `--tp 8 --pp 1` | Attention/专家均TP；TP collective |
-| TP8+EP8 | `--tp 8 --pp 1 --enable-expert-parallel` | 一个stage，专家跨8卡dispatch/combine |
-| PP2×TP4+EP4 | `--tp 4 --pp 2 --enable-expert-parallel` | rank0–3算前24层，rank4–7算后24层；stage间NCCL P2P |
-| DP2×TP4+EP8 | `--tp 4 --pp 1 --dp 2 --enable-expert-parallel` | 两个EngineCore，各自Attention/KV；MoE专家跨DP×TP |
-| DP2×PP2×TP2+EP4 | `--tp 2 --pp 2 --dp 2 --enable-expert-parallel` | 两条PP链、每个stage的EP组跨两个DP |
-
-上述是当前接口的拓扑定义和可运行命令，不是全部30B配置都已完成质量/吞吐认证。最近真实采集回归覆盖了四卡TP4+EP4，以及八卡PP2×TP4+EP4的小模型；结果在 [输出索引](../outputs/README.md)。
-
-```bash
-python v9/tools/profile_capture.py --model "$MODEL" --output outputs/run_pp2ep4 \
-  --tp 4 --pp 2 --enable-expert-parallel --scenario short \
-  --requests 32 --prompt-tokens 64 --max-tokens 32 \
-  --microbatch-tokens 128 --max-concurrent-batches 2 --messages 12 --record-shapes
-python v9/tools/profile_analyze.py --input-dir outputs/run_pp2ep4/trace \
-  --output outputs/run_pp2ep4/analysis --expected-ranks 8 --layers 48 --require-nccl --same-host
-python v9/tools/profile_merge.py --input-dir outputs/run_pp2ep4/trace \
-  --same-host --output outputs/run_pp2ep4/trace.json.gz
-```
-
-研究队列填充的对照：保持所有输入/数值后端不变，另开一轮设 `--max-concurrent-batches 1`。不要再用 `lanes=1/2` 代表当前PP并发。两轮分别测无 profiler 的吞吐，再各自采 trace；不能从一次 profile 的墙钟时间报告收益。
-
-### 长度与负载
-
-在同一拓扑下，用新目录重复采集。其他参数保持一致：
-
-```bash
-# 长输入。需要足够采集消息才能越过chunked prefill。
-python v9/tools/profile_capture.py --model "$MODEL" --output outputs/run_long \
-  --tp 8 --enable-expert-parallel --scenario long --long-tokens 4096 \
-  --requests 8 --max-tokens 32 --messages 16 --record-shapes
-
-# 混合输入：1/4的请求为长输入。
-python v9/tools/profile_capture.py --model "$MODEL" --output outputs/run_mixed \
-  --tp 8 --enable-expert-parallel --scenario mixed --prompt-tokens 64 --long-tokens 2048 \
-  --requests 64 --max-tokens 32 --messages 16 --record-shapes
-```
-
-比较请求数8/32/128、预算128/512/2048。`--requests 128`不保证一个专家一次有128行输入；MoE每个专家的M取决于top-k和路由分布。要在 ATen shape / GEMM kernel 中看实际M。更大的模型上下文并不自动要求写新kernel，先判定注意力读KV、专家小GEMM、主机launch、还是通信主导。
-
-## 4. 输出文件到底是什么
-
-```text
-run_pp2ep4/
-  manifest.json            精确执行命令、软件版本、源码逐文件SHA、输入SHA、GPU环境、退出码
-  config.json              引擎/数值后端配置
-  inputs.json              真正传给调度器的token IDs、生成长度、到达step
-  results.json             诊断运行及逐请求输出；profile下吞吐和分位数为null
-  correctness.json         同拓扑重复一致性；单轮未形成重复对照，不是HF质量认证
-  run.log                  完整stdout/stderr，失败时先看这里
-  memory_rankN.json        该rank参数/KV与allocator峰值等
-  trace/
-    cuda_rank0.json ... cuda_rank7.json   真正的CPU+ATen+CUDA+NCCL数据
-    capture_rankN.json     采样消息窗口、阶段、CUPTI刷新状态
-    audit_rankN.json       基础CUDA事件存在性与类别
-    pipeline_rankN.json    仅主机侧run/send/recv调用区间
-  analysis/
-    report.md               漏卡/漏事件、层归属和重叠复核
-    summary.json            热点、逐层、逐消息、API、stream、空隙
-    timeline.html           八卡共同时间轴概览；蓝compute、橙NCCL
-  trace.json.gz             完整多卡合并文件，供Perfetto打开
-```
-
-已整理的样例把 `trace/` 命名为 `raw/`，并无损gzip压缩；内容类别相同。新采集保留原JSON，方便直接导入。
-
-**`pipeline_rank*.json`不是CUDA trace。**它只有Python调用范围，不含ATen或GPU活动，拿它看GPU重叠会得出错误结论。通常只需要 `cuda_rank*` 和完整 `trace.json.gz`。确实要看主机控制图时，单独合并：
-
-```bash
-python v9/tools/profile_merge.py --input-dir outputs/run_pp2ep4/trace \
-  --kind pipeline --same-host --output outputs/run_pp2ep4/host_calls.json.gz
-```
-
-这两类文件的时钟分别为Kineto与host-monotonic，工具拒绝混合。不要把两者任意拼在一个JSON里。
-
-## 5. 不改模型代码，如何知道是哪一层
-
-采集入口显式选择 `ObservedModelRunner` / `ObservedPipelineTransport`。普通模型、EngineCore和ModelRunner不导入profiler。`utils/module_profiling.py` 只在采样窗口挂临时nn.Module hooks，形成：
-
-```text
-rank0.stage0.messageN.mbM.prefill / decode   worker这一次模型调用
-  stage0.layer0                            第0层完整CPU调用范围
-    stage0.layer0.attention                 Attention模块
-    stage0.layer0.moe                       MoE模块，含路由/专家/通信
-      stage0.layer0.moe.router              Router模块
-```
-
-层号是全局decoder层号，从0开始。PP2的stage1从layer24开始；本卡不执行的层不会生成假范围。专家dispatch/combine是内部方法，并非nn.Module，因此没有人为伪造一套独立标签；在MoE范围内结合ATen操作、NCCL和源码辨认。
-
-hooks只提供CPU范围。PyTorch profiler自动记录ATen、CUDA runtime、CUPTI kernel/memcpy/NCCL活动。GPU归层用 **CPU模块范围→CUDA launch correlation/External id→GPU kernel**，不会按GPU事件时间恰好落在CPU条下面就猜归属。异步执行使CPU与GPU条错位是正常的。
-
-父进程开profiler不能自动覆盖子进程，所以每个GPU worker各有一个profiler。当前文件包含**所有被采worker进程的CPU线程与GPU stream**，不包含调度父进程的完整CPU轨迹、HTTP/tokenizer、初始化、模型装载和媒体encoder。观察这些额外阶段需要单独的端到端系统采集，例如 [Nsight Systems](https://docs.nvidia.com/nsight-systems/UserGuide/index.html)，不能把worker窗口称作完整服务全生命周期。
-
-## 6. 在Perfetto里怎么看八卡并行
-
-1. 打开 [ui.perfetto.dev](https://ui.perfetto.dev/)，选择 `Open trace file`，加载 `trace.json.gz`。
-2. 展开 `rankN / stageS / ... CPU pid` 和 `rankN / stageS / ... GPU device`。
-3. CPU下是线程、模块range和ATen；GPU下是 `CUDA stream 7/35/...`。stream编号只是运行时标识，不保证7永远计算、35永远通信，必须看实际kernel名称。
-4. pin住rank0和rank4的GPU stream，使用同一水平时间窗看stage0/1。它们是多行并列轨迹，共用时间轴，不是只能看一条线。
-5. 搜索 `stage1.layer24.moe` 找CPU范围，再看该范围发起的CUDA API和flow；搜索 `nccl` 找真正的GPU通信kernel。
-
-合并工具给pid/tid、correlation和flow ID加rank命名空间，保留CPU↔GPU关联；按 `baseTimeNanoseconds` 对齐，再减**共同**起点。不会分别把每张卡最早事件设0，也不会把八卡串行接在后面。跨卡时间先后保留，但不同worker独立开启窗口带来的边界偏差仍存在。
-
-### 什么才是计算通信重叠
-
-同一卡上，一个stream的GEMM和另一个stream的NCCL **GPU执行区间在横轴相交**，才是该卡观察到的计算通信并发。不同stream仅表示可能并发；CPU的异步API返回早、CPU range互相覆盖，都不是证据。
-
-设计算区间并集为C，NCCL区间并集为N，报告计算 `|C∩N|` 与 `|C∩N|/|N|`。区间并集避免嵌套/重叠重复计时。NCCL内部可能等待peer，因此交集不等于有效带宽完全被掩盖，也不说明SM资源没有相互争用。
-
-跨stage计算交集是另一项：stage0在GPU0计算批B，同时stage1在GPU4计算批A，这是PP流水。即使每张卡内部NCCL与计算完全串行，跨stage仍可并行。不要混淆两种重叠。
-
-同一CUDA stream中的kernel按序执行；同一GPU进程可以向多个stream提交kernel，硬件在资源/依赖允许时并发执行。同一CPU线程不会同时运行两条Python指令，但它可以提前提交多个异步GPU任务。
-
-### 空白与PP气泡
-
-先缩小到双方GPU都在采样、队列有独立请求的稳态区间。看上游是否及时生产activation、recv是否等待、CPU是否停在同步/IPC、下游是否被MoE长尾卡住。再比较相同输入下在途深度1与PP size的trace和无profile吞吐。
-
-采样起停、窗口漏尾、主机launch供给不足、抢占/重算、NCCL等peer、请求本身缺少并行度，都可产生空白。`observed_inactive_fraction`只是已记录GPU窗口中的无活动比例，不能直接写成PP bubble率或SM idle率。CUDA trace也不提供SM利用率/occupancy；这些需硬件计数器或Nsight Compute。
-
-## 7. 为什么打开是空的，怎样验收
-
-先用 `profile_analyze.py`，不要先相信截图。它检查rank集合、ATen/CUDA runtime/kernel/模块标签、全局层覆盖；`--require-nccl`再检查GPU NCCL事件。没有CUDA时返回失败。`capture_rank`/audit通过仍不能证明每条消息的最后一层都被捕获，分析会额外列出逐消息覆盖警告。
-
-常见原因：打开了host-only的 `pipeline_rank`；用了只含record_function的旧简化文件；profiler采错进程；窗口没命中；选到 `.partial`；CUPTI没导出GPU buffer；gzip或内存问题。全文件很大时，优先看小模型完整样例，或选择同次运行两个rank合并，不裁剪它们的事件：
-
-```bash
-python v9/tools/profile_merge.py --same-host \
-  --inputs outputs/profiles/qwen_pp2ep4_legacy/raw/cuda_rank0.json.gz \
-           outputs/profiles/qwen_pp2ep4_legacy/raw/cuda_rank4.json.gz \
-  --output outputs/two_ranks.json.gz
-```
-
-Perfetto不识别gzip时可用Python `gzip` 解压后打开；解压后的八卡JSON可能超过1GB。`timeline.html` 是像素分桶概览，不含CPU/算子详情；精确微秒重叠必须回到完整trace。
-
-CUDA13环境出现过最小矩阵乘法也只导出CPU的情况。设备同步只保证GPU完成，不保证CUPTI活动缓冲已交给Kineto；独立采集适配器在stop前同步并调用 `cuptiActivityFlushAll` 兼容处理，保存状态码，再实际检查kernel事件。根因只能确定在该环境的活动缓冲交付链路，不能据此断言所有PyTorch/CUDA版本都有同一缺陷。失败状态不被包装成有效GPU采集。
-
-## 8. 吞吐和P95/P99另跑
-
-```bash
-python v9/bench.py offline --model "$MODEL" --output outputs/bench_pp2ep4 \
-  --tp 4 --pp 2 --enable-expert-parallel --workloads short128,mixed64,context4k8 \
-  --budget 512 --microbatch-tokens 128 --max-concurrent-batches 2 --repeats 3
-```
-
-该入口先warmup，再保存逐请求输出、首token/完成时间和P50/P95/P99；不传 `--profile`。它测本地engine完成事件，不包括网络/tokenizer。分位数使用排序观测值 `round((n-1)×q/100)`，小样本P99不能代表生产长尾。
-
-要复用profile的**相同输入**，传 `--inputs outputs/run_pp2ep4/inputs.json --workloads short`，并固定相同并行、budget和microbatch参数。不要拿默认short128与另一个32请求profile冒充同负载。
-
-HTTP测试使用两个终端：
-
-```bash
-# 终端1：正常服务，吞吐实验不加--profile。
-python v9/server.py --model "$MODEL" --tensor-parallel-size 8 --enable-expert-parallel --port 8000
-# 终端2：closed-loop客户端，256请求、32并发。
+# 终端2：正常发请求；请求总数/并发度与 GPU 单批大小是不同参数。
 python v9/bench.py serve --base-url http://127.0.0.1:8000/v1 \
-  --output outputs/http_bench --requests 256 --concurrency 32 --max-tokens 32
+  --output outputs/http_pp2ep4_load --requests 256 --concurrency 32 --max-tokens 32
 ```
 
-HTTP记录包括逐请求成功/失败、输出token数、E2E/内容TTFT/TPOT的分位数及chunk ITL。SSE chunk不等于token；缺少usage时不伪造tok/s。`bench serve --profile`只把客户端负载标记为诊断；采GPU还需服务端 `--profile`，详见 `server.py --help`。服务端profile只包worker，仍不会自动采到HTTP主线程。
+客户端完成后，在服务端按 Ctrl+C（或向该服务发送 SIGTERM），等待“Profile coverage verified”和正常退出，再分析文件。**导出发生在关闭时**，SIGKILL/断电无法保证导出。服务持续运行期间，后续请求也会继续记录。
 
-参考：[PyTorch profiler](https://pytorch.org/docs/stable/profiler.html)、[Perfetto入门](https://perfetto.dev/docs/quickstart/trace-analysis)、[vLLM profiling](https://docs.vllm.ai/en/latest/contributing/profiling.html)。
+可以只加 `--profile`，省略 `--profile-dir`：自动创建 `outputs/server_profile_时间_随机后缀/`，启动时打印路径。显式目录中的 `trace/` 必须为空，防止混入旧 rank。`--max-batch-size` 是 `--max-num-seqs` 的别名。HTTP 服务目前不提供 DP 参数；DP 使用下述离线入口。
+
+默认 `--profile-start-message 1 --profile-messages 0`，其中 **0 表示采到关闭**。窗口按每个 worker 的模型调用计数，不是请求数、token 数或层数。只有主动限制文件大小时才设 `--profile-messages 12` 等有限窗口；这时窗口外的执行不在 trace 中。
+
+`--profile` 不替换调度器、不修改请求参数、不改变数值后端；初始化和模型预热不采。采集本身有开销，不能保证和无 profile 时的实际 batch 组合/时间相同。全程采集随运行时长增加内存与文件体积。
+
+## 2. 正常 offline bench 顺便采集
+
+```bash
+python v9/bench.py offline --model "$MODEL" --output outputs/offline_pp2ep4 \
+  --tp 4 --pp 2 --enable-expert-parallel --max-batch-size 128 \
+  --workloads short128,mixed64,context4k8 --repeats 3 \
+  --budget 512 --microbatch-tokens 128 --max-concurrent-batches 2 --profile
+```
+
+三个负载、各三轮都照常执行，全程记录在同一次各 rank 的 trace 中；不会强制改成一个负载或一轮。`inputs.json` 保存实际 token IDs/输出长度/到达 step，`results.json` 保存逐请求生成结果与诊断时间。可用 `--inputs 路径` 重放输入。离线性能模式额外运行请求预热；profile 模式直接采所选负载，避免有限窗口被额外预热耗尽，模型初始化预热始终排除。
+
+**吞吐、TTFT/TPOT/P95/P99 必须另跑无 `--profile` 的同负载实验。** profile 下这些汇总指标为 null、`benchmark_valid=false`，HTTP 客户端也会通过 `/health` 自动识别服务是否开启 profile。不把受采集干扰的时间当性能成绩。
+
+## 3. 检查，然后合并进 Perfetto
+
+```bash
+python v9/tools/profile_analyze.py --input-dir outputs/http_pp2ep4/trace \
+  --output outputs/http_pp2ep4/analysis --expected-ranks 8 --layers 48 --require-nccl --same-host
+python v9/tools/profile_merge.py --input-dir outputs/http_pp2ep4/trace \
+  --same-host --output outputs/http_pp2ep4/trace.json.gz
+```
+
+把 `trace.json.gz` 拖入 [Perfetto](https://ui.perfetto.dev/)。展开各 `rankN / stageS / CPU pid` 和 `GPU device`，pin 住不同卡的 CUDA stream。**多卡是多行共用时间轴，可以并列展示**；合并不会首尾拼接或分别归零。工具按同机 Kineto `baseTimeNanoseconds` 对齐，对 pid/tid、correlation/flow 加 rank 命名空间，保留 CPU→GPU 关联；跨机器时钟不在此自动校准。
+
+| 文件 | 用途 |
+|---|---|
+| `trace/cuda_rankN.json` | 每 worker 的真实 CPU 线程、ATen、CUDA API、GPU stream/kernel、memcpy 和 NCCL kernel |
+| `trace/capture_rankN.json` | 独立记录实际执行次数、采集消息清单、成功状态、stage/层区间、CUPTI flush 状态 |
+| `trace/audit_rankN.json` | 每消息 CPU/GPU Attention+MoE 覆盖、launch 关联与缺口 |
+| `trace/trace_validation.json` | 正常关闭时的全 rank 验收；失败会使命令报错 |
+| `trace/pipeline_rankN.json` | **仅主机 run/send/recv 调用范围**，不含 ATen/CUDA，不能用来看 GPU 重叠 |
+| `analysis/summary.json` | 逐层/逐消息 GPU 时长、kernel 热点、CUDA API、stream、空隙和计算通信交集 |
+| `analysis/report.md` / `timeline.html` | 中文检查报告 / 多卡 GPU 共同时间轴概览 |
+| `trace.json.gz` | 无删减合并所有原始已记录事件，供 Perfetto 查看 CPU/stream/flow 细节 |
+
+profile 导出先写 `.partial`，成功后原子改名；不要打开仍在写的文件。`timeline.html` 是像素分桶概览，精确重叠以完整 trace 为准。
+
+## 4. 采集边界与实现隔离
+
+普通 `server.py` / `bench.py offline` 只在启用时选择 `utils/observed_runner.py` 的采集适配器。`engine/`、`models/`、`layers/` 不含 profiler/record_function 或诊断环境依赖。`utils/module_profiling.py` 临时安装 module hooks：
+
+```text
+rank0.stage0.message1.mb0.prefill       一次 worker forward
+  stage0.layer0                       全局 decoder 层号
+    stage0.layer0.attention
+    stage0.layer0.moe
+      stage0.layer0.moe.router
+```
+
+PP2 对48层模型：rank0–3执行层0–23；rank4–7执行层24–47。本卡没执行的层不会生成标签。hooks 是 CPU 范围；ATen/CUDA/NCCL 由 PyTorch profiler/CUPTI 采集。GPU 归层沿 CPU 范围→launch correlation/External id→GPU kernel，**不按横轴恰好落在 CPU 范围下面猜归属**。
+
+每个 GPU worker 各自采集其 CPU 线程和所有已记录的 CUDA stream。当前不自动包含父调度进程、HTTP/tokenizer 主线程、初始化/权重加载、媒体 encoder；因此这是 worker 执行轨迹，并非整个 HTTP 服务全生命周期。前端/媒体等全进程系统分析需另用 [Nsight Systems](https://docs.nvidia.com/nsight-systems/UserGuide/index.html)。
+
+仅在窗口起止同步 GPU，关闭时刷新 CUPTI；不在每消息/每层插入同步，避免人为破坏原流水。CUDA13/Torch2.9.1 的该远端环境曾出现最小矩阵乘法也只导出 CPU 的问题：GPU 完成不等于 CUPTI 活动缓冲已交给 Kineto。独立适配器在 stop 前执行设备同步和 `cuptiActivityFlushAll` 兼容处理，保存状态码并核对真实 kernel；目前证据定位到该环境的缓冲交付链路，不能断言所有版本都有同一根因。
+
+## 5. 如何确认没漏卡、漏消息、漏尾层
+
+关闭后自动验收，也可重跑：
+
+```bash
+python v9/utils/trace_check.py --input-dir outputs/http_pp2ep4/trace --expected-ranks 8 --require-cuda --require-nccl
+```
+
+先核对精确 rank 集合与重复文件；再根据独立执行清单核对窗口内每条消息，而不是仅检查“文件里有一些 CUDA”：CPU 消息整条缺失、GPU 消息整条缺失、任意层 Attention/MoE CPU 或 GPU 归属缺失、kernel launch 没有关联 GPU 活动、forward 异常、未正常关闭均失败。空 DP worker 真实只执行 MoE，不凭空要求 Attention。
+
+`cuda_verified` 仅说明有 kernel；`completeness_verified` 才表示上述逐消息覆盖检查通过。**通过也不是数学上证明任意事件零丢失**，不代表数值/性能合格。图执行等未建立归层证据的路径不能冒充验收通过。
+
+旧30B trace 的末次 decode 缺 GPU 尾层/整条消息，现已能明确检出，不能靠合并补出丢失活动；旧 capture 缺独立层区间/执行清单也不能认证。新八卡自生成小模型已用于首 prefill 到末 decode、正常退出及生成结果不变验证，证据见 [输出索引](../outputs/README.md)；不把小模型功能验证当30B速度或质量成绩。
+
+## 6. 在轨迹中判断流水线与重叠
+
+- **同卡计算通信重叠**：不同 stream 的 GEMM 等计算 kernel 与 NCCL **GPU 执行区间在横轴相交**。CPU 异步 API 提前返回或两个 CPU 范围交叠不算证据。报告先求区间并集，计算 `|compute ∩ NCCL| / |NCCL|`；NCCL 可能等待 peer，交集不等于有效通信完全隐藏。
+- **跨 stage 流水线**：GPU0 执行 stage0 的批B，同时 GPU4 执行 stage1 的批A；与同卡通信重叠是两件事。同一 CUDA stream 按序执行，同一进程不同 stream 可以并发，取决于依赖和硬件资源。
+- **气泡**：先确认双方都在采样的共同稳态窗口、队列有可执行请求，再追上游 activation、recv 等待、CPU launch/IPC 同步、MoE 长尾。相同输入对照 `--max-concurrent-batches 1` 与 PP size，分别测无 profile 吞吐并各采一份 trace。空白也可能是主机供给不足、采样边界、重算或 NCCL 等 peer，不能把 `observed_inactive_fraction` 直接叫 PP bubble 或 SM idle。
+
+## 7. 拓扑与可选工具
+
+总 worker 数为 `DP×PP×TP`，启用 EP 时每 stage 专家组大小为 `DP×TP`，EP 不是额外设备轴。
+
+| 拓扑 | offline 参数 | 看什么 |
+|---|---|---|
+| TP8 | `--tp 8` | 层内 TP collective |
+| TP8+EP8 | `--tp 8 --enable-expert-parallel` | 单 stage，专家 dispatch/combine |
+| PP2×TP4+EP4 | `--pp 2 --tp 4 --enable-expert-parallel` | 两 stage，多卡 P2P 和专家通信 |
+| DP2×TP4+EP8 | `--dp 2 --tp 4 --enable-expert-parallel` | 两 EngineCore，EP 跨 DP×TP |
+| DP2×PP2×TP2+EP4 | `--dp 2 --pp 2 --tp 2 --enable-expert-parallel` | 两条 PP 链，各 stage 的专家组跨 DP |
+
+这是接口拓扑说明，不代表每个30B配置都通过性能/质量认证。
+
+`profile_capture.py` 只是可选的合成负载便利封装，默认也全程记录；不必通过它才能 profile。它额外保存运行环境/源码 manifest。`kernel_bench.py` 独立测算子，Graph 算子计时不代表模型支持整模 CUDA Graph。`trace_io.py` 为内部流式读写辅助，不需单独操作。
+
+参考：[PyTorch profiler](https://pytorch.org/docs/stable/profiler.html)、[vLLM profiling](https://docs.vllm.ai/en/latest/contributing/profiling.html)、[Perfetto 文档](https://perfetto.dev/docs/quickstart/trace-analysis)。

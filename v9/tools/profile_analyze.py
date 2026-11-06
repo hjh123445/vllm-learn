@@ -1,6 +1,6 @@
 """Audit ranks and CPU/CUDA/NCCL coverage; quantify layers, gaps and overlap."""
 import argparse
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from collections import Counter, defaultdict
 import json
 import hashlib
@@ -20,13 +20,15 @@ def analyze(path):
     message_scopes = defaultdict(list)
     grouped_scopes = defaultdict(list)
     counts, cpu_names = Counter(), Counter()
-    messages, layers = [], set()
+    messages, layers, module_labels = [], set(), set()
     reader = TraceReader(path)
     for event in reader.events():
         if event.get('ph') != 'X':
             continue
         cat, name = event.get('cat', ''), event.get('name', '')
         counts[cat] += 1
+        if cat == 'user_annotation' and '.layer' in name:
+            module_labels.add(name)
         if cat == 'cpu_op':
             cpu_names[name] += 1
             if name == 'aten::_grouped_mm':
@@ -42,8 +44,15 @@ def analyze(path):
     for ranges in scopes.values():
         ranges.sort()
     starts = {key: [r[0] for r in ranges] for key, ranges in scopes.items()}
-    for ranges in message_scopes.values():
-        ranges.sort()
+    # Older traces nest a legacy lane range inside the modern worker range.
+    # Attribute to the worker message once, rather than report its wrapper as empty.
+    aliases = set()
+    for key, ranges in message_scopes.items():
+        modern = [(a, b) for a, b, name in ranges if name.startswith('rank')]
+        aliases.update(name for a, b, name in ranges if not name.startswith('rank')
+                       and any(start <= a and b <= end for start, end in modern))
+        message_scopes[key] = sorted(r for r in ranges if r[2] not in aliases)
+    messages = [m for m in messages if m['name'] not in aliases]
     message_starts={key:[r[0] for r in ranges] for key,ranges in message_scopes.items()}
     for ranges in grouped_scopes.values():
         ranges.sort()
@@ -52,6 +61,7 @@ def analyze(path):
     ext, corr, kernels, copies = {}, {}, [], []
     ext_message,corr_message={},{}
     api = Counter()
+    launches = set()
     for event in TraceReader(path).events():
         if event.get('ph') != 'X':
             continue
@@ -80,6 +90,9 @@ def analyze(path):
                         ext_message[args['External id']]=message
                     if 'correlation' in args:
                         corr_message[args['correlation']]=message
+                    if (cat in ('cuda_runtime', 'cuda_driver') and 'Launch' in event.get('name', '')
+                            and 'Kernel' in event.get('name', '') and 'correlation' in args):
+                        launches.add(args['correlation'])
         if cat == 'kernel':
             kernels.append((event.get('name', ''), event['ts'], event['ts']+event.get('dur', 0),
                 args.get('stream', event.get('tid')), args.get('External id'), args.get('correlation')))
@@ -89,6 +102,15 @@ def analyze(path):
     by_layer = defaultdict(list)
     layer_compute, layer_nccl = defaultdict(list), defaultdict(list)
     by_message=defaultdict(lambda:dict(kernels=0,layers=set(),attention=[],moe=[],nccl=[],other=[]))
+    cpu_components, gpu_components = defaultdict(set), defaultdict(set)
+    # Seed from CPU messages: a message with ZERO GPU events must remain visible.
+    for thread, ranges in message_scopes.items():
+        for a, b, name in ranges:
+            by_message[name]
+            local = scopes.get(thread, [])
+            first = bisect_left(starts.get(thread, []), a)
+            last = bisect_left(starts.get(thread, []), b)
+            cpu_components[name].update(label for start, end, label in local[first:last])
     hot_count, hot_time = Counter(), Counter()
     linked = 0
     for name, a, b, stream, external, correlation in kernels:
@@ -103,6 +125,7 @@ def analyze(path):
             if label:
                 bucket['layers'].add(int(label[1]))
                 bucket[label[2]].append((a,b))
+                gpu_components[message].add(label)
             else:
                 bucket['other'].append((a,b))
             if 'nccl' in name.lower():
@@ -121,7 +144,8 @@ def analyze(path):
     overlap = intersection(compute,nccl)
     stages = sorted({int(s) for s,_,_ in layers})
     row = dict(file=str(path), rank=int(re.search(r'rank(\d+)', path.name)[1]), stages=stages,
-        categories=dict(counts), cuda_streams=sorted({str(k[3]) for k in kernels}),
+        categories=dict(counts), module_labels=sorted(module_labels),
+        cuda_streams=sorted({str(k[3]) for k in kernels}),
         layer_labels=len(layers), global_layers=sorted({int(l) for _,l,_ in layers}), messages=messages,
         gpu_kernels=len(kernels), nccl_kernels=len(nccl), attributed_kernels=linked,
         attribution_fraction=linked/len(kernels) if kernels else 0,
@@ -136,7 +160,10 @@ def analyze(path):
             scope='CPU operators nested under native grouped_mm API; an API name does not guarantee one fused GPU launch'),
         longest_observed_gaps=[dict(duration_us=d, start_us=t) for d,t in sorted(gaps,reverse=True)[:8]],
         layers=layer_rows, base_ns=reader.metadata.get('baseTimeNanoseconds'))
+    row['unmatched_kernel_launches']=sorted(launches-{k[5] for k in kernels})
     row['message_gpu']=[dict(message=name,kernel_count=b['kernels'],global_layers=sorted(b['layers']),
+        cpu_components=['stage%s.layer%s.%s' % label for label in sorted(cpu_components[name])],
+        gpu_components=['stage%s.layer%s.%s' % label for label in sorted(gpu_components[name])],
         attention_union_us=duration(b['attention']),moe_union_us=duration(b['moe']),
         nccl_union_us=duration(b['nccl']),unassigned_union_us=duration(b['other'])) for name,b in by_message.items()]
     return row, dict(compute=union(compute),nccl=union(nccl))
@@ -189,10 +216,16 @@ def main():
     if {r['rank'] for r in rows} != set(range(args.expected_ranks)):
         errors.append('Rank set does not match expected ranks')
     for row in rows:
-        if not all(row['categories'].get(k,0) for k in ('cpu_op','cuda_runtime','kernel','user_annotation')) or not row['layer_labels']:
+        if (not all(row['categories'].get(k,0) for k in ('cpu_op','kernel','user_annotation'))
+                or not (row['categories'].get('cuda_runtime') or row['categories'].get('cuda_driver'))
+                or not row['layer_labels']):
             errors.append(f'rank{row["rank"]}: missing CPU/ATen/CUDA/layer activity')
         if args.require_nccl and not row['nccl_kernels']:
             errors.append(f'rank{row["rank"]}: no NCCL GPU kernels identified')
+        from utils.trace_audit import coverage_errors
+        manifest=Path(row['file']).parent/f'capture_rank{row["rank"]}.json'
+        capture=json.loads(manifest.read_text(encoding='utf-8')) if manifest.exists() else None
+        errors.extend(f'rank{row["rank"]}: {error}' for error in coverage_errors(row,capture))
     if set(l for r in rows for l in r['global_layers']) != set(range(args.layers)):
         errors.append('Global layer labels are incomplete')
     bases={r['base_ns'] for r in rows}
@@ -208,10 +241,6 @@ def main():
     if not aligned:
         errors.append('Raw time bases differ or are absent; align traces before any cross-rank comparison')
     warnings=[]
-    for row in rows:
-        for message in row['message_gpu']:
-            if set(message['global_layers']) != set(row['global_layers']):
-                warnings.append(f'rank{row["rank"]} {message["message"]}: layer-attributed GPU coverage {len(message["global_layers"])}/{len(row["global_layers"])}; inspect dropped/tail events')
     stage_compute=defaultdict(list)
     for row in rows:
         if len(row['stages'])==1:
@@ -228,12 +257,12 @@ def main():
                         scope='all observed non-NCCL kernels, any rank in stage; not steady-state bubble or same-device communication overlap'))
     report=dict(collection_checks_passed=not errors,errors=errors,warnings=warnings,ranks=rows,stage_compute_overlap=pairs,
         analyzer_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-        caveats=['Presence of every rank/layer does not guarantee every message/kernel was captured.',
+        caveats=['Message/layer/API coverage is checked; arbitrary event loss is not mathematically excluded.',
         'Layer GPU time uses CPU launch range -> correlation/External id attribution; unassigned kernels are excluded, not guessed.',
         'GPU interval unions count overlap once. CPU scopes and child kernels must never be summed together.',
         'Observed inactive fraction is not PP bubble or SM idle. NCCL duration includes waiting. No throughput from profiling.'])
     (args.output/'summary.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
-    lines=['# 多卡采集复核','',f'基础采集检查：{"通过" if not errors else "存在缺口"}。这不等于完整性或性能认证。','',
+    lines=['# 多卡采集复核','',f'逐消息CPU/GPU层覆盖检查：{"通过" if not errors else "存在缺口或无法验证"}。这不等于数值或性能认证。','',
         '| Rank | Stage | ATen | CUDA kernel | NCCL kernel | GPU层归属比例 | 同卡计算通信交集 ms |',
         '|---:|---|---:|---:|---:|---:|---:|']
     for r in rows:

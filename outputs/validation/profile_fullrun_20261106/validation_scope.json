@@ -1,0 +1,26 @@
+{
+  "main_suite": {
+    "passed": 41,
+    "failed": 0,
+    "source_manifest": "source_sha256.json"
+  },
+  "cli_followup": {
+    "passed": 17,
+    "failed": 1,
+    "note": "HTTP and bench passed; new direct trace_check test exposed absent __main__ invocation, then fixed"
+  },
+  "tools_followup": {
+    "passed": 17,
+    "failed": 0
+  },
+  "changed_after_main_suite": [
+    "v9/server.py",
+    "v9/tests/test_profile_tools.py",
+    "v9/utils/trace_check.py"
+  ],
+  "final_trace_check": {
+    "passed": true,
+    "ranks": 8
+  },
+  "scope": "tiny synthetic model and tooling; not30B numerical/performance certification"
+}

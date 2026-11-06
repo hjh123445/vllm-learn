@@ -1,0 +1,16 @@
+{
+  "scope": "same topology greedy repeat and policy parity; not HF parity",
+  "checks": [
+    {
+      "workload": "tiny",
+      "passed": true,
+      "runs": 2
+    },
+    {
+      "workload": "tiny_alt",
+      "passed": true,
+      "runs": 2
+    }
+  ],
+  "passed": true
+}

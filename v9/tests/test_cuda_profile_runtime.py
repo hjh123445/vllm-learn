@@ -21,7 +21,7 @@ from utils.trace_audit import audit_trace
 pytestmark=pytest.mark.skipif(os.getenv('PP_TEST_BACKEND')!='nccl',reason='explicit CUDA correctness/profile smoke only')
 
 
-@pytest.mark.parametrize('pp,tp',[(1,2),(2,2)])
+@pytest.mark.parametrize('pp,tp',[(1,2),(2,2),(2,4)])
 def test_spawned_cuda_trace_and_unprofiled_throughput(tmp_path,monkeypatch,pp,tp):
     monkeypatch.setenv('VLLM_LEARN_REFERENCE_MATH','1')
     monkeypatch.setenv('VLLM_LEARN_ATTENTION_BACKEND','sdpa_reference')
@@ -32,7 +32,7 @@ def test_spawned_cuda_trace_and_unprofiled_throughput(tmp_path,monkeypatch,pp,tp
     outputs=[]
     for profiled in (False,True):
         out=tmp_path/('profile' if profiled else 'bench')
-        configure_observation(out,profile=profiled,start_message=2,messages=2)
+        configure_observation(out,profile=profiled)
         core=EngineCore(str(model),tp_size=tp,pp_size=pp,enable_expert_parallel=True,
             master_port=free_port(),gpus=list(range(pp*tp)),
             runner_cls=ObservedModelRunner,transport_cls=ObservedPipelineTransport,
@@ -41,17 +41,17 @@ def test_spawned_cuda_trace_and_unprofiled_throughput(tmp_path,monkeypatch,pp,tp
             max_kvcache_blocks=16))
         try:
             started=time.perf_counter()
-            result=core.generate([[1,2],[3,4,5],[1,2]],SamplingParams(temperature=0.,max_tokens=4,ignore_eos=True))
+            result=core.generate([[1,2],[3,4,5],[1,2]],SamplingParams(temperature=0.,max_tokens=8,ignore_eos=True))
             elapsed=time.perf_counter()-started
             outputs.append([tokens for _,tokens in result])
         finally:
             core.shutdown()
-        assert all(len(tokens)==4 for tokens in outputs[-1])
+        assert all(len(tokens)==8 for tokens in outputs[-1])
         if not profiled:
             assert not list(out.glob('trace/*.json'))
             assert elapsed>0
-            (out/'smoke_throughput.json').write_text(json.dumps(dict(output_tokens=12,
-                wall_s=elapsed,output_tok_s=12/elapsed,scope='tiny synthetic smoke, not30B/performance result')))
+            (out/'smoke_throughput.json').write_text(json.dumps(dict(output_tokens=24,
+                wall_s=elapsed,output_tok_s=24/elapsed,scope='tiny synthetic smoke, not30B/performance result')))
         else:
             traces=sorted((out/'trace').glob('cuda_rank*.json'))
             assert len(traces)==pp*tp
@@ -62,6 +62,11 @@ def test_spawned_cuda_trace_and_unprofiled_throughput(tmp_path,monkeypatch,pp,tp
                 assert audit['gpu_kernels']>0 and audit['nccl_kernels']>0,audit
                 assert any('.attention' in name for name in audit['module_labels']),audit
                 assert any('.moe' in name for name in audit['module_labels']),audit
+                assert audit['completeness_verified'],audit['errors']
+                manifest=json.loads((trace.parent/f'capture_rank{len(audits)}.json').read_text())
+                assert manifest['executed_messages']==len(manifest['captured_messages'])
+                assert manifest['captured_messages'][0]['is_prefill'] is True
+                assert manifest['captured_messages'][-1]['is_prefill'] is False
                 audits.append(audit)
             (out/'validation.json').write_text(json.dumps(audits,indent=2))
     assert outputs[0]==outputs[1]  # Profiling observer must not change generated tokens.
@@ -79,35 +84,43 @@ def test_real_offline_and_http_command_line(tmp_path,monkeypatch):
         "{% for message in messages %}t1 t2 {% endfor %}{% if add_generation_prompt %}t3{% endif %}")))
     root=Path(__file__).resolve().parents[1]
     inputs=tmp_path/'inputs.json'
-    inputs.write_text(json.dumps(dict(tiny=[dict(input_ids=[1,2],max_tokens=4,arrival_step=0)
-                                          for _ in range(8)])))
-    for profile in (False,True):
-        out=tmp_path/('offline_profile' if profile else 'offline_bench')
+    inputs.write_text(json.dumps({name: [dict(input_ids=[1,2],max_tokens=4,arrival_step=0)
+                                        for _ in range(8)] for name in ('tiny', 'tiny_alt')}))
+    for mode in ('bench', 'window', 'full'):
+        profile = mode != 'bench'
+        out=tmp_path/('offline_' + mode)
         command=[sys.executable,str(root/'bench.py'),'offline','--model',str(model),
-            '--output',str(out),'--inputs',str(inputs),'--workloads','tiny','--repeats','1',
-            '--max-kv-blocks','16','--profile-start-message','2','--profile-messages','2']
+            '--output',str(out),'--inputs',str(inputs),'--workloads','tiny,tiny_alt','--repeats','2',
+            '--max-batch-size','4','--max-kv-blocks','16']
+        if mode == 'window':
+            command += ['--profile-start-message','2','--profile-messages','2']
         if profile:command.append('--profile')
         result=subprocess.run(command,capture_output=True,text=True,timeout=60)
-        (tmp_path/f'offline_{profile}.log').write_text(result.stdout+result.stderr)
+        (tmp_path/f'offline_{mode}.log').write_text(result.stdout+result.stderr)
         assert result.returncode==0,result.stdout+result.stderr
         records=json.loads((out/'results.json').read_text())
+        assert all(len([r for r in records if r['workload'] == name]) == 2
+                   for name in ('tiny', 'tiny_alt'))
         record=next(r for r in records if r['workload']=='tiny')
         assert record['profiled']==profile
         if profile:
             assert record['output_tok_s'] is None and record['ttft_s'] is None
             assert audit_trace(out/'trace/cuda_rank0.json')['cuda_verified']
+            manifest=json.loads((out/'trace/capture_rank0.json').read_text())
+            if mode == 'full':
+                assert manifest['executed_messages'] == len(manifest['captured_messages'])
+            else:
+                assert len(manifest['captured_messages']) == 2
         else:
             assert record['output_tok_s']>0 and set(record['ttft_s'])=={'50','95','99'}
     # Real server in profile mode; client should auto-detect via /health and
     # suppress throughput even when --profile is absent from the client.
     port=free_port()
-    server_out=tmp_path/'server_profile'
     log=(tmp_path/'server.log').open('w')
     server=subprocess.Popen([sys.executable,str(root/'server.py'),'--model',str(model),
-        '--port',str(port),'--host','127.0.0.1','--max-num-seqs','16','--max-model-len','128',
+        '--port',str(port),'--host','127.0.0.1','--max-batch-size','16','--max-model-len','128',
         '--max-num-batched-tokens','16','--max-kvcache-blocks','16','--gpu-mem-util','.98',
-        '--profile','--profile-dir',str(server_out),'--profile-start-message','2',
-        '--profile-messages','2'],stdout=log,stderr=subprocess.STDOUT)
+        '--profile'],cwd=tmp_path,stdout=log,stderr=subprocess.STDOUT)
     try:
         deadline=time.monotonic()+60
         while True:
@@ -138,4 +151,7 @@ def test_real_offline_and_http_command_line(tmp_path,monkeypatch):
             server.wait(timeout=10)
         log.close()
     assert server.returncode==0,(tmp_path/'server.log').read_text()
+    server_out, = (tmp_path/'outputs').glob('server_profile_*')
     assert audit_trace(server_out/'trace/cuda_rank0.json')['cuda_verified']
+    assert audit_trace(server_out/'trace/cuda_rank0.json')['completeness_verified']
+    assert json.loads((server_out/'trace/trace_validation.json').read_text())['passed']

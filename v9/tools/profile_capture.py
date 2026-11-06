@@ -29,16 +29,18 @@ def main():
     parser.add_argument('--microbatch-tokens', type=int, default=128)
     parser.add_argument('--max-concurrent-batches', type=int)
     parser.add_argument('--start-message', type=int, default=1)
-    parser.add_argument('--messages', type=int, default=8)
+    parser.add_argument('--messages', type=int, default=0, help='0 = all forwards until shutdown (default)')
     parser.add_argument('--max-kv-blocks', type=int)
     parser.add_argument('--max-model-len', type=int, default=8192)
     parser.add_argument('--max-num-seqs', type=int, default=128)
     parser.add_argument('--record-shapes', action='store_true')
     args = parser.parse_args()
     if min(args.tp, args.pp, args.dp, args.requests, args.prompt_tokens,
-           args.long_tokens, args.max_tokens, args.budget, args.start_message, args.messages,
+           args.long_tokens, args.max_tokens, args.budget, args.start_message,
            args.microbatch_tokens, args.max_model_len, args.max_num_seqs) < 1:
         parser.error('sizes and limits must be positive')
+    if args.messages < 0:
+        parser.error('messages must be >= 0 (0 = until shutdown)')
     if args.max_concurrent_batches is not None and args.max_concurrent_batches < 1:
         parser.error('max-concurrent-batches must be positive')
     if args.output.exists() and any(args.output.iterdir()):

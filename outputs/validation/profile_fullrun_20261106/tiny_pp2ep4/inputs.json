@@ -1,0 +1,25 @@
+{
+  "input_ids": [
+    [
+      1,
+      2
+    ],
+    [
+      3,
+      4,
+      5
+    ],
+    [
+      1,
+      2
+    ]
+  ],
+  "sampling": {
+    "temperature": 0.0,
+    "max_tokens": 8,
+    "ignore_eos": true
+  },
+  "pipeline_microbatch_tokens": 8,
+  "max_concurrent_batches": 2,
+  "scope": "test_spawned_cuda_trace_and_unprofiled_throughput(pp=2,tp=4); greedy equality asserted against unprofiled run"
+}

@@ -77,23 +77,21 @@ def main():
     ap.add_argument('--repeats', type=int, default=3)
     ap.add_argument('--max-kv-blocks', type=int, default=None)
     ap.add_argument('--max-model-len', type=int, default=8192)
-    ap.add_argument('--max-num-seqs', type=int, default=128)
+    ap.add_argument('--max-num-seqs', '--max-batch-size', type=int, default=128)
     ap.add_argument('--profile', action='store_true',
                     help='capture only; reported timings are diagnostic, no benchmark percentiles/rates')
-    ap.add_argument('--profile-start-message', type=int, default=3)
-    ap.add_argument('--profile-messages', type=int, default=16)
+    ap.add_argument('--profile-start-message', type=int, default=1)
+    ap.add_argument('--profile-messages', type=int, default=0, help='0 = all forwards until shutdown (default)')
     ap.add_argument('--record-shapes', action='store_true')
     args = ap.parse_args()
-    selected = args.workloads.split(',')
-    if args.profile:
-        if len(selected) != 1:
-            ap.error('--profile requires one --workloads name')
-        args.repeats = 1
     if min(args.tp, args.dp, args.pp, args.repeats, args.budget, args.microbatch_tokens) < 1:
         ap.error('parallel sizes, repeats and token budgets must be positive')
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     inputs = json.loads(Path(args.inputs).read_text()) if args.inputs else build_workloads(args.model)
+    selected = args.workloads.split(',')
+    if any(name not in inputs for name in selected):
+        ap.error('every selected workload must exist in the inputs')
     write(out / 'inputs.json', inputs)
     if args.generate_only:
         print({name: dict(requests=len(rows), prompt_lengths=sorted(set(len(r['input_ids']) for r in rows)))
@@ -202,11 +200,11 @@ def main():
         if not args.profile:
             warmup = inputs.get('short64', inputs[selected[0]])
             run('warmup', [dict(input_ids=r['input_ids'], max_tokens=4) for r in warmup[:8]], -1)
-        for name in args.workloads.split(','):
+        for name in selected:
             for repeat in range(args.repeats):
                 run(name, inputs[name], repeat)
         checks = []
-        for name in args.workloads.split(','):
+        for name in selected:
             rows = [r for r in results if r['workload']==name]
             # Includes policy parity, not only repeatability.
             reference = [r['output_ids'] for r in rows[0]['requests']]
@@ -219,6 +217,9 @@ def main():
             raise RuntimeError('Output divergence; see correctness.json')
     finally:
         core.shutdown()
+    if args.profile:
+        from utils.trace_audit import finish_profile
+        finish_profile(out, expected_ranks=args.dp * args.pp * args.tp)
 
 
 if __name__ == '__main__':
