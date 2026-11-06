@@ -1,93 +1,0 @@
-[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_section', 'interleaved'}
-Loading weights:   0%|          | 0/1407 [00:00<?, ?it/s]Loading weights:  27%|██▋       | 378/1407 [00:00<00:00, 3676.51it/s]Loading weights:  53%|█████▎    | 746/1407 [00:07<00:08, 81.85it/s]  Loading weights:  64%|██████▍   | 901/1407 [00:13<00:09, 52.98it/s]Loading weights:  70%|███████   | 987/1407 [00:16<00:09, 45.04it/s]Loading weights:  74%|███████▍  | 1040/1407 [00:18<00:08, 41.21it/s]Loading weights:  76%|███████▋  | 1075/1407 [00:19<00:07, 43.90it/s]Loading weights:  84%|████████▍ | 1185/1407 [00:19<00:03, 64.24it/s]Loading weights:  92%|█████████▏| 1301/1407 [00:19<00:01, 93.57it/s]Loading weights:  99%|█████████▉| 1391/1407 [00:19<00:00, 123.11it/s]Loading weights: 100%|██████████| 1407/1407 [00:19<00:00, 71.54it/s] 
-[transformers] [1mQwen3OmniMoeThinkerForConditionalGeneration LOAD REPORT[0m from: /data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct
-Key                                                                                      | Status     |  | 
------------------------------------------------------------------------------------------+------------+--+-
-talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.mlp.gate_proj.weight                  | UNEXPECTED |  | 
-code2wav.decoder.{1, 2, 3, 4}.block.0.alpha                                              | UNEXPECTED |  | 
-talker.code_predictor.lm_head.{0...14}.weight                                            | UNEXPECTED |  | 
-talker.model.layers.{0...19}.mlp.gate.weight                                             | UNEXPECTED |  | 
-code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.mlp_layer_scale.scale           | UNEXPECTED |  | 
-talker.model.layers.{0...19}.self_attn.o_proj.weight                                     | UNEXPECTED |  | 
-talker.model.layers.{0...19}.self_attn.k_proj.weight                                     | UNEXPECTED |  | 
-talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.self_attn.q_proj.weight               | UNEXPECTED |  | 
-code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.act2.alpha                                 | UNEXPECTED |  | 
-talker.model.layers.{0...19}.mlp.experts.down_proj                                       | UNEXPECTED |  | 
-code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.conv1.conv.weight                          | UNEXPECTED |  | 
-talker.model.layers.{0...19}.self_attn.q_norm.weight                                     | UNEXPECTED |  | 
-talker.model.layers.{0...19}.mlp.experts.gate_up_proj                                    | UNEXPECTED |  | 
-talker.model.layers.{0...19}.self_attn.k_norm.weight                                     | UNEXPECTED |  | 
-talker.model.layers.{0...19}.input_layernorm.weight                                      | UNEXPECTED |  | 
-code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.mlp.up_proj.weight              | UNEXPECTED |  | 
-talker.hidden_projection.linear_fc1.bias                                                 | UNEXPECTED |  | 
-talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.mlp.down_proj.weight                  | UNEXPECTED |  | 
-code2wav.upsample.{0, 1}.0.conv.bias                                                     | UNEXPECTED |  | 
-talker.model.layers.{0...19}.self_attn.q_proj.weight                                     | UNEXPECTED |  | 
-code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.mlp.down_proj.weight            | UNEXPECTED |  | 
-code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.mlp.gate_proj.weight            | UNEXPECTED |  | 
-code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.self_attn.v_proj.weight         | UNEXPECTED |  | 
-talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.post_attention_layernorm.weight       | UNEXPECTED |  | 
-code2wav.upsample.{0, 1}.1.gamma                                                         | UNEXPECTED |  | 
-code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.act1.beta                                  | UNEXPECTED |  | 
-talker.model.layers.{0...19}.post_attention_layernorm.weight                             | UNEXPECTED |  | 
-talker.text_projection.linear_fc2.weight                                                 | UNEXPECTED |  | 
-code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.conv2.conv.weight                          | UNEXPECTED |  | 
-code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.input_layernorm.weight          | UNEXPECTED |  | 
-code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.conv2.conv.bias                            | UNEXPECTED |  | 
-talker.model.layers.{0...19}.self_attn.v_proj.weight                                     | UNEXPECTED |  | 
-talker.model.layers.{0...19}.mlp.shared_expert_gate.weight                               | UNEXPECTED |  | 
-talker.model.layers.{0...19}.mlp.shared_expert.gate_proj.weight                          | UNEXPECTED |  | 
-talker.model.layers.{0...19}.mlp.shared_expert.up_proj.weight                            | UNEXPECTED |  | 
-talker.model.layers.{0...19}.mlp.shared_expert.down_proj.weight                          | UNEXPECTED |  | 
-code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.self_attn.k_proj.weight         | UNEXPECTED |  | 
-code2wav.upsample.{0, 1}.1.pwconv2.bias                                                  | UNEXPECTED |  | 
-code2wav.upsample.{0, 1}.1.norm.bias                                                     | UNEXPECTED |  | 
-code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.conv1.conv.bias                            | UNEXPECTED |  | 
-code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.self_attn.q_proj.weight         | UNEXPECTED |  | 
-code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.self_attn.o_proj.weight         | UNEXPECTED |  | 
-code2wav.decoder.{1, 2, 3, 4}.block.0.beta                                               | UNEXPECTED |  | 
-code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.act1.alpha                                 | UNEXPECTED |  | 
-talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.input_layernorm.weight                | UNEXPECTED |  | 
-code2wav.upsample.{0, 1}.1.pwconv1.bias                                                  | UNEXPECTED |  | 
-talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.self_attn.k_proj.weight               | UNEXPECTED |  | 
-talker.code_predictor.model.codec_embedding.{0...14}.weight                              | UNEXPECTED |  | 
-talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.mlp.up_proj.weight                    | UNEXPECTED |  | 
-talker.hidden_projection.linear_fc1.weight                                               | UNEXPECTED |  | 
-code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.self_attn_layer_scale.scale     | UNEXPECTED |  | 
-talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.self_attn.o_proj.weight               | UNEXPECTED |  | 
-code2wav.pre_transformer.layers.{0, 1, 2, 3, 4, 5, 6, 7}.post_attention_layernorm.weight | UNEXPECTED |  | 
-talker.hidden_projection.linear_fc2.bias                                                 | UNEXPECTED |  | 
-talker.codec_head.weight                                                                 | UNEXPECTED |  | 
-code2wav.decoder.{1, 2, 3, 4}.block.1.conv.bias                                          | UNEXPECTED |  | 
-talker.text_projection.linear_fc2.bias                                                   | UNEXPECTED |  | 
-talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.self_attn.k_norm.weight               | UNEXPECTED |  | 
-code2wav.upsample.{0, 1}.1.dwconv.conv.weight                                            | UNEXPECTED |  | 
-code2wav.decoder.5.beta                                                                  | UNEXPECTED |  | 
-code2wav.decoder.{0, 6}.conv.weight                                                      | UNEXPECTED |  | 
-code2wav.decoder.{1, 2, 3, 4}.block.1.conv.weight                                        | UNEXPECTED |  | 
-code2wav.decoder.{1, 2, 3, 4}.block.{2, 3, 4}.act2.beta                                  | UNEXPECTED |  | 
-talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.self_attn.v_proj.weight               | UNEXPECTED |  | 
-code2wav.decoder.{0, 6}.conv.bias                                                        | UNEXPECTED |  | 
-talker.code_predictor.model.norm.weight                                                  | UNEXPECTED |  | 
-code2wav.upsample.{0, 1}.1.norm.weight                                                   | UNEXPECTED |  | 
-code2wav.upsample.{0, 1}.1.dwconv.conv.bias                                              | UNEXPECTED |  | 
-code2wav.upsample.{0, 1}.0.conv.weight                                                   | UNEXPECTED |  | 
-code2wav.decoder.5.alpha                                                                 | UNEXPECTED |  | 
-talker.code_predictor.model.layers.{0, 1, 2, 3, 4}.self_attn.q_norm.weight               | UNEXPECTED |  | 
-talker.text_projection.linear_fc1.weight                                                 | UNEXPECTED |  | 
-talker.model.codec_embedding.weight                                                      | UNEXPECTED |  | 
-code2wav.pre_transformer.norm.weight                                                     | UNEXPECTED |  | 
-talker.model.norm.weight                                                                 | UNEXPECTED |  | 
-talker.hidden_projection.linear_fc2.weight                                               | UNEXPECTED |  | 
-code2wav.upsample.{0, 1}.1.pwconv2.weight                                                | UNEXPECTED |  | 
-code2wav.upsample.{0, 1}.1.pwconv1.weight                                                | UNEXPECTED |  | 
-code2wav.code_embedding.weight                                                           | UNEXPECTED |  | 
-talker.text_projection.linear_fc1.bias                                                   | UNEXPECTED |  | 
-
-Notes:
-- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
-short64 4 47
-context1k8 3 1024
-context4k8 2 4096
-mixed64 2 2047
-mixed64 1 47

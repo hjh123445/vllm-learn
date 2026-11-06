@@ -95,7 +95,7 @@ def real_model_worker(rank, pp, tp, ep, init_file, commands, results, weights):
     from engine.pipeline_transport import PipelineTransport
     STATE.pipeline_transport = PipelineTransport(pp, STATE.pp_rank, inner,
         device="cuda" if backend == "nccl" else "cpu",
-        lanes=1, credit=2, recv_group=incoming, send_group=outgoing)
+        credit=2, recv_group=incoming, send_group=outgoing)
     runner = make_runner(weights)
     results.send({"type": "ready"})
     response_pending = False
@@ -134,7 +134,7 @@ def build_core(pp, executor):
     core = EngineCore.__new__(EngineCore)
     core._closed = False
     core.pp_size, core.max_concurrent_batches = pp, pp
-    core.pipeline_microbatch_tokens, core.pipeline_mode = 8, "optimized"
+    core.pipeline_microbatch_tokens = 8
     core._worker_timeout = 30
     core.config = engine_config()
     core.scheduler = Scheduler(core.config)

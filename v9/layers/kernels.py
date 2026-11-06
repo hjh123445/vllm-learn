@@ -1,12 +1,15 @@
-"""参考数学路径与可选 Triton 融合算子。
+"""参考数学路径与 Triton 融合算子。
 
 RMSNorm、Q/K norm + RoPE + cache store 默认走参考实现；对应 Triton
-分支尚未通过整模 cached oracle，需显式开关实验。SiLU 是独立的 Triton
-入口，不能由 REFERENCE_MATH 推断整个引擎是否使用 Triton。
+分支尚未通过整模 cached oracle，需显式开关实验。MoE SwiGLU 的 SiLU×up
+auto 仅对已测的 A800、连续 BF16、intermediate=768 输入选择：少于6144行
+使用 PyTorch，达到阈值使用 Triton。其他形状/设备使用 PyTorch。可通过
+VLLM_LEARN_SILU_BACKEND=triton|torch 固定后端。
 融合可能减少启动与中间张量开销，但加速和数值等价均需分别验证。
 cache 偏移使用 int64，避免大 KV 池地址计算溢出。
 """
 import os
+from functools import lru_cache
 import torch
 import triton
 import triton.language as tl
@@ -17,6 +20,15 @@ import triton.language as tl
 _REFERENCE_MATH = os.getenv("VLLM_LEARN_REFERENCE_MATH", "1") == "1"
 _REFERENCE_RMS = os.getenv("VLLM_LEARN_REFERENCE_RMS", str(int(_REFERENCE_MATH))) == "1"
 _REFERENCE_QK = os.getenv("VLLM_LEARN_REFERENCE_QK", str(int(_REFERENCE_MATH))) == "1"
+_SILU_BACKEND = os.getenv("VLLM_LEARN_SILU_BACKEND", "auto").lower()
+_SILU_AUTO_TRITON_MIN_TOKENS = 6144
+if _SILU_BACKEND not in ("auto", "triton", "torch"):
+    raise ValueError("SiLU backend must be auto, triton, or torch")
+
+
+@lru_cache(maxsize=None)
+def _silu_profiled_device(device_index):
+    return 'A800' in torch.cuda.get_device_name(device_index)
 
 
 def _reference_rmsnorm(x, weight, eps):
@@ -64,29 +76,59 @@ def fused_add_rmsnorm(x: torch.Tensor, residual: torch.Tensor,
 # ================= SiLU × up 融合（SwiGLU 后半）=================
 
 @triton.jit
-def _silu_mul_kernel(X, OUT, M, BLOCK: tl.constexpr):
-    """x: [T, 2M]（gate | up），out = silu(gate) * up。"""
-    row = tl.program_id(0)
-    cols = tl.arange(0, BLOCK)
-    mask = cols < M
-    gate = tl.load(X + row * 2 * M + cols, mask=mask, other=0.0).to(tl.float32)
-    up = tl.load(X + row * 2 * M + M + cols, mask=mask, other=0.0).to(tl.float32)
+def _silu_mul_kernel(X, OUT, T: tl.constexpr, M: tl.constexpr,
+                     BLOCK: tl.constexpr):
+    """Flattened tiled SiLU×up; bounds register use for wide expert MLPs."""
+    offsets = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
+    mask = offsets < T * M
+    row = offsets // M
+    col = offsets % M
+    gate = tl.load(X + row * (2 * M) + col, mask=mask, other=0.0).to(tl.float32)
+    up = tl.load(X + row * (2 * M) + M + col, mask=mask, other=0.0).to(tl.float32)
     silu = (gate / (1.0 + tl.math.exp(-gate))).to(OUT.dtype.element_ty).to(tl.float32)
     y = silu * up
-    tl.store(OUT + row * M + cols, y.to(OUT.dtype.element_ty), mask=mask)
+    tl.store(OUT + offsets, y.to(OUT.dtype.element_ty), mask=mask)
 
 
-def silu_and_mul(x: torch.Tensor) -> torch.Tensor:
-    # Grouped-expert BMM produces [E_active, M, 2I], while the decode path
-    # produces [T, 2I].  The Triton kernel is row-wise, so flatten arbitrary
-    # leading dimensions and restore them after the fused activation.
+def silu_and_mul(x: torch.Tensor, backend: str | None = None) -> torch.Tensor:
+    """Compute ``silu(gate) * up`` for a ``[..., 2I]`` tensor.
+
+    ``auto`` uses the measured A800/BF16/I=768 crossover at 6144 token rows,
+    and PyTorch otherwise. Explicit ``triton`` rejects unsupported inputs
+    instead of silently changing the measured backend.
+    """
+    if x.ndim < 1 or x.shape[-1] % 2:
+        raise ValueError("SwiGLU input must have an even final dimension")
+    selected = _SILU_BACKEND if backend is None else backend.lower()
+    if selected not in ("auto", "triton", "torch"):
+        raise ValueError("SiLU backend must be auto, triton, or torch")
+    supported_dtype = x.dtype in (torch.float16, torch.bfloat16, torch.float32)
+    triton_supported = x.is_cuda and x.is_contiguous() and supported_dtype
+    if selected == "triton" and not triton_supported:
+        raise ValueError("Triton SiLU requires contiguous CUDA fp16/bf16/fp32 input")
+
     prefix = x.shape[:-1]
-    x = x.reshape(-1, x.shape[-1])
-    T, M2 = x.shape
-    M = M2 // 2
-    out = torch.empty((T, M), dtype=x.dtype, device=x.device)
-    _silu_mul_kernel[(T,)](x, out, M, BLOCK=triton.next_power_of_2(M))
-    return out.reshape(*prefix, M)
+    M = x.shape[-1] // 2
+    if M == 0:
+        return x[..., :0]
+    if x.numel() == 0:
+        return x.new_empty((*prefix, M))
+    T = x.numel() // (2 * M)
+    use_triton = selected == "triton" or (
+        selected == "auto" and triton_supported and x.dtype == torch.bfloat16
+        and M == 768 and T >= _SILU_AUTO_TRITON_MIN_TOKENS
+        and _silu_profiled_device(x.device.index))
+    if use_triton:
+        flat = x.view(T, 2 * M)
+        out = torch.empty((T, M), dtype=x.dtype, device=x.device)
+        block = min(1024, triton.next_power_of_2(M))
+        _silu_mul_kernel[(triton.cdiv(T * M, block),)](
+            flat, out, T=T, M=M, BLOCK=block, num_warps=4,
+            enable_fp_fusion=False)
+        return out.reshape(*prefix, M)
+
+    gate, up = x.chunk(2, dim=-1)
+    return torch.nn.functional.silu(gate) * up
 
 
 # ================= q/k norm + rope + cache 写入 融合 =================

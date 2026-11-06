@@ -34,9 +34,9 @@ def test_disabled_ep_has_no_extra_dimension_or_group():
 
 def test_old_independent_ep_rejected_before_loading_model():
     from engine.core import EngineCore
-    with pytest.raises(ValueError, match="EP is DP x TP"):
+    with pytest.raises(TypeError, match="ep_size"):
         EngineCore("unused", tp_size=2, ep_size=2)
-    with pytest.raises(ValueError, match="derived"):
+    with pytest.raises(TypeError, match="ep_size"):
         DPFrontend("unused", dp_size=2, tp_size=2, ep_size=2, enable_expert_parallel=True)
 
 

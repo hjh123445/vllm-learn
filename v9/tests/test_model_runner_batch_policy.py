@@ -41,12 +41,9 @@ class ModelRunnerBatchPolicyTests(unittest.TestCase):
 
     def _run(self, runner, pp_size=1, pp_rank=0):
         state = SimpleNamespace(pp_size=pp_size, pp_rank=pp_rank,
-                                pipeline_lane=0, microbatch_id=0,
                                 pipeline_warmup=False,
-                                pipeline_transport=SimpleNamespace(recv_forward=lambda lane, **kw:
-                                    (torch.zeros(kw['expected_shape']),
-                                     torch.zeros(kw['expected_shape']),
-                                     kw['expected_microbatch_id'], lane)))
+                                pipeline_transport=SimpleNamespace(recv_forward=lambda **kw:
+                                    (torch.zeros(kw['shape']), torch.zeros(kw['shape']))))
         seqs = [SimpleNamespace(last_token=i, temperature=0.) for i in (7, 3, 9)]
         with patch("layers.parallel.STATE", state):
             result = runner.run(seqs, is_prefill=False)

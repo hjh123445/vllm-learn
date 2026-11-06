@@ -55,33 +55,21 @@ class AsyncEngine:
             raise ValueError("admission and stream buffer limits must be positive")
 
         tp_size = kwargs.pop("tp_size", kwargs.pop("tensor_parallel_size", 1))
-        ep_size = kwargs.pop("ep_size", kwargs.pop("expert_parallel_size", None))
         enable_ep = kwargs.pop("enable_expert_parallel", False)
         pp_size = kwargs.pop("pp_size", kwargs.pop("pipeline_parallel_size", 1))
         dcp_size = kwargs.pop("dcp_size", 1)
         dp_size = kwargs.pop("data_parallel_size", 1)
         gpus = kwargs.pop("gpus", None)
         master_port = kwargs.pop("master_port", 29600)
-        pipeline_lanes = kwargs.pop("pipeline_lanes", 2)
         pipeline_credit = kwargs.pop("pipeline_credit", 4)
         pipeline_mode = kwargs.pop("pipeline_mode", "optimized")
         pipeline_microbatch_tokens = kwargs.pop("pipeline_microbatch_tokens", 2048)
-        pipeline_stage_map = kwargs.pop("pipeline_stage_map", None)
         max_concurrent_batches = kwargs.pop("max_concurrent_batches", None)
         runner_cls = kwargs.pop("runner_cls", None)
         transport_cls = kwargs.pop("transport_cls", None)
-        legacy_microbatches = kwargs.pop("pipeline_microbatches", 1)
-        legacy_virtual_engine = kwargs.pop("virtual_engine_size", None)
-        legacy_schedule = kwargs.pop("pipeline_schedule", "forward")
-        if (legacy_microbatches != 1 or legacy_virtual_engine is not None
-                or legacy_schedule != "forward"):
-            raise NotImplementedError(
-                "This inference runtime schedules bounded in-flight batches. "
-                "Use pipeline_microbatch_tokens/max_concurrent_batches. Fixed pipeline_microbatches, "
-                "virtual_engine_size and zero-bubble/DualPipe schedules are not implemented.")
         config_fields = {
             "max_num_batched_tokens", "max_num_seqs", "max_model_len",
-            "gpu_memory_utilization", "enforce_eager", "kvcache_block_size",
+            "gpu_memory_utilization", "kvcache_block_size",
             "max_kvcache_blocks", "enable_prefix_caching", "batch_execution_mode",
         }
         unknown = set(kwargs) - config_fields
@@ -95,14 +83,13 @@ class AsyncEngine:
                 "AsyncEngine serves one EngineCore; use DPFrontend for "
                 "data_parallel_size>1")
         self.engine = EngineCore(
-            model, tp_size=tp_size, ep_size=ep_size, dcp_size=dcp_size,
+            model, tp_size=tp_size, dcp_size=dcp_size,
             enable_expert_parallel=enable_ep,
             pp_size=pp_size, master_port=master_port,
             config_kwargs=config_kwargs, gpus=gpus,
-            pipeline_lanes=pipeline_lanes, pipeline_credit=pipeline_credit,
+            pipeline_credit=pipeline_credit,
             pipeline_mode=pipeline_mode,
             pipeline_microbatch_tokens=pipeline_microbatch_tokens,
-            pipeline_stage_map=pipeline_stage_map,
             max_concurrent_batches=max_concurrent_batches,
             runner_cls=runner_cls, transport_cls=transport_cls)
         self.states = {}

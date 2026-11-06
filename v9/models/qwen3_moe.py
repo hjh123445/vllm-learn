@@ -7,7 +7,7 @@ MLP 换成 MoE（router + grouped experts，layers/moe.py）。
 import torch
 import torch.nn as nn
 
-from layers.linear import BaseLinear, ColumnParallelLinear, RowParallelLinear
+from layers.linear import ColumnParallelLinear, RowParallelLinear
 from layers.embedding import Embedding, LmHead
 from layers.rotary_embedding import RotaryEmbeddding
 from layers.norm import RmsNorm
@@ -26,7 +26,7 @@ class Qwen3MoeAttention(nn.Module):
     GQA 对齐保证：q 头 j 映射 kv 头 j//(H/kv)，q 的均分块恰好落在
     kv 的（可能复制的）切片上——kv_heads < tp 时多 rank 共享同一 kv 头。"""
 
-    def __init__(self, config, layer_idx: int):
+    def __init__(self, config):
         super().__init__()
         self.head_dim = config.head_dim
         # per-rank 头数（与组件的 shard_bounds 同数学）
@@ -38,7 +38,6 @@ class Qwen3MoeAttention(nn.Module):
         self.num_head = q_len // self.head_dim
         self.num_kv_head = kv_len // self.head_dim
         self.q_size = self.num_head * self.head_dim            # 本 rank 的 q 维
-        self.kv_size = self.num_kv_head * self.head_dim
 
         self.q_proj = ColumnParallelLinear(config.hidden_size,
                                            config.num_attention_heads * self.head_dim)
@@ -56,7 +55,7 @@ class Qwen3MoeAttention(nn.Module):
         self.q_norm = RmsNorm(self.head_dim, eps=config.rms_norm_eps)
         self.k_norm = RmsNorm(self.head_dim, eps=config.rms_norm_eps)
         self.rope = None
-        self.attn = Attention(self.num_head, self.num_kv_head, self.head_dim,
+        self.attn = Attention(self.num_kv_head, self.head_dim,
                               self.head_dim ** -0.5)
 
     def forward(self, x, positions):
@@ -70,10 +69,9 @@ class Qwen3MoeAttention(nn.Module):
 
 
 class Qwen3MoeDecoderLayer(nn.Module):
-    def __init__(self, config, layer_idx: int):
+    def __init__(self, config):
         super().__init__()
-        self.layer_idx = layer_idx
-        self.self_attn = Qwen3MoeAttention(config, layer_idx)
+        self.self_attn = Qwen3MoeAttention(config)
         self.mlp = MoEMLP(config)                       # 全部 48 层都是 MoE（sparse_step=1）
         self.input_layernorm = RmsNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.post_attention_layernorm = RmsNorm(config.hidden_size, eps=config.rms_norm_eps)
@@ -111,7 +109,7 @@ class Qwen3MoeModel(nn.Module):
         self.pp_start, self.pp_end = start, end
         self.layers = nn.ModuleList(
             [PPMissingLayer() for _ in range(start)] +
-            [Qwen3MoeDecoderLayer(config, i) for i in range(start, end)] +
+            [Qwen3MoeDecoderLayer(config) for _ in range(start, end)] +
             [PPMissingLayer() for _ in range(end, config.num_hidden_layers)])
         self.norm = RmsNorm(config.hidden_size, eps=config.rms_norm_eps)
         rope = RotaryEmbeddding(max_position=max_position,

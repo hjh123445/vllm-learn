@@ -1,7 +1,0 @@
-{
-  "backend": "tokenizers",
-  "eos_token": "t63",
-  "model_max_length": 1000000000000000019884624838656,
-  "tokenizer_class": "TokenizersBackend",
-  "unk_token": "t0"
-}

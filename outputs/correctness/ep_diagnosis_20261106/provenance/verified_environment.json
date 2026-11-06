@@ -1,0 +1,11 @@
+{
+  "capture_cases": [
+    "final_bf16_tp",
+    "final_bf16_ep",
+    "final_precise_tp",
+    "final_precise_ep"
+  ],
+  "all_capture_source_hashes_match": true,
+  "all_capture_checkpoint_hashes_match": true,
+  "driver": "index, name, driver_version\n0, NVIDIA A800-SXM4-80GB, 580.65.06\n1, NVIDIA A800-SXM4-80GB, 580.65.06\n2, NVIDIA A800-SXM4-80GB, 580.65.06\n3, NVIDIA A800-SXM4-80GB, 580.65.06\n4, NVIDIA A800-SXM4-80GB, 580.65.06\n5, NVIDIA A800-SXM4-80GB, 580.65.06\n6, NVIDIA A800-SXM4-80GB, 580.65.06\n7, NVIDIA A800-SXM4-80GB, 580.65.06\n"
+}

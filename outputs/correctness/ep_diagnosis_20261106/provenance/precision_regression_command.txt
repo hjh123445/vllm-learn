@@ -1,0 +1,10 @@
+# Original invocation reconstructed from the recorded session; not rerun.
+# The final tail command hid the original pytest exit code.
+# Reported 7 passed is based on the complete pytest termination summary.
+PYTHONPATH=/tmp/vllm-learn-ep-coupled-20261105-205927/testdeps:v9 \
+PP_TEST_BACKEND=nccl OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+timeout --signal=TERM --kill-after=10 240 \
+/home/ifly_jyhe23/env/miniconda3/bin/python -m pytest \
+v9/tests/test_pipeline_worker_runtime.py::test_dp2tp2_ep4_cached_generation_with_fp32_experts \
+v9/tests/test_coupled_moe.py -q -s > precision_regression.log 2>&1;
+tail -n12 precision_regression.log

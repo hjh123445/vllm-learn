@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-spec = importlib.util.spec_from_file_location("trace_merge", Path(__file__).with_name("merge_pipeline_trace.py"))
+spec = importlib.util.spec_from_file_location("trace_merge", Path(__file__).resolve().parents[1] / "tools/profile_merge.py")
 merger = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(merger)
 

@@ -17,7 +17,6 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
 
-from layers import parallel as P
 from layers.linear import ColumnParallelLinear, RowParallelLinear
 from layers.parallel import shard_bounds, configure_parallel
 from engine.process_groups import group_plan
@@ -166,21 +165,21 @@ def test_attention_shapes():
                           hidden_size=64, rms_norm_eps=1e-6)
     # 单卡
     set_tp(1, 0)
-    attn = Qwen3MoeAttention(cfg, 0)
+    attn = Qwen3MoeAttention(cfg)
     assert attn.num_head == 32 and attn.num_kv_head == 4
     # TP2: q 16 头, kv 2 头
     set_tp(2, 0)
-    attn = Qwen3MoeAttention(cfg, 0)
+    attn = Qwen3MoeAttention(cfg)
     assert attn.num_head == 16 and attn.num_kv_head == 2, (attn.num_head, attn.num_kv_head)
     assert attn.q_proj.weight.shape == (16 * 8, 64)
     assert attn.o_proj.weight.shape == (64, 16 * 8)
     # TP4（kv=4 可整切）
     set_tp(4, 1)
-    attn = Qwen3MoeAttention(cfg, 0)
+    attn = Qwen3MoeAttention(cfg)
     assert attn.num_head == 8 and attn.num_kv_head == 1
     # TP8 + kv=4: 复制（rank0/1 共享 kv0）
     set_tp(8, 1)
-    attn = Qwen3MoeAttention(cfg, 0)
+    attn = Qwen3MoeAttention(cfg)
     assert attn.num_head == 4
     assert attn.num_kv_head == 1, "kv 复制: 每 rank 至少 1 头"
     print("Qwen3MoeAttention: PASS（TP1/2/4/8 头数与形状，含 kv 复制）")

@@ -1,0 +1,158 @@
+Process SpawnProcess-1:1:
+Process SpawnProcess-1:2:
+Traceback (most recent call last):
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 28, in _spawn_with_env
+    fn(*args)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/worker.py", line 163, in worker_main
+    token_ids = runner.run(specs, is_prefill,
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/tools/diagnose_ep.py", line 81, in run
+    sequences=[dict(seq_id=s.seq_id, token_ids=list(s.token_ids),
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/tools/diagnose_ep.py", line 81, in <listcomp>
+    sequences=[dict(seq_id=s.seq_id, token_ids=list(s.token_ids),
+AttributeError: '_Spec' object has no attribute 'token_ids'
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+Process SpawnProcess-2:2:
+Process SpawnProcess-2:1:
+Traceback (most recent call last):
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 28, in _spawn_with_env
+    fn(*args)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/worker.py", line 163, in worker_main
+    token_ids = runner.run(specs, is_prefill,
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/tools/diagnose_ep.py", line 81, in run
+    sequences=[dict(seq_id=s.seq_id, token_ids=list(s.token_ids),
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/tools/diagnose_ep.py", line 81, in <listcomp>
+    sequences=[dict(seq_id=s.seq_id, token_ids=list(s.token_ids),
+AttributeError: '_Spec' object has no attribute 'token_ids'
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+Traceback (most recent call last):
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 28, in _spawn_with_env
+    fn(*args)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/worker.py", line 163, in worker_main
+    token_ids = runner.run(specs, is_prefill,
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/tools/diagnose_ep.py", line 81, in run
+    sequences=[dict(seq_id=s.seq_id, token_ids=list(s.token_ids),
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/tools/diagnose_ep.py", line 81, in <listcomp>
+    sequences=[dict(seq_id=s.seq_id, token_ids=list(s.token_ids),
+AttributeError: '_Spec' object has no attribute 'token_ids'
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+Traceback (most recent call last):
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 28, in _spawn_with_env
+    fn(*args)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/worker.py", line 163, in worker_main
+    token_ids = runner.run(specs, is_prefill,
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/tools/diagnose_ep.py", line 81, in run
+    sequences=[dict(seq_id=s.seq_id, token_ids=list(s.token_ids),
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/tools/diagnose_ep.py", line 81, in <listcomp>
+    sequences=[dict(seq_id=s.seq_id, token_ids=list(s.token_ids),
+AttributeError: '_Spec' object has no attribute 'token_ids'
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/frontend.py", line 58, in _enginecore_process
+    completed = core.step()
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 325, in step
+    return self._complete_batch()
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 285, in _complete_batch
+    output = batch.future.result(timeout=self._worker_timeout)
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/concurrent/futures/_base.py", line 458, in result
+    return self.__get_result()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/concurrent/futures/_base.py", line 403, in __get_result
+    raise self._exception
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/executor.py", line 108, in _receive_loop
+    output = self._response.recv()  # ACK immediately; don't await Core.
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/mq.py", line 60, in recv
+    size = self.notify.recv()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/connection.py", line 250, in recv
+    buf = self._recv_bytes()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/connection.py", line 414, in _recv_bytes
+    buf = self._recv(4)
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/connection.py", line 383, in _recv
+    raise EOFError
+EOFError
+Process SpawnProcess-2:
+Traceback (most recent call last):
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/frontend.py", line 228, in _drive
+    _step(i)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/frontend.py", line 241, in _step
+    reply = self._recv(i)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/frontend.py", line 169, in _recv
+    raise RuntimeError(response[1])
+RuntimeError: Traceback (most recent call last):
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/frontend.py", line 58, in _enginecore_process
+    completed = core.step()
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 325, in step
+    return self._complete_batch()
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 285, in _complete_batch
+    output = batch.future.result(timeout=self._worker_timeout)
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/concurrent/futures/_base.py", line 458, in result
+    return self.__get_result()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/concurrent/futures/_base.py", line 403, in __get_result
+    raise self._exception
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/executor.py", line 108, in _receive_loop
+    output = self._response.recv()  # ACK immediately; don't await Core.
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/mq.py", line 60, in recv
+    size = self.notify.recv()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/connection.py", line 250, in recv
+    buf = self._recv_bytes()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/connection.py", line 414, in _recv_bytes
+    buf = self._recv(4)
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/connection.py", line 383, in _recv
+    raise EOFError
+EOFError
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/tools/diagnose_ep.py", line 126, in main
+    outputs = frontend.run()
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/frontend.py", line 276, in run
+    outs.update(self.step_all())
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/frontend.py", line 262, in step_all
+    raise RuntimeError("DP replica step failed") from errors[0]
+RuntimeError: DP replica step failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/tools/diagnose_ep.py", line 138, in <module>
+    main()
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/tools/diagnose_ep.py", line 134, in main
+    frontend.shutdown()
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/frontend.py", line 285, in shutdown
+    conn.send(("shutdown", None))
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/connection.py", line 206, in send
+    self._send_bytes(_ForkingPickler.dumps(obj))
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/connection.py", line 411, in _send_bytes
+    self._send(header + buf)
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/connection.py", line 368, in _send
+    n = write(self._handle, buf)
+BrokenPipeError: [Errno 32] Broken pipe

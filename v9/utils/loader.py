@@ -32,19 +32,6 @@ def _ckpt_name(name: str):
         return None, None
     # thinker.model.X → model.X（我们的 Qwen3MoeModel 挂在 .model 下）
     n = "model." + name[len("thinker.model."):]
-    # Optional replicated dense expert.  Both singular/plural checkpoint
-    # spellings occur across Qwen-MoE revisions; fuse gate/up like routed
-    # experts so the model can overlap this GEMM with EP dispatch.
-    if ".mlp.shared_expert." in n or ".mlp.shared_experts." in n:
-        marker = (".mlp.shared_expert." if ".mlp.shared_expert." in n
-                  else ".mlp.shared_experts.")
-        proj = n.split(marker, 1)[1].split(".")[-2]
-        base = n.split(marker, 1)[0] + ".mlp.shared_expert"
-        if proj in ("gate_proj", "up_proj"):
-            half = 0 if proj == "gate_proj" else 1
-            return f"{base}.w13", half
-        if proj == "down_proj":
-            return f"{base}.w2", None
     # MoE 专家：...mlp.experts.{i}.{proj}.weight → 融合进 w13/w2 的第 i 个专家
     if ".mlp.experts." in n:
         parts = n.split(".")
@@ -61,7 +48,7 @@ def _ckpt_name(name: str):
     return n, None
 
 
-def _load_into(param: torch.Tensor, loaded: torch.Tensor, shard):
+def _load_into(param: torch.Tensor, loaded: torch.Tensor, shard, owner):
     """weight_loader 协议：装载逻辑归组件，本函数只负责调用。
     并行组件（v9.3 ColumnParallel/RowParallel/GroupedExperts）的 weight_loader
     吃【全量】checkpoint 张量、内部切本 rank 片——所以 shape 不匹配不是错误，
@@ -69,7 +56,6 @@ def _load_into(param: torch.Tensor, loaded: torch.Tensor, shard):
     （直拷仅限单卡无协议组件）。"""
     wl = getattr(param, "weight_loader", None)
     if wl is None:
-        owner = _param_owner.get(id(param))
         if owner is not None and hasattr(owner, "weight_loader"):
             wl = owner.weight_loader
     if wl is not None:
@@ -96,7 +82,7 @@ def _load_from_slice(param, tensor_slice, shard, owner):
             param.data[shard * l:(shard + 1) * l].copy_(v.to(param.dtype))
         elif owner.gate_up:
             # Legacy checkpoints may store an already fused gate|up tensor.
-            _load_into(param, tensor_slice[:], shard)
+            _load_into(param, tensor_slice[:], shard, owner)
         else:
             v = tensor_slice[owner.shard_start:owner.shard_start + owner.shard_len, :]
             param.data.copy_(v.to(param.dtype))
@@ -117,7 +103,7 @@ def _load_from_slice(param, tensor_slice, shard, owner):
             v = tensor_slice[s:e, :]
             param.data[li, half * owner.inter:(half + 1) * owner.inter].copy_(v.to(param.dtype))
         return
-    _load_into(param, tensor_slice[:], shard)
+    _load_into(param, tensor_slice[:], shard, owner)
 
 
 def load_model(model: nn.Module, model_dir: str, device="cuda", dtype=torch.bfloat16):
@@ -127,22 +113,11 @@ def load_model(model: nn.Module, model_dir: str, device="cuda", dtype=torch.bflo
     assert files, f"没找到 safetensors: {model_dir}"
 
     # param → 所属模块 的查找表（weight_loader 协议的调用目标）
-    global _param_owner
-    _param_owner = {}
-    for mod_name, mod in model.named_modules():
-        for p_name, p in mod.named_parameters(recurse=False):
-            _param_owner[id(p)] = mod
+    param_owner = {id(p): mod for mod in model.modules()
+                   for p in mod.parameters(recurse=False)}
 
     loaded = set()
     skipped = set()
-    # PP: 层区间外的 target 在本 stage 不存在（PPMissingLayer 无参数）→ 跳过
-    from layers.parallel import STATE
-    try:
-        from models.qwen3_moe import PPMissingLayer
-        pp_missing = {id(m) for m in model.modules() if isinstance(m, PPMissingLayer)}
-    except Exception:
-        pp_missing = set()
-
     def _target_exists(target):
         try:
             model.get_parameter(target)
@@ -161,7 +136,7 @@ def load_model(model: nn.Module, model_dir: str, device="cuda", dtype=torch.bflo
                     skipped.add(target)
                     continue
                 param = model.get_parameter(target)
-                owner = _param_owner.get(id(param))
+                owner = param_owner.get(id(param))
                 # EP expert shards which belong to another rank are skipped
                 # before touching storage; TP/EP local windows use get_slice.
                 if owner is not None:
@@ -176,13 +151,12 @@ def load_model(model: nn.Module, model_dir: str, device="cuda", dtype=torch.bflo
                 if hasattr(f, "get_slice"):
                     _load_from_slice(param, f.get_slice(name), shard, owner)
                 else:
-                    _load_into(param, f.get_tensor(name), shard)
+                    _load_into(param, f.get_tensor(name), shard, owner)
                 loaded.add(target)
 
     model_keys = set(model.state_dict().keys())
     not_loaded = model_keys - loaded
-    # PP 的 embed/norm/lm_head: stage>0 也构造了（小）但权重要装（loader 直装 ✓）
-    # not_loaded 只可能是 bug——PPMissingLayer 不产生参数所以不会出现在 keys
+    # 非本 stage 的 decoder 层使用 PPMissingLayer，不产生 state_dict 项。
     assert not not_loaded, f"以下参数从未被加载: {sorted(not_loaded)[:10]}"
 
     model = model.to(device=device, dtype=dtype)

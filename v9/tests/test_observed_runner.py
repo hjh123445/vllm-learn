@@ -70,9 +70,9 @@ def cpu_runner(monkeypatch):
         self.kv_cache = torch.zeros(2)
         self.run([seq()], True)  # Memory sizing warmup must not be captured.
 
-    def run(self, seqs, is_prefill, pipeline_lane=0, microbatch_id=0):
+    def run(self, seqs, is_prefill, microbatch_id=0):
         if getattr(self.config, "per_request", False) and len(seqs) > 1:
-            return sum((self.run([s], is_prefill, pipeline_lane, microbatch_id) for s in seqs), [])
+            return sum((self.run([s], is_prefill, microbatch_id=microbatch_id) for s in seqs), [])
         logits = self.model(torch.ones(len(seqs), 4))
         return self.sampler(logits, torch.zeros(len(seqs))).tolist()
 
@@ -169,20 +169,19 @@ def _transport_peer(rank, init_file, directory, asynchronous, output):
     os.environ["VLLM_LEARN_TRACE_DIR"] = directory
     dist.init_process_group("gloo", init_method=f"file://{init_file}",
                             rank=rank, world_size=2, timeout=timedelta(seconds=20))
-    transport = ObservedPipelineTransport(2, rank, 1, device="cpu", lanes=2,
+    transport = ObservedPipelineTransport(2, rank, 1, device="cpu",
                                          credit=1, async_enabled=asynchronous)
     try:
         for batch in range(6):
             hidden = torch.full((batch + 1, 4), float(batch))
             residual = hidden + 1
             if rank == 0:
-                transport.send_forward(hidden, residual, lane=batch % 2, microbatch_id=batch)
+                transport.send_forward(hidden, residual, microbatch_id=batch)
             else:
-                h, r, got_batch, got_lane = transport.recv_forward(batch % 2,
-                    expected_microbatch_id=batch, expected_shape=hidden.shape, dtype=torch.float32)
+                h, r = transport.recv_forward(microbatch_id=batch,
+                    shape=hidden.shape, dtype=torch.float32)
                 torch.testing.assert_close(h, hidden)
                 torch.testing.assert_close(r, residual)
-                assert (got_batch, got_lane) == (batch, batch % 2)
         transport.shutdown()
         output.put((rank, transport.events))
     finally:

@@ -1,44 +1,33 @@
-# vllm-learn：Qwen3-Omni-30B 推理引擎实验
+# vllm-learn：推理并行与性能分析
 
-仓库现在只保留当前可运行的 v9 实现，目标是研究 Qwen3-Omni-30B-A3B-Instruct 在 A800 上的调度、TP、EP、PP、DCP、DP、量化和性能分析。早期 v0–v8 的独立实现已从工作树删除，完整历史仍可通过 Git 提交查看。
+当前只维护 `v9`。目标模型为 Qwen3-Omni-30B-A3B-Instruct，**自研执行路径目前是文本 Thinker**。这不是完整 Omni 多模态服务，也没有宣称超过 vLLM。
 
-## 运行入口
+先看 [Profile 操作手册](docs/PROFILE.md)，再看 [真实轨迹分析与优化依据](docs/性能分析.md)。文件太多的问题已整理：实验工具归入 `v9/tools`，自动回归归入 `v9/tests`，可打开的轨迹统一放在 `outputs/profiles`，历史报告不再充当当前使用说明。
+
+| 你想做什么 | 入口 |
+|---|---|
+| 采八卡 CPU / CUDA / NCCL / 每层轨迹 | `v9/tools/profile_capture.py` |
+| 检查漏卡、漏 CUDA、尾层缺失，统计热点与重叠 | `v9/tools/profile_analyze.py` |
+| 把八卡叠在同一时间轴，交给 Perfetto | `v9/tools/profile_merge.py` |
+| 不开 profiler 测吞吐、TTFT、P95/P99 | `v9/bench.py offline` 或 `serve` |
+| 对照 PyTorch / Triton 的 eager 与 CUDA Graph | `v9/tools/kernel_bench.py` |
+| 捕获合成反例的 cached 精度差异、逐层定位 | `v9/tools/diagnose_ep.py`、`v9/tools/compare_logits.py`，见 [精度排查](docs/精度排查.md) |
 
 ```bash
-cd v9
-python example.py --model /path/to/Qwen3-Omni-30B-A3B-Instruct
-python server.py --model /path/to/Qwen3-Omni-30B-A3B-Instruct --tp 1 --ep 8
+# 在仓库根目录执行，Linux + CUDA，MODEL 指向已有权重目录。
+export MODEL=/path/to/Qwen3-Omni-30B-A3B-Instruct
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+python v9/tools/profile_capture.py --model "$MODEL" --output outputs/my_pp2ep4 \
+  --tp 4 --pp 2 --enable-expert-parallel --requests 32 \
+  --prompt-tokens 64 --max-tokens 16 --messages 8 --record-shapes
+python v9/tools/profile_analyze.py --input-dir outputs/my_pp2ep4/trace \
+  --output outputs/my_pp2ep4/analysis --expected-ranks 8 --layers 48 --require-nccl --same-host
+python v9/tools/profile_merge.py --input-dir outputs/my_pp2ep4/trace \
+  --same-host --output outputs/my_pp2ep4/trace.json.gz
 ```
 
-核心执行路径是：`EngineCore → Scheduler → WorkerProc → ModelRunner`。多卡启动时每张 GPU 一个 worker；DP 使用 `DPFrontend` 启动多个相互独立的 EngineCore。并行组件位于 `v9/layers/parallel.py`、`v9/layers/moe.py`，模型文件不需要被额外的 parallel.py 劫持。
+用 [Perfetto](https://ui.perfetto.dev/) 打开 `trace.json.gz`。想先看小文件，请打开 [清理后八卡小模型轨迹](outputs/validation/runtime_cleanup_20261106/final/tiny_pp2ep4/trace.json.gz)；30B 的历史八卡轨迹见 [输出索引](outputs/README.md)。文件齐全与采样完整是两件事，旧轨迹存在尾层缺失，索引中已标明。
 
-## 目录
+其他阅读：[架构与代码顺序](docs/架构.md)、[精度排查过程](docs/精度排查.md)、[环境](ENVIRONMENT.md)、[测试分类](v9/tests/README.md)、[整理与备份](docs/整理说明.md)。
 
-```text
-v9/
-  engine/       EngineCore、scheduler、worker、PP activation transport、DP frontend
-  layers/       TP/EP 组件、paged attention、DCP、量化和 CUDA/Triton kernel
-  models/       Qwen3-MoE/Qwen3-Omni thinker 模型
-  tests/        当前 v9 的单元测试、矩阵实验、通信基准和 trace 工具
-  utils/        配置和 rank-local safetensors loader
-```
-
-## 当前实现边界
-
-- EP 使用真实 `send_counts/recv_counts` 的变长 all-to-allv，不做固定容量 padding。
-- PP2/PP4 和 PP2×TP2 已通过端到端验证；当前 transport 仍是阻塞式 P2P 正确性基线，DualPipe/Zero-Bubble 尚未完成。
-- DP 是推理副本并行，每个副本拥有独立 EngineCore、KV cache 和通信组；它不等同于训练 DDP。
-- 投机解码原型已移除出运行路径，当前不宣称已实现生产级 speculative decoding。
-- W4 量化保留为实验路径，当前速度和质量仍不能视为生产后端。
-
-## 实验报告与 profile
-
-中文报告、实验摘要和选定原始记录现位于 [outputs/verified_parallel](outputs/verified_parallel/交付说明.md)。
-先读[当前结论与证据边界](outputs/verified_parallel/README_面试实验报告.md)和[精度问题排查过程](outputs/verified_parallel/精度问题排查方法论.md)。完整本地/远程归档还包含未纳入 Git 的大规模逐层张量和逐 rank 原始 trace，公开文件清单见交付说明。
-
-- 多卡采集入口：[capture_parallel_window.py](v9/tests/capture_parallel_window.py)。
-- CPU/CUDA profiler 实际在每个 worker 中启用：[worker.py](v9/engine/worker.py)。
-- [EP8 八卡 CPU/CUDA/NCCL trace](outputs/verified_parallel/trace_comparison_056_20261105/custom_ep8_compact_cpu_cuda.json.gz)；[rank0 轻量版](outputs/verified_parallel/trace_comparison_056_20261105/custom_ep8_rank0_cpu_cuda_preview.json.gz)。下载后可直接尝试 Perfetto；不识别 gzip 时先解压成 JSON。
-- 采集命令与环境：[queue.json](outputs/verified_parallel/rollout_trace_056_20261104_152543/queue.json)；分析脚本见 [tools/experiment_analysis](tools/experiment_analysis)。
-
-当前默认参考数学路径在匹配执行条件的 12×32 个固定前缀位置上对齐 HF；默认批处理仍存在跨形状 BF16 数值敏感性，融合/Triton 路径尚未通过完整模型质量验收。不能把候选吞吐数字视为已通过全部质量门槛的生产性能。
+当前 PP 是 V1 风格的 forward-only 多批队列；EP 从 DP×TP 派生；DP 是独立 EngineCore 的推理副本。训练 DualPipe、整模 CUDA Graph、Talker、生产级投机解码不在已完成能力中。历史性能与精度结果按各自源码快照解释。

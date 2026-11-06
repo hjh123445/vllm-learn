@@ -20,7 +20,7 @@ def main():
         parser.error('mode must be offline, serve or trace-check')
     # Lazy import: help/HTTP client does not initialize torch or load a model.
     if mode == 'offline':
-        path = Path(__file__).parent / 'tests' / 'bench_workload_matrix.py'
+        path = Path(__file__).parent / 'tools' / 'benchmark.py'
     elif mode == 'serve':
         from utils.http_benchmark import main as run
     else:

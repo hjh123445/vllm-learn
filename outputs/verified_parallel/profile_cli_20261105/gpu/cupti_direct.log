@@ -1,6 +1,0 @@
-callbacks 0 b'CUPTI_SUCCESS'
-enable5 0 b'CUPTI_SUCCESS'
-enable10 0 b'CUPTI_SUCCESS'
-flush 0 b'CUPTI_SUCCESS'
-buffer valid sizes [9600]
-

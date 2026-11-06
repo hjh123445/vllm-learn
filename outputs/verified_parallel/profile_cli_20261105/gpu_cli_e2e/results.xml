@@ -1,1 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="23.786" timestamp="2026-11-05T22:08:10.621936+08:00" hostname="task3-A800-056"><testcase classname="v9.tests.test_cuda_profile_runtime" name="test_real_offline_and_http_command_line" time="21.732" /></testsuite></testsuites>

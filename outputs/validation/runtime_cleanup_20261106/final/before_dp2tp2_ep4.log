@@ -1,0 +1,49 @@
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+[worker-device] rank=1 gpu_id=1 visible='2,3' count=2 current=1
+[worker-device] rank=0 gpu_id=0 visible='0,1' count=2 current=0
+[worker-device] rank=0 gpu_id=0 visible='2,3' count=2 current=0
+[worker-device] rank=1 gpu_id=1 visible='0,1' count=2 current=1
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[worker-device] rank=2 gpu_id=0 visible='2,3' count=2 current=0
+[worker-device] rank=0 gpu_id=0 visible='0,1' count=2 current=0
+[worker-device] rank=3 gpu_id=1 visible='2,3' count=2 current=1
+[worker-device] rank=1 gpu_id=1 visible='0,1' count=2 current=1
+{'scope': 'BF16 production, matched DP/TP/PP baseline with EP disabled', 'serial': [[57, 60, 57, 60], [54, 60, 57, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]], 'matched_tp': [[57, 60, 57, 60], [54, 60, 57, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]], 'coupled_ep': [[57, 60, 57, 60], [54, 60, 54, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]]}
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+F
+=================================== FAILURES ===================================
+________ test_production_dp_ep_unequal_batches_and_idle_replicas[2-2-1] ________
+v9/tests/test_pipeline_worker_runtime.py:155: in test_production_dp_ep_unequal_batches_and_idle_replicas
+    assert actual == matched_reference
+E   assert [[57, 60, 57,..., 60, 57, 60]] == [[57, 60, 57,..., 60, 57, 60]]
+E     
+E     At index 1 diff: [54, 60, 54, 60] != [54, 60, 57, 60]
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED v9/tests/test_pipeline_worker_runtime.py::test_production_dp_ep_unequal_batches_and_idle_replicas[2-2-1]
+1 failed, 4 deselected in 34.20s
+

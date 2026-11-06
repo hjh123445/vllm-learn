@@ -1,7 +1,6 @@
 """CPU concurrency regression: exercise the adapter with an owner-checked core."""
 import itertools
 import pathlib
-import queue
 import sys
 import threading
 import time

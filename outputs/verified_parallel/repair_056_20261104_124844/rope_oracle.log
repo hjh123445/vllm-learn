@@ -1,5 +1,0 @@
-[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
-cpu torch.float32 HF text RoPE exact
-cpu torch.bfloat16 HF text RoPE exact
-cuda torch.float32 HF text RoPE exact
-cuda torch.bfloat16 HF text RoPE exact

@@ -1,0 +1,15 @@
+{
+  "python": "3.10.21",
+  "platform": "Linux-5.15.0-25-generic-x86_64-with-glibc2.35",
+  "dependencies": {
+    "torch": "2.9.1+cu130",
+    "triton": "3.5.1",
+    "transformers": "5.16.1",
+    "tokenizers": "0.23.2",
+    "safetensors": "0.8.0",
+    "pytest": "9.2.0",
+    "numpy": "2.2.6"
+  },
+  "task_processes_remaining": [],
+  "snapshot": "Read-only after all experiments"
+}

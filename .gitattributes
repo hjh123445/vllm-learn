@@ -1,0 +1,2 @@
+# Preserve experiment artifacts byte-for-byte, including raw logs and SHA256 inputs.
+outputs/** -text -whitespace

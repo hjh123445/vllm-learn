@@ -103,9 +103,6 @@ class BlockManager:
         seq.num_cached_tokens = 0
         seq.block_table.clear()
 
-    def can_append(self, seq: Sequence) -> bool:
-        return len(self.free_block_ids) >= (len(seq) % self.block_size == 1)
-
     def can_append_chunk(self, seq: Sequence, num_new_tokens: int) -> bool:
         """混合批次（v9.4e）：为本步追加 num_new_tokens 个 token 保证块。
         需要的新块数 = ceil((已占尾块空间 + 新 token) / bs) - 已有块数。"""
@@ -117,15 +114,11 @@ class BlockManager:
         return len(self.free_block_ids) >= (need - have)
 
     def append_chunk(self, seq: Sequence, num_new_tokens: int):
-        """按需补块到覆盖 written + num_new_tokens（may_append 的 chunk 泛化）。"""
+        """按需补块到覆盖 written + num_new_tokens。"""
         bs = self.block_size
         written = seq.num_cached_tokens
         need = (written + num_new_tokens + bs - 1) // bs
         while len(seq.block_table) < need:
-            seq.block_table.append(self._allocate_block())
-
-    def may_append(self, seq: Sequence):
-        if len(seq) % self.block_size == 1:
             seq.block_table.append(self._allocate_block())
 
     def hash_blocks(self, seq: Sequence):

@@ -1,1 +1,0 @@
-{"chat_template": "{% for message in messages %}t1 t2 {% endfor %}{% if add_generation_prompt %}t3{% endif %}"}

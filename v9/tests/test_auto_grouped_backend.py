@@ -7,7 +7,6 @@ whole-model accuracy benchmark.
 """
 import argparse
 import json
-import os
 from pathlib import Path
 import sys
 

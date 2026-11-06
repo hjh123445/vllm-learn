@@ -1,0 +1,101 @@
+{
+  "rank": 2,
+  "world_rank": 2,
+  "mode": "window",
+  "start_message": 1,
+  "requested_messages": 16,
+  "captured_messages": [
+    {
+      "message_index": 1,
+      "microbatch_id": 0,
+      "is_prefill": true,
+      "scheduled_sequences": 2,
+      "stage": 0
+    },
+    {
+      "message_index": 2,
+      "microbatch_id": 1,
+      "is_prefill": true,
+      "scheduled_sequences": 2,
+      "stage": 0
+    },
+    {
+      "message_index": 3,
+      "microbatch_id": 2,
+      "is_prefill": true,
+      "scheduled_sequences": 4,
+      "stage": 0
+    },
+    {
+      "message_index": 4,
+      "microbatch_id": 3,
+      "is_prefill": true,
+      "scheduled_sequences": 4,
+      "stage": 0
+    },
+    {
+      "message_index": 5,
+      "microbatch_id": 4,
+      "is_prefill": true,
+      "scheduled_sequences": 4,
+      "stage": 0
+    },
+    {
+      "message_index": 6,
+      "microbatch_id": 5,
+      "is_prefill": true,
+      "scheduled_sequences": 4,
+      "stage": 0
+    },
+    {
+      "message_index": 7,
+      "microbatch_id": 6,
+      "is_prefill": false,
+      "scheduled_sequences": 4,
+      "stage": 0
+    },
+    {
+      "message_index": 8,
+      "microbatch_id": 7,
+      "is_prefill": false,
+      "scheduled_sequences": 4,
+      "stage": 0
+    },
+    {
+      "message_index": 9,
+      "microbatch_id": 8,
+      "is_prefill": false,
+      "scheduled_sequences": 2,
+      "stage": 0
+    },
+    {
+      "message_index": 10,
+      "microbatch_id": 9,
+      "is_prefill": false,
+      "scheduled_sequences": 2,
+      "stage": 0
+    },
+    {
+      "message_index": 11,
+      "microbatch_id": 10,
+      "is_prefill": false,
+      "scheduled_sequences": 1,
+      "stage": 0
+    },
+    {
+      "message_index": 12,
+      "microbatch_id": 11,
+      "is_prefill": false,
+      "scheduled_sequences": 1,
+      "stage": 0
+    }
+  ],
+  "cuda_activities": true,
+  "cuda_verified": true,
+  "cupti_flush": {
+    "attempted": true,
+    "status": 0,
+    "library": "/data/ifly_jyhe23/env/miniconda3/lib/python3.10/site-packages/nvidia/cu13/lib/libcupti.so.13"
+  },
+  "measurement": "profile-only; synchronization/export distort throughput"
+}

@@ -1,0 +1,364 @@
+{
+  "scope": "Synthetic cached-generation counterexample; not 30B quality or throughput",
+  "git_head": "3318af22adb83e2fe43b2f44ee5d0866e883f5c1",
+  "uncommitted_changes": true,
+  "experiments": {
+    "bf16": {
+      "scope": "Original cached synthetic generation, TP0 replicated logits; not a benchmark",
+      "aligned_rows": 23,
+      "accepted_rows": 19,
+      "skipped_rows": 1,
+      "accepted_top1_matches": 18,
+      "worst_max_abs_error": 0.1005859375,
+      "worst_accepted_max_abs_error": 0.1005859375,
+      "first_token_divergence": {
+        "dp": 1,
+        "call": 3,
+        "is_prefill": false,
+        "seq": 0,
+        "prefix": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          54,
+          60
+        ],
+        "generation_position": 2,
+        "accepted_generation": true,
+        "batch_context_equal": true,
+        "actual_sample": 54,
+        "reference_sample": 57,
+        "actual_sample_matches_argmax": true,
+        "reference_sample_matches_argmax": true,
+        "candidate_logits": {
+          "54": {
+            "actual": 0.84765625,
+            "reference": 0.84375
+          },
+          "57": {
+            "actual": 0.84765625,
+            "reference": 0.8515625
+          }
+        },
+        "actual_top1": 54,
+        "reference_top1": 57,
+        "top1_matches": false,
+        "reference_top1_margin": 0.0078125,
+        "actual_tied_winners": 2,
+        "reference_tied_winners": 1,
+        "actual_winner_is_reference_max": false,
+        "reference_winner_is_actual_max": true,
+        "topk_tie_order_changes_actual_winner": false,
+        "topk_tie_order_changes_reference_winner": false,
+        "actual_top1_margin": 0.0,
+        "max_abs_error": 0.0067138671875,
+        "mean_abs_error": 0.0024192333221435547,
+        "rmse": 0.0030814213678240776,
+        "centered_cosine": 0.9999681115150452,
+        "probability_total_variation": 0.0012945435009896755,
+        "reference_winner_error": 0.00390625,
+        "top1_stability_bound_satisfied": false,
+        "top10_overlap": 10,
+        "actual_top10": [
+          54,
+          57,
+          60,
+          18,
+          5,
+          13,
+          11,
+          34,
+          36,
+          47
+        ],
+        "reference_top10": [
+          57,
+          54,
+          60,
+          18,
+          5,
+          13,
+          11,
+          34,
+          36,
+          47
+        ]
+      },
+      "generated_outputs_equal": false,
+      "reference_outputs": [
+        [
+          57,
+          60,
+          57,
+          60
+        ],
+        [
+          54,
+          60,
+          57,
+          60
+        ],
+        [
+          43,
+          43,
+          43,
+          43
+        ],
+        [
+          8,
+          12,
+          53,
+          53
+        ],
+        [
+          57,
+          60,
+          57,
+          60
+        ]
+      ],
+      "actual_outputs": [
+        [
+          57,
+          60,
+          57,
+          60
+        ],
+        [
+          54,
+          60,
+          54,
+          60
+        ],
+        [
+          43,
+          43,
+          43,
+          43
+        ],
+        [
+          8,
+          12,
+          53,
+          53
+        ],
+        [
+          57,
+          60,
+          57,
+          60
+        ]
+      ],
+      "idle_collective_calls": {
+        "reference": [],
+        "actual": [
+          "dp1_tp0/call005.pt",
+          "dp1_tp0/call006.pt"
+        ]
+      }
+    },
+    "precise": {
+      "scope": "Original cached synthetic generation, TP0 replicated logits; not a benchmark",
+      "aligned_rows": 24,
+      "accepted_rows": 20,
+      "skipped_rows": 0,
+      "accepted_top1_matches": 20,
+      "worst_max_abs_error": 0.0,
+      "worst_accepted_max_abs_error": 0.0,
+      "first_token_divergence": null,
+      "generated_outputs_equal": true,
+      "reference_outputs": [
+        [
+          57,
+          60,
+          57,
+          60
+        ],
+        [
+          54,
+          60,
+          57,
+          60
+        ],
+        [
+          43,
+          43,
+          43,
+          43
+        ],
+        [
+          8,
+          12,
+          53,
+          53
+        ],
+        [
+          57,
+          60,
+          57,
+          60
+        ]
+      ],
+      "actual_outputs": [
+        [
+          57,
+          60,
+          57,
+          60
+        ],
+        [
+          54,
+          60,
+          57,
+          60
+        ],
+        [
+          43,
+          43,
+          43,
+          43
+        ],
+        [
+          8,
+          12,
+          53,
+          53
+        ],
+        [
+          57,
+          60,
+          57,
+          60
+        ]
+      ],
+      "idle_collective_calls": {
+        "reference": [],
+        "actual": [
+          "dp1_tp0/call005.pt",
+          "dp1_tp0/call006.pt"
+        ]
+      }
+    },
+    "fp32": {
+      "scope": "Original cached synthetic generation, TP0 replicated logits; not a benchmark",
+      "aligned_rows": 24,
+      "accepted_rows": 20,
+      "skipped_rows": 0,
+      "accepted_top1_matches": 20,
+      "worst_max_abs_error": 4.470348358154297e-07,
+      "first_token_divergence": null,
+      "generated_outputs_equal": true,
+      "reference_outputs": [
+        [
+          57,
+          60,
+          57,
+          60
+        ],
+        [
+          54,
+          60,
+          57,
+          60
+        ],
+        [
+          43,
+          43,
+          43,
+          43
+        ],
+        [
+          8,
+          12,
+          53,
+          53
+        ],
+        [
+          57,
+          60,
+          57,
+          60
+        ]
+      ],
+      "actual_outputs": [
+        [
+          57,
+          60,
+          57,
+          60
+        ],
+        [
+          54,
+          60,
+          57,
+          60
+        ],
+        [
+          43,
+          43,
+          43,
+          43
+        ],
+        [
+          8,
+          12,
+          53,
+          53
+        ],
+        [
+          57,
+          60,
+          57,
+          60
+        ]
+      ],
+      "idle_collective_calls": {
+        "reference": [],
+        "actual": [
+          "dp1_tp0/call005.pt",
+          "dp1_tp0/call006.pt"
+        ]
+      }
+    }
+  },
+  "route_checks": 32,
+  "route_checks_all_exact": true,
+  "tests": {
+    "precision_regression": {
+      "passed": 7,
+      "log": "logs/precision_regression.log",
+      "original_pytest_exit_code_recorded": false
+    },
+    "default_regression": {
+      "passed": 2,
+      "failed": 1,
+      "exit_code": 1
+    },
+    "unit_regression": {
+      "passed": 20,
+      "subtests_passed": 12,
+      "exit_code": 0
+    },
+    "analysis_regression": {
+      "passed": 2,
+      "exit_code": 0
+    }
+  },
+  "remaining": [
+    "Default model precision still fails strict cross-topology generation parity",
+    "No throughput or real-30B quality validation for FP32 expert policy"
+  ],
+  "provenance_notes": [
+    "Four final captures have identical source/checkpoint manifests; source archived",
+    "fp32_tp/ep are earlier auxiliary runs without per-run immutable source manifests",
+    "Post-capture analyzer adds a summary field only; final repository hashes below",
+    "precision_regression log ends in 7 passed; its wrapper captured tail exit, not pytest exit"
+  ]
+}

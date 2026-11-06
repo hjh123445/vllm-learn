@@ -31,7 +31,7 @@ class ObservedPipelineTransport(PipelineTransport):
         self.events = []
         self._enabled = bool(os.getenv("VLLM_LEARN_TRACE_DIR"))
 
-    def _observe(self, kind, operation, lane, batch_id, *args, **kwargs):
+    def _observe(self, kind, operation, batch_id, *args, **kwargs):
         if not self._enabled:
             return operation(*args, **kwargs)
         started = time.perf_counter()
@@ -40,18 +40,16 @@ class ObservedPipelineTransport(PipelineTransport):
         finally:
             self.events.append(dict(name="pp." + kind, cat="p2p", ph="X",
                 ts=started * 1e6, dur=(time.perf_counter() - started) * 1e6,
-                args=dict(stage=self.pp_rank, lane=lane, microbatch_id=batch_id,
+                args=dict(stage=self.pp_rank, microbatch_id=batch_id,
                           variant="optimized" if self.async_enabled else "baseline")))
 
-    def send_forward(self, hidden, residual, lane=0, microbatch_id=0):
-        return self._observe("send", super().send_forward, lane, microbatch_id,
-                             hidden, residual, lane, microbatch_id)
+    def send_forward(self, hidden, residual, *, microbatch_id):
+        return self._observe("send", super().send_forward, microbatch_id,
+                             hidden, residual, microbatch_id=microbatch_id)
 
-    def recv_forward(self, lane=0, *, expected_microbatch_id=None,
-                     expected_shape=None, dtype=torch.bfloat16):
-        return self._observe("recv", super().recv_forward, lane, expected_microbatch_id,
-            lane, expected_microbatch_id=expected_microbatch_id,
-            expected_shape=expected_shape, dtype=dtype)
+    def recv_forward(self, *, microbatch_id, shape, dtype):
+        return self._observe("recv", super().recv_forward, microbatch_id,
+                             microbatch_id=microbatch_id, shape=shape, dtype=dtype)
 
 
 class _WorkerCapture:
@@ -116,14 +114,14 @@ class _WorkerCapture:
         finally:
             self.open = False
 
-    def before(self, seqs, prefill, lane, batch):
+    def before(self, seqs, prefill, batch):
         self.index += 1
         if self.profiler is not None and self.window and self.index == self.start_message:
             if self.cuda:
                 torch.cuda.synchronize()
             self._start()
         self.current = dict(message_index=self.index, microbatch_id=batch,
-            lane=lane, is_prefill=prefill, scheduled_sequences=len(seqs), stage=self.stage)
+            is_prefill=prefill, scheduled_sequences=len(seqs), stage=self.stage)
         if self.open:
             return torch.profiler.record_function(
                 f"rank{self.rank}.stage{self.stage}.message{self.index}.mb{batch}."
@@ -158,11 +156,8 @@ class _WorkerCapture:
                      cupti_flush=self.flush_status,
                      measurement="profile-only; synchronization/export distort throughput"))
         if self.trace_dir:
-            events = list(self.events)
-            for event in getattr(STATE.pipeline_transport, "events", []):
-                events.append(dict(event, pid=self.rank, tid="comm"))
             _write(Path(self.trace_dir) / f"pipeline_rank{self.rank}.json",
-                dict(displayTimeUnit="ms", traceEvents=events,
+                dict(displayTimeUnit="ms", traceEvents=self.events,
                      metadata=dict(rank=self.rank, world_rank=self.world_rank, pp_stage=self.stage,
                          clock="host_monotonic_us", measurement="CPU calls, not GPU duration",
                          tp_rank=STATE.tp_rank, ep_rank=STATE.ep_rank,
@@ -192,17 +187,17 @@ class ObservedModelRunner(ModelRunner):
         if os.getenv("VLLM_LEARN_TRACE_DIR") or os.getenv("VLLM_LEARN_CUDA_PROFILE", "0") == "1":
             self._observation = _WorkerCapture(self)
 
-    def run(self, seqs, is_prefill=True, pipeline_lane=0, microbatch_id=0):
+    def run(self, seqs, is_prefill=True, microbatch_id=0):
         previous = self._current
         self._current = (seqs, is_prefill)
         try:
             if self._observation is None or previous is not None:
-                return super().run(seqs, is_prefill, pipeline_lane, microbatch_id)
-            scope = self._observation.before(seqs, is_prefill, pipeline_lane, microbatch_id)
+                return super().run(seqs, is_prefill, microbatch_id=microbatch_id)
+            scope = self._observation.before(seqs, is_prefill, microbatch_id)
             started = time.perf_counter()
             try:
                 with scope:
-                    return super().run(seqs, is_prefill, pipeline_lane, microbatch_id)
+                    return super().run(seqs, is_prefill, microbatch_id=microbatch_id)
             finally:
                 self._observation.after(started)
         finally:

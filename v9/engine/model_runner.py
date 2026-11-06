@@ -4,14 +4,13 @@
 装载本 rank 权重、测量激活峰值、分配本 stage KV cache，
 将调度结果转换为 Context，执行 forward 并在末 stage 采样。
 """
-import os
 
 import torch
 
 from config import Config
 from engine.sequence import Sequence
 from models.qwen3_moe import Qwen3MoeForCausalLM
-from utils.context import set_context, get_context, reset_context
+from utils.context import set_context, get_context
 from utils.loader import load_model, load_thinker_config
 from engine.sampler import Sampler
 from engine.intermediate_tensors import IntermediateTensors
@@ -230,16 +229,9 @@ class ModelRunner:
 
     # ================= 前向 + 采样 =================
 
-    def flush_pipeline(self):
-        """Drain asynchronous PP sends before the process exits."""
-        from layers.parallel import STATE
-        transport = STATE.pipeline_transport
-        if transport is not None:
-            transport.flush()
-
     @torch.inference_mode()
     def run(self, seqs: list[Sequence], is_prefill: bool,
-            pipeline_lane: int = 0, microbatch_id: int = 0) -> list[int]:
+            microbatch_id: int = 0) -> list[int]:
         # Numerical reproducibility mode: keep each request's GEMM M shape
         # equal to its single-request path. Every PP worker receives the same
         # ordered sequence list and applies the same split. This intentionally
@@ -260,24 +252,20 @@ class ModelRunner:
         if self.config.batch_execution_mode == "per_request" and len(seqs) > 1:
             result = []
             for seq in seqs:
-                result.extend(self.run([seq], is_prefill, pipeline_lane,
-                                      microbatch_id))
+                result.extend(self.run([seq], is_prefill, microbatch_id))
             return result
         if is_prefill:
             input_ids, positions = self.prepare_prefill(seqs)
         else:
             input_ids, positions = self.prepare_decode(seqs)
-        # lane/微批元数据只用于 PP transport 的调度，不改变模型数学。
-        STATE.pipeline_lane = pipeline_lane
-        STATE.microbatch_id = microbatch_id
         intermediate = None
         transport = STATE.pipeline_transport
         if STATE.pp_size > 1 and not STATE.pipeline_warmup and STATE.pp_rank > 0:
             if transport is None:
                 raise RuntimeError("PP transport was not initialized")
-            hidden, residual, _, _ = transport.recv_forward(
-                pipeline_lane, expected_microbatch_id=microbatch_id,
-                expected_shape=(input_ids.numel(), self.config.hf_config.hidden_size),
+            hidden, residual = transport.recv_forward(
+                microbatch_id=microbatch_id,
+                shape=(input_ids.numel(), self.config.hf_config.hidden_size),
                 dtype=self.dtype)
             intermediate = IntermediateTensors(hidden, residual)
         hidden = self.model(input_ids, positions, intermediate_tensors=intermediate)
@@ -290,7 +278,7 @@ class ModelRunner:
                 if transport is None:
                     raise RuntimeError("PP transport was not initialized")
                 transport.send_forward(hidden.hidden_states, hidden.residual,
-                                       pipeline_lane, microbatch_id)
+                                       microbatch_id=microbatch_id)
             return [0] * len(seqs)
         if is_prefill:
             last = get_context().cu_seqlens_q[1:] - 1              # 每序列最后一个 q 位置

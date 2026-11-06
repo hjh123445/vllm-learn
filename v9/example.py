@@ -1,32 +1,38 @@
-import os
-import torch
+"""Text-only offline generation; parallelism uses the same EngineCore as serving."""
+import argparse
+import json
+from pathlib import Path
+
 from engine.core import EngineCore
 from samplingParams import SamplingParams
-from transformers import AutoTokenizer
 
-path = os.environ.get("VLLM_LEARN_MODEL") or \
-    "/data/jingjiang3/res/AI-ModelScope/Qwen3-Omni-30B-A3B-Instruct"
-import json
-tok = AutoTokenizer.from_pretrained(path)
-# Omni 的 chat 模板在独立的 chat_template.json（不在 tokenizer_config 里）
-with open(f"{path}/chat_template.json") as f:
-    tok.chat_template = json.load(f)["chat_template"]
-llm = EngineCore(
-    path, tp_size=1, gpus=[0],
-    config_kwargs={"max_num_seqs": 8, "max_model_len": 2048,
-                   "gpu_memory_utilization": 0.95, "enforce_eager": True})
-prompts = [
-    "介绍一下你自己",
-    "天空为什么是蓝色的？用一句话回答",
-    "1+1等于几？只回答数字",
-]
-# 文本路径：直接用 chat 模板（不带音频/图像输入，thinker 退化为纯文本 LLM）
-prompts = [tok.apply_chat_template([{"role": "user", "content": p}],
-                                   tokenize=False, add_generation_prompt=True)
-           for p in prompts]
-prompt_ids = [tok.encode(p, add_special_tokens=False) for p in prompts]
-outputs = llm.generate(prompt_ids, SamplingParams(temperature=0.0, max_tokens=48))
-for i, o in enumerate(outputs):
-    print(f"===== 请求 {i} =====")
-    print(o["text"][:200])
-llm.shutdown()
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model", required=True)
+    parser.add_argument("--tp", type=int, default=1)
+    parser.add_argument("--pp", type=int, default=1)
+    parser.add_argument("--enable-expert-parallel", action="store_true")
+    parser.add_argument("--prompt", default="介绍一下你自己")
+    parser.add_argument("--max-tokens", type=int, default=48)
+    args = parser.parse_args()
+    core = EngineCore(args.model, tp_size=args.tp, pp_size=args.pp,
+                      enable_expert_parallel=args.enable_expert_parallel,
+                      config_kwargs={"max_model_len": 2048, "max_num_seqs": 8})
+    try:
+        tokenizer = core.tokenizer
+        template = Path(args.model) / "chat_template.json"
+        if template.exists():
+            tokenizer.chat_template = json.loads(template.read_text(encoding="utf8"))["chat_template"]
+        prompt = tokenizer.apply_chat_template(
+            [{"role": "user", "content": args.prompt}], tokenize=True,
+            add_generation_prompt=True)
+        outputs = core.generate([prompt], SamplingParams(temperature=0., max_tokens=args.max_tokens))
+        for _, tokens in outputs:
+            print(tokenizer.decode(tokens, skip_special_tokens=True))
+    finally:
+        core.shutdown()
+
+
+if __name__ == "__main__":
+    main()

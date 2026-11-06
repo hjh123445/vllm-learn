@@ -1,0 +1,154 @@
+{
+  "displayTimeUnit": "ms",
+  "traceEvents": [
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 861036707112.415,
+      "dur": 66923.41901361942,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 1,
+        "microbatch_id": 0,
+        "lane": 0,
+        "is_prefill": true,
+        "scheduled_sequences": 2,
+        "stage": 0
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 861036775789.97,
+      "dur": 60127.08810158074,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 2,
+        "microbatch_id": 1,
+        "lane": 0,
+        "is_prefill": true,
+        "scheduled_sequences": 4,
+        "stage": 0
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 861036837268.511,
+      "dur": 80468.48606318235,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 3,
+        "microbatch_id": 2,
+        "lane": 0,
+        "is_prefill": true,
+        "scheduled_sequences": 6,
+        "stage": 0
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 861036919247.475,
+      "dur": 75942.50899273902,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 4,
+        "microbatch_id": 3,
+        "lane": 0,
+        "is_prefill": true,
+        "scheduled_sequences": 7,
+        "stage": 0
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 861036996601.064,
+      "dur": 76273.90802372247,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 5,
+        "microbatch_id": 4,
+        "lane": 0,
+        "is_prefill": true,
+        "scheduled_sequences": 6,
+        "stage": 0
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 861037074002.591,
+      "dur": 64182.46601242572,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 6,
+        "microbatch_id": 5,
+        "lane": 0,
+        "is_prefill": false,
+        "scheduled_sequences": 5,
+        "stage": 0
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 861037138882.7421,
+      "dur": 54828.37196905166,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 7,
+        "microbatch_id": 6,
+        "lane": 0,
+        "is_prefill": false,
+        "scheduled_sequences": 3,
+        "stage": 0
+      }
+    },
+    {
+      "name": "stage0.forward",
+      "cat": "forward",
+      "ph": "X",
+      "ts": 861037194886.804,
+      "dur": 49912.61102259159,
+      "pid": 3,
+      "tid": "compute",
+      "args": {
+        "message_index": 8,
+        "microbatch_id": 7,
+        "lane": 0,
+        "is_prefill": false,
+        "scheduled_sequences": 2,
+        "stage": 0
+      }
+    }
+  ],
+  "metadata": {
+    "rank": 3,
+    "world_rank": 3,
+    "pp_stage": 0,
+    "clock": "host_monotonic_us",
+    "measurement": "CPU calls, not GPU duration",
+    "tp_rank": 3,
+    "ep_rank": 3,
+    "layer_range": [
+      0,
+      8
+    ]
+  }
+}

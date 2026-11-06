@@ -1,0 +1,47 @@
+{
+  "model": "/tmp/vllm-runtime-cleanup-20261106-170226-final/tiny",
+  "output": "/tmp/vllm-runtime-cleanup-20261106-170226-final/tiny_pp2ep4",
+  "inputs": "/tmp/vllm-runtime-cleanup-20261106-170226-final/tiny_pp2ep4/inputs.json",
+  "generate_only": false,
+  "enable_expert_parallel": true,
+  "pp": 2,
+  "tp": 4,
+  "dp": 1,
+  "budget": 16,
+  "microbatch_tokens": 128,
+  "max_concurrent_batches": null,
+  "workloads": "short",
+  "repeats": 1,
+  "max_kv_blocks": 16,
+  "max_model_len": 128,
+  "max_num_seqs": 16,
+  "profile": true,
+  "profile_start_message": 1,
+  "profile_messages": 16,
+  "record_shapes": true,
+  "engine_config": {
+    "max_num_seqs": 16,
+    "max_model_len": 128,
+    "max_num_batched_tokens": 16,
+    "max_kvcache_blocks": 16,
+    "gpu_memory_utilization": 0.7,
+    "enable_prefix_caching": false
+  },
+  "ep_derived_from_dp_tp": true,
+  "numerical_policy": {
+    "VLLM_LEARN_EXPERT_BACKEND": "loop",
+    "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "0",
+    "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+    "VLLM_LEARN_REFERENCE_MATH": "1",
+    "VLLM_LEARN_MOE_REDUCTION": "fp32",
+    "VLLM_LEARN_ATTENTION_BACKEND": "default"
+  },
+  "source_sha256": {
+    "layers/moe.py": "733873159c014c98cadce6fff4e776ce3387d01c94c67fe1543efc5b1396e99d",
+    "layers/parallel.py": "4cb8491919b0d9b5f2001c8a80de22a73a8bc492438a2d2321f7b1bb98a63a2a",
+    "engine/core.py": "8d4487533f7b17f1940f1379a6d0df15b6df23cea0081b561490d10954351948",
+    "engine/worker.py": "9ebff00538d05ff15c81405f5d6284bd587f544b8ed5ad44a24381df896bec70"
+  },
+  "measurement": "diagnostic profile; exclude all timings from performance tables",
+  "inputs_sha256": "8516a9e3f0071a689b5582b01747c6510791c6181e5cb8aeddd324751cec02e3"
+}

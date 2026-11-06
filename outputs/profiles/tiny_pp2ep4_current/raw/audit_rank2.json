@@ -1,0 +1,43 @@
+{
+  "file": "/tmp/vllm-profile-tools-20261106/tiny_pp2tp4_window/trace/cuda_rank2.json",
+  "event_count": 85329,
+  "duration_categories": {
+    "user_annotation": 588,
+    "cpu_op": 34226,
+    "overhead": 34,
+    "gpu_memcpy": 952,
+    "cuda_runtime": 15966,
+    "kernel": 7384,
+    "cuda_driver": 612,
+    "gpu_user_annotation": 588,
+    "Trace": 1
+  },
+  "cpu_ops": 34226,
+  "cuda_runtime": 15966,
+  "gpu_kernels": 7384,
+  "nccl_kernels": 384,
+  "cuda_streams": [
+    "35",
+    "7"
+  ],
+  "module_labels": [
+    "stage0.layer0",
+    "stage0.layer0.attention",
+    "stage0.layer0.moe",
+    "stage0.layer0.moe.router",
+    "stage0.layer1",
+    "stage0.layer1.attention",
+    "stage0.layer1.moe",
+    "stage0.layer1.moe.router",
+    "stage0.layer2",
+    "stage0.layer2.attention",
+    "stage0.layer2.moe",
+    "stage0.layer2.moe.router",
+    "stage0.layer3",
+    "stage0.layer3.attention",
+    "stage0.layer3.moe",
+    "stage0.layer3.moe.router"
+  ],
+  "cuda_verified": true,
+  "note": "NCCL count uses kernel names; zero is not proof of CPU communication. No overlap or cross-rank clock correctness inferred by this audit."
+}

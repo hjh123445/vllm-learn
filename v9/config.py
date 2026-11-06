@@ -10,8 +10,6 @@ class Config:
     max_num_seqs: int = 512
     max_model_len: int = 4096
     gpu_memory_utilization: float = 0.9
-    tensor_parallel_size: int = 1
-    enforce_eager: bool = False
     enable_prefix_caching: bool = True
     # "batched" maximizes GEMM fusion; "per_request" preserves the
     # single-request shapes for reproducibility at a throughput cost.
@@ -29,7 +27,6 @@ class Config:
             raise ValueError('max_kvcache_blocks must be positive')
         if self.batch_execution_mode not in ("batched", "per_request"):
             raise ValueError("batch_execution_mode must be batched or per_request")
-        assert 1 <= self.tensor_parallel_size <= 8
         self.hf_config = AutoConfig.from_pretrained(self.model)
         # 多模态/Omni 模型的 max_position_embeddings 在 thinker.text_config 里
         mpe = getattr(self.hf_config, "max_position_embeddings", None)

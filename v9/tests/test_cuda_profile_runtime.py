@@ -8,7 +8,6 @@ import subprocess
 import urllib.request
 
 import pytest
-import torch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0,str(Path(__file__).resolve().parent))
@@ -39,7 +38,7 @@ def test_spawned_cuda_trace_and_unprofiled_throughput(tmp_path,monkeypatch,pp,tp
             runner_cls=ObservedModelRunner,transport_cls=ObservedPipelineTransport,
             pipeline_microbatch_tokens=8,config_kwargs=dict(max_model_len=128,
             max_num_batched_tokens=8,max_num_seqs=16,gpu_memory_utilization=.98,
-            max_kvcache_blocks=16,enforce_eager=True))
+            max_kvcache_blocks=16))
         try:
             started=time.perf_counter()
             result=core.generate([[1,2],[3,4,5],[1,2]],SamplingParams(temperature=0.,max_tokens=4,ignore_eos=True))

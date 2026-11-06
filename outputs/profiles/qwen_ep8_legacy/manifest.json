@@ -1,0 +1,98 @@
+{
+  "scope": "2026-11-04 historical Qwen3-Omni-30B Thinker text profiling; not current V1/DPxTP runtime; no throughput claims",
+  "source_run": "C:\\Users\\27363\\Documents\\Codex\\2026-11-01\\qing\\outputs\\verified_parallel\\rollout_trace_056_20261104_152543\\trace_ep8",
+  "files": [
+    {
+      "file": "raw/cuda_rank0.json.gz",
+      "original_bytes": 169544347,
+      "original_sha256": "48e5f5ddbde06ce933e54098257b67b786c467672f12f49327689024b21df794",
+      "sha256": "c3b6f10443af9081080200077cb0ac306145f163807b735a0078ee5acb2addf0"
+    },
+    {
+      "file": "raw/cuda_rank1.json.gz",
+      "original_bytes": 170704061,
+      "original_sha256": "44c14fcbaf7cbcc23319857344b1282b05b3fb5873be99aac9f10ff5c85e372c",
+      "sha256": "1e06fc8117c8a6659676e5c416c8e49e76cf7c7ea99077c50715de759e4c4de3"
+    },
+    {
+      "file": "raw/cuda_rank2.json.gz",
+      "original_bytes": 168678306,
+      "original_sha256": "6f5f555c8fa1783ddc35fb1bb4f47061fd1b947089552107624c8405fd026f22",
+      "sha256": "d6a859f9ae64b187f5389b8ff76c04987fb6e0fd01bf39dd56b87f4cb330f66b"
+    },
+    {
+      "file": "raw/cuda_rank3.json.gz",
+      "original_bytes": 171552460,
+      "original_sha256": "d5da58dc8513fddc7d7922d07969fd4504471766ee8746c8347433ffba50948d",
+      "sha256": "0ac58f4ee462cf4c2d6765a9eff279738b317760f8fabc6ca9348e48a21d00a6"
+    },
+    {
+      "file": "raw/cuda_rank4.json.gz",
+      "original_bytes": 168760096,
+      "original_sha256": "05491da9a7004ffd7f1b13dccd8f8ad98fdef70fb5c39b4ce15e89971eb17b8b",
+      "sha256": "722ec38f307abbb84e497c8d19355897f95783e1b01820593cbc89e9386d43e7"
+    },
+    {
+      "file": "raw/cuda_rank5.json.gz",
+      "original_bytes": 156992209,
+      "original_sha256": "ccc4893f9d1ba653ee57f142fa82df73be4b11740d837c3c837e3fc27a2c3ef3",
+      "sha256": "6cfdf0289c6cbfefdd97425a332e1b3b4fd72335348516e4a8007c14c96722b6"
+    },
+    {
+      "file": "raw/cuda_rank6.json.gz",
+      "original_bytes": 171192206,
+      "original_sha256": "8f39dd058b14dae0dc0a757b1e5b6ae70cb29ef7adf53141462f1c4fe230b631",
+      "sha256": "bb725b8b5e91b033ee8375aa5c5221e65deec02b3bf50c67b9d7dc36bf0b5dda"
+    },
+    {
+      "file": "raw/cuda_rank7.json.gz",
+      "original_bytes": 170867956,
+      "original_sha256": "0bf06ea4a6ab0a70527d1488947d663a7ffe44e018231557c082404839a97ca1",
+      "sha256": "9bb0d0c084e4da1dd61d38fd0bec7aca3b23e585d4a44801629623c7983632db"
+    }
+  ],
+  "capture_command": [
+    "/home/ifly_jyhe23/env/miniconda3/bin/python",
+    "v9/tests/capture_parallel_window.py",
+    "--model",
+    "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+    "--inputs",
+    "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/work/rollout_trace_056_20261104_152543/code/fixtures/inputs.json",
+    "--output",
+    "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/rollout_trace_056_20261104_152543/trace_ep8",
+    "--pp",
+    "1",
+    "--ep",
+    "8",
+    "--mode",
+    "optimized",
+    "--requests",
+    "8",
+    "--messages",
+    "8",
+    "--microbatch-tokens",
+    "128",
+    "--max-kv-blocks",
+    "128"
+  ],
+  "capture_environment": {
+    "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+    "VLLM_LEARN_REFERENCE_MATH": "1",
+    "VLLM_LEARN_ROUTER_LOGITS_DTYPE": "model",
+    "VLLM_LEARN_ATTENTION_BACKEND": "sdpa_reference",
+    "VLLM_LEARN_EP_SHARD_REPLICATED_INPUT": "1",
+    "VLLM_LEARN_EP_WEIGHT_AT_SOURCE": "1",
+    "VLLM_LEARN_EXPERT_BACKEND": "torch_grouped",
+    "VLLM_LEARN_SDPA_MASKED_GQA": "0",
+    "VLLM_LEARN_TRACE_DIR": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/rollout_trace_056_20261104_152543/trace_ep8/trace",
+    "VLLM_LEARN_CUDA_PROFILE": "1",
+    "VLLM_LEARN_PROFILE_MODE": "window",
+    "VLLM_LEARN_PROFILE_START_MESSAGE": "1",
+    "VLLM_LEARN_PROFILE_MESSAGES": "8",
+    "VLLM_LEARN_PROFILE_EXPERTS": "0",
+    "VLLM_LEARN_METRICS_DIR": "/data/ifly_jyhe23/hot_model_top5/audio_understand/qwen-audio/vllm-learn/outputs/verified_parallel/rollout_trace_056_20261104_152543/trace_ep8",
+    "VLLM_LEARN_PP_P2P_GROUPS": "world"
+  },
+  "actual_generated_tokens": 4,
+  "note": "inputs.json is the original short workload (max_tokens=32); capture_command overrides generation to 4. Legacy independent EP topology, not current DPxTP. Raw traces preserve every recorded event, but GPU tail events are incomplete; inspect analysis warnings."
+}

@@ -1,0 +1,82 @@
+Process SpawnProcess-2:2:
+Traceback (most recent call last):
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 28, in _spawn_with_env
+    fn(*args)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/worker.py", line 121, in worker_main
+    runner = runner_cls(config, dtype=None)
+TypeError: DiagnosticRunner.__init__() got an unexpected keyword argument 'dtype'
+Process SpawnProcess-2:1:
+Traceback (most recent call last):
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 28, in _spawn_with_env
+    fn(*args)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/worker.py", line 121, in worker_main
+    runner = runner_cls(config, dtype=None)
+TypeError: DiagnosticRunner.__init__() got an unexpected keyword argument 'dtype'
+Process SpawnProcess-1:1:
+Traceback (most recent call last):
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 28, in _spawn_with_env
+    fn(*args)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/worker.py", line 121, in worker_main
+    runner = runner_cls(config, dtype=None)
+TypeError: DiagnosticRunner.__init__() got an unexpected keyword argument 'dtype'
+Process SpawnProcess-1:2:
+Traceback (most recent call last):
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 28, in _spawn_with_env
+    fn(*args)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/worker.py", line 121, in worker_main
+    runner = runner_cls(config, dtype=None)
+TypeError: DiagnosticRunner.__init__() got an unexpected keyword argument 'dtype'
+[rank0]:[W1106 17:48:19.309835381 ProcessGroupNCCL.cpp:1524] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank0]:[W1106 17:48:19.543803407 ProcessGroupNCCL.cpp:1524] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+Process SpawnProcess-2:
+Traceback (most recent call last):
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/home/ifly_jyhe23/env/miniconda3/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/frontend.py", line 48, in _enginecore_process
+    core = EngineCore(model_path, **kw)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 220, in __init__
+    self._wait_for_worker(self.response_q[r].notify)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 368, in _wait_for_worker
+    wait_for_workers(connection, self.procs, self._worker_timeout)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/worker_health.py", line 13, in wait_for_workers
+    raise RuntimeError(f"GPU worker exited while waiting for IPC: {failed}")
+RuntimeError: GPU worker exited while waiting for IPC: [(1, 1)]
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/tools/diagnose_ep.py", line 138, in <module>
+    main()
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/tools/diagnose_ep.py", line 118, in main
+    frontend = DPFrontend(args.model, dp_size=2, tp_size=2,
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/frontend.py", line 151, in __init__
+    if self._recv(i)[0] != "ready":
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/frontend.py", line 169, in _recv
+    raise RuntimeError(response[1])
+RuntimeError: Traceback (most recent call last):
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/frontend.py", line 48, in _enginecore_process
+    core = EngineCore(model_path, **kw)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 220, in __init__
+    self._wait_for_worker(self.response_q[r].notify)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/core.py", line 368, in _wait_for_worker
+    wait_for_workers(connection, self.procs, self._worker_timeout)
+  File "/tmp/vllm-ep-diagnosis-20261106-174855/v9/engine/worker_health.py", line 13, in wait_for_workers
+    raise RuntimeError(f"GPU worker exited while waiting for IPC: {failed}")
+RuntimeError: GPU worker exited while waiting for IPC: [(1, 1)]
+

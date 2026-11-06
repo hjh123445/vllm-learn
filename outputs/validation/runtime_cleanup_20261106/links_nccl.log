@@ -1,0 +1,13 @@
+PASS dedicated=False async=False stages=4
+PASS dedicated=False async=True stages=4
+PASS dedicated=True async=False stages=4
+PASS dedicated=True async=True stages=4
+
+[rank0]:[W1106 16:53:21.986299700 ProcessGroupNCCL.cpp:4004] Warning: An unbatched P2P op (send/recv) was called on this ProcessGroup with size 4.  In lazy initialization mode, this will result in a new 2-rank NCCL communicator to be created. (function operator())
+[rank1]:[W1106 16:53:21.276558217 ProcessGroupNCCL.cpp:4004] Warning: An unbatched P2P op (send/recv) was called on this ProcessGroup with size 4.  In lazy initialization mode, this will result in a new 2-rank NCCL communicator to be created. (function operator())
+[rank1]:[W1106 16:53:21.382037194 ProcessGroupNCCL.cpp:4004] Warning: An unbatched P2P op (send/recv) was called on this ProcessGroup with size 4.  In lazy initialization mode, this will result in a new 2-rank NCCL communicator to be created. (function operator())
+/home/ifly_jyhe23/env/miniconda3/lib/python3.10/site-packages/torch/distributed/distributed_c10d.py:4876: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  warnings.warn(  # warn only once
+[rank2]:[W1106 16:53:21.576533740 ProcessGroupNCCL.cpp:4004] Warning: An unbatched P2P op (send/recv) was called on this ProcessGroup with size 4.  In lazy initialization mode, this will result in a new 2-rank NCCL communicator to be created. (function operator())
+[rank3]:[W1106 16:53:21.585849740 ProcessGroupNCCL.cpp:4004] Warning: An unbatched P2P op (send/recv) was called on this ProcessGroup with size 4.  In lazy initialization mode, this will result in a new 2-rank NCCL communicator to be created. (function operator())
+[rank2]:[W1106 16:53:21.676067010 ProcessGroupNCCL.cpp:4004] Warning: An unbatched P2P op (send/recv) was called on this ProcessGroup with size 4.  In lazy initialization mode, this will result in a new 2-rank NCCL communicator to be created. (function operator())

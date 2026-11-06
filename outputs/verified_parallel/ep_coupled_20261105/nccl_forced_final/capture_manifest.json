@@ -1,6 +1,0 @@
-{
-  "root": "/tmp/pytest-of-ifly_jyhe23/pytest-9/test_dp2tp2_ep4_fixed_prefix_l0",
-  "files": 24,
-  "archive": "/tmp/vllm-learn-ep-coupled-20261105-205704/fixed_prefix_logits.tar.gz",
-  "sha256": "abedd17b2e926071f9b55b3044e76d69ed04eba43b30c48115552ac9b3ed5337"
-}

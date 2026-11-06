@@ -22,9 +22,8 @@ from layers.dcp import get_dcp
 
 
 class Attention(nn.Module):
-    def __init__(self, num_heads, num_kv_heads, head_dim, scale):
+    def __init__(self, num_kv_heads, head_dim, scale):
         super().__init__()
-        self.num_heads = num_heads
         self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim
         self.scale = scale

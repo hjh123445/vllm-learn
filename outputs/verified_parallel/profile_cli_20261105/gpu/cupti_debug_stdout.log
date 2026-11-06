@@ -1,2 +1,0 @@
-subscribe 0 b'CUPTI_SUCCESS'
-Counter({None: 58, 'cpu_op': 1, 'Trace': 1})

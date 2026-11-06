@@ -1,0 +1,3775 @@
+{
+  "scope": "Original cached synthetic generation, TP0 replicated logits; not a benchmark",
+  "aligned_rows": 24,
+  "accepted_rows": 20,
+  "skipped_rows": 0,
+  "accepted_top1_matches": 20,
+  "worst_max_abs_error": 4.470348358154297e-07,
+  "first_token_divergence": null,
+  "generated_outputs_equal": true,
+  "reference_outputs": [
+    [
+      57,
+      60,
+      57,
+      60
+    ],
+    [
+      54,
+      60,
+      57,
+      60
+    ],
+    [
+      43,
+      43,
+      43,
+      43
+    ],
+    [
+      8,
+      12,
+      53,
+      53
+    ],
+    [
+      57,
+      60,
+      57,
+      60
+    ]
+  ],
+  "actual_outputs": [
+    [
+      57,
+      60,
+      57,
+      60
+    ],
+    [
+      54,
+      60,
+      57,
+      60
+    ],
+    [
+      43,
+      43,
+      43,
+      43
+    ],
+    [
+      8,
+      12,
+      53,
+      53
+    ],
+    [
+      57,
+      60,
+      57,
+      60
+    ]
+  ],
+  "idle_collective_calls": {
+    "reference": [],
+    "actual": [
+      "dp1_tp0/call005.pt",
+      "dp1_tp0/call006.pt"
+    ]
+  },
+  "records": [
+    {
+      "dp": 0,
+      "call": 0,
+      "is_prefill": true,
+      "seq": 0,
+      "prefix": [
+        1,
+        2
+      ],
+      "generation_position": 0,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 57,
+      "reference_sample": 57,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "57": {
+          "actual": 0.9979940056800842,
+          "reference": 0.9979943037033081
+        }
+      },
+      "actual_top1": 57,
+      "reference_top1": 57,
+      "top1_matches": true,
+      "reference_top1_margin": 0.061099112033843994,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.061098575592041016,
+      "max_abs_error": 2.980232238769531e-07,
+      "mean_abs_error": 6.604386726394296e-08,
+      "rmse": 8.8792020846995e-08,
+      "centered_cosine": 1.0000001192092896,
+      "probability_total_variation": 5.704350769519806e-08,
+      "reference_winner_error": 2.980232238769531e-07,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        57,
+        60,
+        54,
+        11,
+        47,
+        38,
+        18,
+        36,
+        13,
+        5
+      ],
+      "reference_top10": [
+        57,
+        60,
+        54,
+        11,
+        47,
+        38,
+        18,
+        36,
+        13,
+        5
+      ]
+    },
+    {
+      "dp": 0,
+      "call": 0,
+      "is_prefill": true,
+      "seq": 1,
+      "prefix": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "generation_position": -19,
+      "accepted_generation": false,
+      "batch_context_equal": true,
+      "actual_sample": 60,
+      "reference_sample": 60,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "60": {
+          "actual": 1.0554343461990356,
+          "reference": 1.0554343461990356
+        }
+      },
+      "actual_top1": 60,
+      "reference_top1": 60,
+      "top1_matches": true,
+      "reference_top1_margin": 0.0035248994827270508,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.0035248994827270508,
+      "max_abs_error": 3.203749656677246e-07,
+      "mean_abs_error": 7.485505193471909e-08,
+      "rmse": 9.606683448737385e-08,
+      "centered_cosine": 0.9999999403953552,
+      "probability_total_variation": 3.236345946788788e-08,
+      "reference_winner_error": 0.0,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        60,
+        57,
+        54,
+        11,
+        18,
+        47,
+        5,
+        38,
+        26,
+        43
+      ],
+      "reference_top10": [
+        60,
+        57,
+        54,
+        11,
+        18,
+        47,
+        5,
+        38,
+        26,
+        43
+      ]
+    },
+    {
+      "dp": 0,
+      "call": 1,
+      "is_prefill": true,
+      "seq": 0,
+      "prefix": [
+        1,
+        2,
+        57
+      ],
+      "generation_position": 1,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 60,
+      "reference_sample": 60,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "60": {
+          "actual": 1.1846709251403809,
+          "reference": 1.1846708059310913
+        }
+      },
+      "actual_top1": 60,
+      "reference_top1": 60,
+      "top1_matches": true,
+      "reference_top1_margin": 0.34057652950286865,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.34057652950286865,
+      "max_abs_error": 1.7881393432617188e-07,
+      "mean_abs_error": 6.280606612563133e-08,
+      "rmse": 7.667873802574832e-08,
+      "centered_cosine": 0.9999999403953552,
+      "probability_total_variation": 4.540197551250458e-08,
+      "reference_winner_error": 1.1920928955078125e-07,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        60,
+        18,
+        54,
+        49,
+        36,
+        47,
+        43,
+        26,
+        11,
+        13
+      ],
+      "reference_top10": [
+        60,
+        18,
+        54,
+        49,
+        36,
+        47,
+        43,
+        26,
+        11,
+        13
+      ]
+    },
+    {
+      "dp": 0,
+      "call": 1,
+      "is_prefill": true,
+      "seq": 1,
+      "prefix": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "generation_position": -12,
+      "accepted_generation": false,
+      "batch_context_equal": true,
+      "actual_sample": 11,
+      "reference_sample": 11,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "11": {
+          "actual": 0.8765823841094971,
+          "reference": 0.8765824437141418
+        }
+      },
+      "actual_top1": 11,
+      "reference_top1": 11,
+      "top1_matches": true,
+      "reference_top1_margin": 0.12498539686203003,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.12498557567596436,
+      "max_abs_error": 4.470348358154297e-07,
+      "mean_abs_error": 1.2794043868780136e-07,
+      "rmse": 1.5902725181149435e-07,
+      "centered_cosine": 1.0,
+      "probability_total_variation": 7.543712854385376e-08,
+      "reference_winner_error": 5.960464477539063e-08,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        11,
+        43,
+        57,
+        60,
+        30,
+        49,
+        51,
+        14,
+        21,
+        26
+      ],
+      "reference_top10": [
+        11,
+        43,
+        57,
+        60,
+        30,
+        49,
+        51,
+        14,
+        21,
+        26
+      ]
+    },
+    {
+      "dp": 0,
+      "call": 2,
+      "is_prefill": true,
+      "seq": 0,
+      "prefix": [
+        1,
+        2,
+        57,
+        60
+      ],
+      "generation_position": 2,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 57,
+      "reference_sample": 57,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "57": {
+          "actual": 0.9264370799064636,
+          "reference": 0.9264370203018188
+        }
+      },
+      "actual_top1": 57,
+      "reference_top1": 57,
+      "top1_matches": true,
+      "reference_top1_margin": 0.0619431734085083,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.0619431734085083,
+      "max_abs_error": 1.7881393432617188e-07,
+      "mean_abs_error": 5.3296389523893595e-08,
+      "rmse": 6.714078892855468e-08,
+      "centered_cosine": 1.0,
+      "probability_total_variation": 3.608874976634979e-08,
+      "reference_winner_error": 5.960464477539063e-08,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        57,
+        54,
+        60,
+        47,
+        18,
+        36,
+        5,
+        11,
+        13,
+        4
+      ],
+      "reference_top10": [
+        57,
+        54,
+        60,
+        47,
+        18,
+        36,
+        5,
+        11,
+        13,
+        4
+      ]
+    },
+    {
+      "dp": 0,
+      "call": 2,
+      "is_prefill": true,
+      "seq": 1,
+      "prefix": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "generation_position": -5,
+      "accepted_generation": false,
+      "batch_context_equal": true,
+      "actual_sample": 49,
+      "reference_sample": 49,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "49": {
+          "actual": 0.9646354913711548,
+          "reference": 0.9646354913711548
+        }
+      },
+      "actual_top1": 49,
+      "reference_top1": 49,
+      "top1_matches": true,
+      "reference_top1_margin": 0.030547499656677246,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.030547618865966797,
+      "max_abs_error": 2.980232238769531e-07,
+      "mean_abs_error": 9.927316568791866e-08,
+      "rmse": 1.2860705567163677e-07,
+      "centered_cosine": 1.0,
+      "probability_total_variation": 4.912726581096649e-08,
+      "reference_winner_error": 0.0,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        49,
+        60,
+        18,
+        43,
+        11,
+        29,
+        3,
+        54,
+        23,
+        26
+      ],
+      "reference_top10": [
+        49,
+        60,
+        18,
+        43,
+        11,
+        29,
+        3,
+        54,
+        23,
+        26
+      ]
+    },
+    {
+      "dp": 0,
+      "call": 3,
+      "is_prefill": true,
+      "seq": 0,
+      "prefix": [
+        1,
+        2,
+        57,
+        60,
+        57
+      ],
+      "generation_position": 3,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 60,
+      "reference_sample": 60,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "60": {
+          "actual": 1.0701966285705566,
+          "reference": 1.0701966285705566
+        }
+      },
+      "actual_top1": 60,
+      "reference_top1": 60,
+      "top1_matches": true,
+      "reference_top1_margin": 0.26298511028289795,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.26298511028289795,
+      "max_abs_error": 1.4901161193847656e-07,
+      "mean_abs_error": 4.119647201150656e-08,
+      "rmse": 5.7440434630962045e-08,
+      "centered_cosine": 1.0,
+      "probability_total_variation": 1.955777406692505e-08,
+      "reference_winner_error": 0.0,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        60,
+        18,
+        54,
+        47,
+        26,
+        31,
+        43,
+        13,
+        49,
+        57
+      ],
+      "reference_top10": [
+        60,
+        18,
+        54,
+        47,
+        26,
+        31,
+        43,
+        13,
+        49,
+        57
+      ]
+    },
+    {
+      "dp": 0,
+      "call": 3,
+      "is_prefill": true,
+      "seq": 1,
+      "prefix": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "generation_position": 0,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 43,
+      "reference_sample": 43,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "43": {
+          "actual": 0.7330342531204224,
+          "reference": 0.7330342531204224
+        }
+      },
+      "actual_top1": 43,
+      "reference_top1": 43,
+      "top1_matches": true,
+      "reference_top1_margin": 0.020436465740203857,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.020436525344848633,
+      "max_abs_error": 1.7881393432617188e-07,
+      "mean_abs_error": 6.506888894364238e-08,
+      "rmse": 8.093348924376187e-08,
+      "centered_cosine": 1.0000001192092896,
+      "probability_total_variation": 6.938353180885315e-08,
+      "reference_winner_error": 0.0,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        43,
+        49,
+        21,
+        11,
+        18,
+        60,
+        55,
+        51,
+        50,
+        26
+      ],
+      "reference_top10": [
+        43,
+        49,
+        21,
+        11,
+        18,
+        60,
+        55,
+        51,
+        50,
+        26
+      ]
+    },
+    {
+      "dp": 0,
+      "call": 3,
+      "is_prefill": true,
+      "seq": 2,
+      "prefix": [
+        1,
+        2
+      ],
+      "generation_position": 0,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 57,
+      "reference_sample": 57,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "57": {
+          "actual": 0.9979940056800842,
+          "reference": 0.9979943037033081
+        }
+      },
+      "actual_top1": 57,
+      "reference_top1": 57,
+      "top1_matches": true,
+      "reference_top1_margin": 0.061099112033843994,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.061098575592041016,
+      "max_abs_error": 2.980232238769531e-07,
+      "mean_abs_error": 6.604386726394296e-08,
+      "rmse": 8.8792020846995e-08,
+      "centered_cosine": 1.0000001192092896,
+      "probability_total_variation": 5.704350769519806e-08,
+      "reference_winner_error": 2.980232238769531e-07,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        57,
+        60,
+        54,
+        11,
+        47,
+        38,
+        18,
+        36,
+        13,
+        5
+      ],
+      "reference_top10": [
+        57,
+        60,
+        54,
+        11,
+        47,
+        38,
+        18,
+        36,
+        13,
+        5
+      ]
+    },
+    {
+      "dp": 0,
+      "call": 4,
+      "is_prefill": false,
+      "seq": 1,
+      "prefix": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        43
+      ],
+      "generation_position": 1,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 43,
+      "reference_sample": 43,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "43": {
+          "actual": 0.8893130421638489,
+          "reference": 0.8893132209777832
+        }
+      },
+      "actual_top1": 43,
+      "reference_top1": 43,
+      "top1_matches": true,
+      "reference_top1_margin": 0.054007112979888916,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.05400717258453369,
+      "max_abs_error": 2.384185791015625e-07,
+      "mean_abs_error": 7.64266587793827e-08,
+      "rmse": 9.667716227568235e-08,
+      "centered_cosine": 1.0,
+      "probability_total_variation": 4.959292709827423e-08,
+      "reference_winner_error": 1.7881393432617188e-07,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        43,
+        49,
+        55,
+        51,
+        54,
+        18,
+        21,
+        3,
+        61,
+        33
+      ],
+      "reference_top10": [
+        43,
+        49,
+        55,
+        51,
+        54,
+        18,
+        21,
+        3,
+        61,
+        33
+      ]
+    },
+    {
+      "dp": 0,
+      "call": 4,
+      "is_prefill": false,
+      "seq": 2,
+      "prefix": [
+        1,
+        2,
+        57
+      ],
+      "generation_position": 1,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 60,
+      "reference_sample": 60,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "60": {
+          "actual": 1.1846709251403809,
+          "reference": 1.1846708059310913
+        }
+      },
+      "actual_top1": 60,
+      "reference_top1": 60,
+      "top1_matches": true,
+      "reference_top1_margin": 0.3405764102935791,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.34057652950286865,
+      "max_abs_error": 2.086162567138672e-07,
+      "mean_abs_error": 6.423942977562547e-08,
+      "rmse": 7.656714728909719e-08,
+      "centered_cosine": 0.9999999403953552,
+      "probability_total_variation": 4.353933036327362e-08,
+      "reference_winner_error": 1.1920928955078125e-07,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        60,
+        18,
+        54,
+        49,
+        36,
+        47,
+        43,
+        26,
+        11,
+        13
+      ],
+      "reference_top10": [
+        60,
+        18,
+        54,
+        49,
+        36,
+        47,
+        43,
+        26,
+        11,
+        13
+      ]
+    },
+    {
+      "dp": 0,
+      "call": 5,
+      "is_prefill": false,
+      "seq": 1,
+      "prefix": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        43,
+        43
+      ],
+      "generation_position": 2,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 43,
+      "reference_sample": 43,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "43": {
+          "actual": 0.9629197716712952,
+          "reference": 0.9629197120666504
+        }
+      },
+      "actual_top1": 43,
+      "reference_top1": 43,
+      "top1_matches": true,
+      "reference_top1_margin": 0.059029459953308105,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.059029340744018555,
+      "max_abs_error": 2.384185791015625e-07,
+      "mean_abs_error": 6.696791388094425e-08,
+      "rmse": 8.856413558078202e-08,
+      "centered_cosine": 0.9999999403953552,
+      "probability_total_variation": 4.516914486885071e-08,
+      "reference_winner_error": 5.960464477539063e-08,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        43,
+        49,
+        55,
+        51,
+        21,
+        54,
+        18,
+        3,
+        33,
+        23
+      ],
+      "reference_top10": [
+        43,
+        49,
+        55,
+        51,
+        21,
+        54,
+        18,
+        3,
+        33,
+        23
+      ]
+    },
+    {
+      "dp": 0,
+      "call": 5,
+      "is_prefill": false,
+      "seq": 2,
+      "prefix": [
+        1,
+        2,
+        57,
+        60
+      ],
+      "generation_position": 2,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 57,
+      "reference_sample": 57,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "57": {
+          "actual": 0.9264371395111084,
+          "reference": 0.9264369010925293
+        }
+      },
+      "actual_top1": 57,
+      "reference_top1": 57,
+      "top1_matches": true,
+      "reference_top1_margin": 0.06194305419921875,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.06194335222244263,
+      "max_abs_error": 2.384185791015625e-07,
+      "mean_abs_error": 5.819310899823904e-08,
+      "rmse": 7.807955171301728e-08,
+      "centered_cosine": 0.9999999403953552,
+      "probability_total_variation": 4.1211023926734924e-08,
+      "reference_winner_error": 2.384185791015625e-07,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        57,
+        54,
+        60,
+        47,
+        18,
+        36,
+        5,
+        11,
+        13,
+        4
+      ],
+      "reference_top10": [
+        57,
+        54,
+        60,
+        47,
+        18,
+        36,
+        5,
+        11,
+        13,
+        4
+      ]
+    },
+    {
+      "dp": 0,
+      "call": 6,
+      "is_prefill": false,
+      "seq": 1,
+      "prefix": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        43,
+        43,
+        43
+      ],
+      "generation_position": 3,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 43,
+      "reference_sample": 43,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "43": {
+          "actual": 0.9383968114852905,
+          "reference": 0.9383968710899353
+        }
+      },
+      "actual_top1": 43,
+      "reference_top1": 43,
+      "top1_matches": true,
+      "reference_top1_margin": 0.06654393672943115,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.06654399633407593,
+      "max_abs_error": 2.384185791015625e-07,
+      "mean_abs_error": 8.539063856005669e-08,
+      "rmse": 1.0256500360128484e-07,
+      "centered_cosine": 1.0,
+      "probability_total_variation": 5.029141902923584e-08,
+      "reference_winner_error": 5.960464477539063e-08,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        43,
+        49,
+        55,
+        51,
+        21,
+        54,
+        23,
+        3,
+        50,
+        33
+      ],
+      "reference_top10": [
+        43,
+        49,
+        55,
+        51,
+        21,
+        54,
+        23,
+        3,
+        50,
+        33
+      ]
+    },
+    {
+      "dp": 0,
+      "call": 6,
+      "is_prefill": false,
+      "seq": 2,
+      "prefix": [
+        1,
+        2,
+        57,
+        60,
+        57
+      ],
+      "generation_position": 3,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 60,
+      "reference_sample": 60,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "60": {
+          "actual": 1.0701966285705566,
+          "reference": 1.0701966285705566
+        }
+      },
+      "actual_top1": 60,
+      "reference_top1": 60,
+      "top1_matches": true,
+      "reference_top1_margin": 0.2629849910736084,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.2629850506782532,
+      "max_abs_error": 1.7881393432617188e-07,
+      "mean_abs_error": 5.347828846424818e-08,
+      "rmse": 6.950969577701471e-08,
+      "centered_cosine": 1.0,
+      "probability_total_variation": 2.7474015951156616e-08,
+      "reference_winner_error": 0.0,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        60,
+        18,
+        54,
+        47,
+        26,
+        31,
+        43,
+        13,
+        49,
+        57
+      ],
+      "reference_top10": [
+        60,
+        18,
+        54,
+        47,
+        26,
+        31,
+        43,
+        13,
+        49,
+        57
+      ]
+    },
+    {
+      "dp": 1,
+      "call": 0,
+      "is_prefill": true,
+      "seq": 0,
+      "prefix": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "generation_position": -2,
+      "accepted_generation": false,
+      "batch_context_equal": true,
+      "actual_sample": 54,
+      "reference_sample": 54,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "54": {
+          "actual": 0.9809166193008423,
+          "reference": 0.9809165596961975
+        }
+      },
+      "actual_top1": 54,
+      "reference_top1": 54,
+      "top1_matches": true,
+      "reference_top1_margin": 0.04780316352844238,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.04780322313308716,
+      "max_abs_error": 1.4901161193847656e-07,
+      "mean_abs_error": 5.21540641784668e-08,
+      "rmse": 6.536531316214678e-08,
+      "centered_cosine": 0.9999999403953552,
+      "probability_total_variation": 3.4226104617118835e-08,
+      "reference_winner_error": 5.960464477539063e-08,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        54,
+        57,
+        60,
+        34,
+        5,
+        18,
+        13,
+        11,
+        36,
+        26
+      ],
+      "reference_top10": [
+        54,
+        57,
+        60,
+        34,
+        5,
+        18,
+        13,
+        11,
+        36,
+        26
+      ]
+    },
+    {
+      "dp": 1,
+      "call": 1,
+      "is_prefill": true,
+      "seq": 0,
+      "prefix": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "generation_position": 0,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 54,
+      "reference_sample": 54,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "54": {
+          "actual": 0.8574231266975403,
+          "reference": 0.8574232459068298
+        }
+      },
+      "actual_top1": 54,
+      "reference_top1": 54,
+      "top1_matches": true,
+      "reference_top1_margin": 0.15798050165176392,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.15798038244247437,
+      "max_abs_error": 1.4901161193847656e-07,
+      "mean_abs_error": 5.033507477492094e-08,
+      "rmse": 6.634902405266985e-08,
+      "centered_cosine": 0.9999999403953552,
+      "probability_total_variation": 3.003515303134918e-08,
+      "reference_winner_error": 1.1920928955078125e-07,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        54,
+        34,
+        60,
+        57,
+        18,
+        36,
+        26,
+        23,
+        11,
+        5
+      ],
+      "reference_top10": [
+        54,
+        34,
+        60,
+        57,
+        18,
+        36,
+        26,
+        23,
+        11,
+        5
+      ]
+    },
+    {
+      "dp": 1,
+      "call": 1,
+      "is_prefill": true,
+      "seq": 1,
+      "prefix": [
+        5,
+        6,
+        7
+      ],
+      "generation_position": 0,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 8,
+      "reference_sample": 8,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "8": {
+          "actual": 1.043859601020813,
+          "reference": 1.0438594818115234
+        }
+      },
+      "actual_top1": 8,
+      "reference_top1": 8,
+      "top1_matches": true,
+      "reference_top1_margin": 0.10321801900863647,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.10321789979934692,
+      "max_abs_error": 3.501772880554199e-07,
+      "mean_abs_error": 1.0163057595491409e-07,
+      "rmse": 1.3534811671434e-07,
+      "centered_cosine": 1.0,
+      "probability_total_variation": 5.820766091346741e-08,
+      "reference_winner_error": 1.1920928955078125e-07,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        8,
+        31,
+        12,
+        46,
+        27,
+        9,
+        59,
+        17,
+        53,
+        16
+      ],
+      "reference_top10": [
+        8,
+        31,
+        12,
+        46,
+        27,
+        9,
+        59,
+        17,
+        53,
+        16
+      ]
+    },
+    {
+      "dp": 1,
+      "call": 2,
+      "is_prefill": false,
+      "seq": 0,
+      "prefix": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        54
+      ],
+      "generation_position": 1,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 60,
+      "reference_sample": 60,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "60": {
+          "actual": 0.9600631594657898,
+          "reference": 0.9600631594657898
+        }
+      },
+      "actual_top1": 60,
+      "reference_top1": 60,
+      "top1_matches": true,
+      "reference_top1_margin": 0.2098851203918457,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.20988517999649048,
+      "max_abs_error": 1.862645149230957e-07,
+      "mean_abs_error": 4.662433639168739e-08,
+      "rmse": 6.14840445223308e-08,
+      "centered_cosine": 0.9999999403953552,
+      "probability_total_variation": 1.862645149230957e-08,
+      "reference_winner_error": 0.0,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        60,
+        18,
+        57,
+        54,
+        11,
+        36,
+        34,
+        49,
+        53,
+        63
+      ],
+      "reference_top10": [
+        60,
+        18,
+        57,
+        54,
+        11,
+        36,
+        34,
+        49,
+        53,
+        63
+      ]
+    },
+    {
+      "dp": 1,
+      "call": 2,
+      "is_prefill": false,
+      "seq": 1,
+      "prefix": [
+        5,
+        6,
+        7,
+        8
+      ],
+      "generation_position": 1,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 12,
+      "reference_sample": 12,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "12": {
+          "actual": 0.8187028765678406,
+          "reference": 0.8187028765678406
+        }
+      },
+      "actual_top1": 12,
+      "reference_top1": 12,
+      "top1_matches": true,
+      "reference_top1_margin": 0.07859081029891968,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.07859081029891968,
+      "max_abs_error": 2.384185791015625e-07,
+      "mean_abs_error": 5.0447852117940784e-08,
+      "rmse": 6.604587809988516e-08,
+      "centered_cosine": 1.0000001192092896,
+      "probability_total_variation": 2.2584572434425354e-08,
+      "reference_winner_error": 0.0,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        12,
+        8,
+        14,
+        27,
+        10,
+        53,
+        25,
+        9,
+        16,
+        31
+      ],
+      "reference_top10": [
+        12,
+        8,
+        14,
+        27,
+        10,
+        53,
+        25,
+        9,
+        16,
+        31
+      ]
+    },
+    {
+      "dp": 1,
+      "call": 3,
+      "is_prefill": false,
+      "seq": 0,
+      "prefix": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        54,
+        60
+      ],
+      "generation_position": 2,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 57,
+      "reference_sample": 57,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "57": {
+          "actual": 0.8496967554092407,
+          "reference": 0.8496967554092407
+        }
+      },
+      "actual_top1": 57,
+      "reference_top1": 57,
+      "top1_matches": true,
+      "reference_top1_margin": 0.005431115627288818,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.005431175231933594,
+      "max_abs_error": 1.7881393432617188e-07,
+      "mean_abs_error": 5.4758857004344463e-08,
+      "rmse": 6.861485957188052e-08,
+      "centered_cosine": 0.9999999403953552,
+      "probability_total_variation": 2.8405338525772095e-08,
+      "reference_winner_error": 0.0,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        57,
+        54,
+        60,
+        18,
+        5,
+        13,
+        11,
+        34,
+        36,
+        47
+      ],
+      "reference_top10": [
+        57,
+        54,
+        60,
+        18,
+        5,
+        13,
+        11,
+        34,
+        36,
+        47
+      ]
+    },
+    {
+      "dp": 1,
+      "call": 3,
+      "is_prefill": false,
+      "seq": 1,
+      "prefix": [
+        5,
+        6,
+        7,
+        8,
+        12
+      ],
+      "generation_position": 2,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 53,
+      "reference_sample": 53,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "53": {
+          "actual": 0.7805821895599365,
+          "reference": 0.7805821299552917
+        }
+      },
+      "actual_top1": 53,
+      "reference_top1": 53,
+      "top1_matches": true,
+      "reference_top1_margin": 0.045678675174713135,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.04567873477935791,
+      "max_abs_error": 2.086162567138672e-07,
+      "mean_abs_error": 8.48995114210993e-08,
+      "rmse": 1.0130455052603793e-07,
+      "centered_cosine": 0.9999999403953552,
+      "probability_total_variation": 4.889443516731262e-08,
+      "reference_winner_error": 5.960464477539063e-08,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        53,
+        60,
+        12,
+        18,
+        10,
+        31,
+        13,
+        39,
+        25,
+        32
+      ],
+      "reference_top10": [
+        53,
+        60,
+        12,
+        18,
+        10,
+        31,
+        13,
+        39,
+        25,
+        32
+      ]
+    },
+    {
+      "dp": 1,
+      "call": 4,
+      "is_prefill": false,
+      "seq": 0,
+      "prefix": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        54,
+        60,
+        57
+      ],
+      "generation_position": 3,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 60,
+      "reference_sample": 60,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "60": {
+          "actual": 1.0280678272247314,
+          "reference": 1.0280678272247314
+        }
+      },
+      "actual_top1": 60,
+      "reference_top1": 60,
+      "top1_matches": true,
+      "reference_top1_margin": 0.1888178586959839,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.18881797790527344,
+      "max_abs_error": 1.7881393432617188e-07,
+      "mean_abs_error": 3.9723090594634414e-08,
+      "rmse": 5.532258384732813e-08,
+      "centered_cosine": 1.0,
+      "probability_total_variation": 2.1187588572502136e-08,
+      "reference_winner_error": 0.0,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        60,
+        18,
+        54,
+        26,
+        5,
+        13,
+        47,
+        11,
+        49,
+        57
+      ],
+      "reference_top10": [
+        60,
+        18,
+        54,
+        26,
+        5,
+        13,
+        47,
+        11,
+        49,
+        57
+      ]
+    },
+    {
+      "dp": 1,
+      "call": 4,
+      "is_prefill": false,
+      "seq": 1,
+      "prefix": [
+        5,
+        6,
+        7,
+        8,
+        12,
+        53
+      ],
+      "generation_position": 3,
+      "accepted_generation": true,
+      "batch_context_equal": true,
+      "actual_sample": 53,
+      "reference_sample": 53,
+      "actual_sample_matches_argmax": true,
+      "reference_sample_matches_argmax": true,
+      "candidate_logits": {
+        "53": {
+          "actual": 0.7002220749855042,
+          "reference": 0.7002220153808594
+        }
+      },
+      "actual_top1": 53,
+      "reference_top1": 53,
+      "top1_matches": true,
+      "reference_top1_margin": 0.0856252908706665,
+      "actual_tied_winners": 1,
+      "reference_tied_winners": 1,
+      "actual_winner_is_reference_max": true,
+      "reference_winner_is_actual_max": true,
+      "topk_tie_order_changes_actual_winner": false,
+      "topk_tie_order_changes_reference_winner": false,
+      "actual_top1_margin": 0.08562541007995605,
+      "max_abs_error": 3.8743019104003906e-07,
+      "mean_abs_error": 1.207663444802165e-07,
+      "rmse": 1.5181187507096183e-07,
+      "centered_cosine": 1.0,
+      "probability_total_variation": 6.682239472866058e-08,
+      "reference_winner_error": 5.960464477539063e-08,
+      "top1_stability_bound_satisfied": true,
+      "top10_overlap": 10,
+      "actual_top10": [
+        53,
+        63,
+        13,
+        12,
+        25,
+        8,
+        14,
+        44,
+        60,
+        10
+      ],
+      "reference_top10": [
+        53,
+        63,
+        13,
+        12,
+        25,
+        8,
+        14,
+        44,
+        60,
+        10
+      ]
+    }
+  ],
+  "skipped": [],
+  "module_boundaries": [
+    {
+      "dp": 0,
+      "call": 0,
+      "is_prefill": true,
+      "outputs": {
+        "model.embed_tokens": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.self_attn": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.0.mlp": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-09
+        },
+        "model.layers.1.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.1.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.1.mlp": {
+          "equal": false,
+          "max_abs_error": 1.4901161193847656e-08
+        },
+        "model.layers.2.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.2.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.2.mlp": {
+          "equal": false,
+          "max_abs_error": 2.2351741790771484e-08
+        },
+        "model.layers.3.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.3.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.3.mlp": {
+          "equal": false,
+          "max_abs_error": 2.9802322387695312e-08
+        },
+        "model.layers.4.self_attn": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-08
+        },
+        "model.layers.4.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.4.mlp": {
+          "equal": false,
+          "max_abs_error": 2.9802322387695312e-08
+        },
+        "model.layers.5.self_attn": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-08
+        },
+        "model.layers.5.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.5.mlp": {
+          "equal": false,
+          "max_abs_error": 2.9802322387695312e-08
+        },
+        "model.layers.6.self_attn": {
+          "equal": false,
+          "max_abs_error": 1.1920928955078125e-07
+        },
+        "model.layers.6.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.6.mlp": {
+          "equal": false,
+          "max_abs_error": 2.2351741790771484e-08
+        },
+        "model.layers.7.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.940696716308594e-08
+        },
+        "model.layers.7.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.7.mlp": {
+          "equal": false,
+          "max_abs_error": 2.9802322387695312e-08
+        },
+        "lm_head": {
+          "equal": false,
+          "max_abs_error": 3.203749656677246e-07
+        }
+      }
+    },
+    {
+      "dp": 0,
+      "call": 1,
+      "is_prefill": true,
+      "outputs": {
+        "model.embed_tokens": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.self_attn": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.0.mlp": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-09
+        },
+        "model.layers.1.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.029141902923584e-08
+        },
+        "model.layers.1.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.1.mlp": {
+          "equal": false,
+          "max_abs_error": 2.60770320892334e-08
+        },
+        "model.layers.2.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.2.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.2.mlp": {
+          "equal": false,
+          "max_abs_error": 2.60770320892334e-08
+        },
+        "model.layers.3.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.940696716308594e-08
+        },
+        "model.layers.3.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.3.mlp": {
+          "equal": false,
+          "max_abs_error": 2.9802322387695312e-08
+        },
+        "model.layers.4.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.195638656616211e-08
+        },
+        "model.layers.4.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.4.mlp": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-08
+        },
+        "model.layers.5.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.940696716308594e-08
+        },
+        "model.layers.5.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.5.mlp": {
+          "equal": false,
+          "max_abs_error": 3.3527612686157227e-08
+        },
+        "model.layers.6.self_attn": {
+          "equal": false,
+          "max_abs_error": 1.1920928955078125e-07
+        },
+        "model.layers.6.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.6.mlp": {
+          "equal": false,
+          "max_abs_error": 3.073364496231079e-08
+        },
+        "model.layers.7.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.940696716308594e-08
+        },
+        "model.layers.7.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 8.940696716308594e-08
+          }
+        ],
+        "model.layers.7.mlp": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "lm_head": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-07
+        }
+      }
+    },
+    {
+      "dp": 0,
+      "call": 2,
+      "is_prefill": true,
+      "outputs": {
+        "model.embed_tokens": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.self_attn": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.0.mlp": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-09
+        },
+        "model.layers.1.self_attn": {
+          "equal": false,
+          "max_abs_error": 3.725290298461914e-08
+        },
+        "model.layers.1.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.1.mlp": {
+          "equal": false,
+          "max_abs_error": 1.257285475730896e-08
+        },
+        "model.layers.2.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.2.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.2.mlp": {
+          "equal": false,
+          "max_abs_error": 3.725290298461914e-08
+        },
+        "model.layers.3.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.195638656616211e-08
+        },
+        "model.layers.3.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.3.mlp": {
+          "equal": false,
+          "max_abs_error": 3.725290298461914e-08
+        },
+        "model.layers.4.self_attn": {
+          "equal": false,
+          "max_abs_error": 1.0803341865539551e-07
+        },
+        "model.layers.4.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 8.940696716308594e-08
+          }
+        ],
+        "model.layers.4.mlp": {
+          "equal": false,
+          "max_abs_error": 6.705522537231445e-08
+        },
+        "model.layers.5.self_attn": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-08
+        },
+        "model.layers.5.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 8.940696716308594e-08
+          }
+        ],
+        "model.layers.5.mlp": {
+          "equal": false,
+          "max_abs_error": 5.029141902923584e-08
+        },
+        "model.layers.6.self_attn": {
+          "equal": false,
+          "max_abs_error": 1.6763806343078613e-07
+        },
+        "model.layers.6.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.6.mlp": {
+          "equal": false,
+          "max_abs_error": 4.284083843231201e-08
+        },
+        "model.layers.7.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.940696716308594e-08
+        },
+        "model.layers.7.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.7.mlp": {
+          "equal": false,
+          "max_abs_error": 5.21540641784668e-08
+        },
+        "lm_head": {
+          "equal": false,
+          "max_abs_error": 2.980232238769531e-07
+        }
+      }
+    },
+    {
+      "dp": 0,
+      "call": 3,
+      "is_prefill": true,
+      "outputs": {
+        "model.embed_tokens": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.self_attn": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.0.mlp": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-09
+        },
+        "model.layers.1.self_attn": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "model.layers.1.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.1.mlp": {
+          "equal": false,
+          "max_abs_error": 1.4901161193847656e-08
+        },
+        "model.layers.2.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.2.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.2.mlp": {
+          "equal": false,
+          "max_abs_error": 2.2351741790771484e-08
+        },
+        "model.layers.3.self_attn": {
+          "equal": false,
+          "max_abs_error": 6.146728992462158e-08
+        },
+        "model.layers.3.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.3.mlp": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "model.layers.4.self_attn": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-08
+        },
+        "model.layers.4.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.4.mlp": {
+          "equal": false,
+          "max_abs_error": 3.3527612686157227e-08
+        },
+        "model.layers.5.self_attn": {
+          "equal": false,
+          "max_abs_error": 1.043081283569336e-07
+        },
+        "model.layers.5.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.5.mlp": {
+          "equal": false,
+          "max_abs_error": 3.91155481338501e-08
+        },
+        "model.layers.6.self_attn": {
+          "equal": false,
+          "max_abs_error": 1.1920928955078125e-07
+        },
+        "model.layers.6.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.6.mlp": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "model.layers.7.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.940696716308594e-08
+        },
+        "model.layers.7.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.7.mlp": {
+          "equal": false,
+          "max_abs_error": 5.21540641784668e-08
+        },
+        "lm_head": {
+          "equal": false,
+          "max_abs_error": 2.980232238769531e-07
+        }
+      }
+    },
+    {
+      "dp": 0,
+      "call": 4,
+      "is_prefill": false,
+      "outputs": {
+        "model.embed_tokens": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.self_attn": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.0.mlp": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-09
+        },
+        "model.layers.1.self_attn": {
+          "equal": false,
+          "max_abs_error": 2.9802322387695312e-08
+        },
+        "model.layers.1.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.1.mlp": {
+          "equal": false,
+          "max_abs_error": 4.0978193283081055e-08
+        },
+        "model.layers.2.self_attn": {
+          "equal": false,
+          "max_abs_error": 2.60770320892334e-08
+        },
+        "model.layers.2.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.2.mlp": {
+          "equal": false,
+          "max_abs_error": 1.862645149230957e-08
+        },
+        "model.layers.3.self_attn": {
+          "equal": false,
+          "max_abs_error": 3.91155481338501e-08
+        },
+        "model.layers.3.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.3.mlp": {
+          "equal": false,
+          "max_abs_error": 1.862645149230957e-08
+        },
+        "model.layers.4.self_attn": {
+          "equal": false,
+          "max_abs_error": 6.705522537231445e-08
+        },
+        "model.layers.4.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.4.mlp": {
+          "equal": false,
+          "max_abs_error": 1.4901161193847656e-08
+        },
+        "model.layers.5.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.5.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.5.mlp": {
+          "equal": false,
+          "max_abs_error": 1.4901161193847656e-08
+        },
+        "model.layers.6.self_attn": {
+          "equal": false,
+          "max_abs_error": 6.705522537231445e-08
+        },
+        "model.layers.6.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 2.9802322387695312e-08
+          }
+        ],
+        "model.layers.6.mlp": {
+          "equal": false,
+          "max_abs_error": 2.7939677238464355e-08
+        },
+        "model.layers.7.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.7.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.7.mlp": {
+          "equal": false,
+          "max_abs_error": 2.2351741790771484e-08
+        },
+        "lm_head": {
+          "equal": false,
+          "max_abs_error": 2.384185791015625e-07
+        }
+      }
+    },
+    {
+      "dp": 0,
+      "call": 5,
+      "is_prefill": false,
+      "outputs": {
+        "model.embed_tokens": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.self_attn": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.0.mlp": {
+          "equal": false,
+          "max_abs_error": 9.313225746154785e-09
+        },
+        "model.layers.1.self_attn": {
+          "equal": false,
+          "max_abs_error": 2.9802322387695312e-08
+        },
+        "model.layers.1.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.1.mlp": {
+          "equal": false,
+          "max_abs_error": 1.1175870895385742e-08
+        },
+        "model.layers.2.self_attn": {
+          "equal": false,
+          "max_abs_error": 4.0978193283081055e-08
+        },
+        "model.layers.2.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.2.mlp": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-09
+        },
+        "model.layers.3.self_attn": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "model.layers.3.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.3.mlp": {
+          "equal": false,
+          "max_abs_error": 1.257285475730896e-08
+        },
+        "model.layers.4.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.4.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.4.mlp": {
+          "equal": false,
+          "max_abs_error": 3.5390257835388184e-08
+        },
+        "model.layers.5.self_attn": {
+          "equal": false,
+          "max_abs_error": 3.725290298461914e-08
+        },
+        "model.layers.5.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.5.mlp": {
+          "equal": false,
+          "max_abs_error": 2.60770320892334e-08
+        },
+        "model.layers.6.self_attn": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-08
+        },
+        "model.layers.6.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.6.mlp": {
+          "equal": false,
+          "max_abs_error": 1.4901161193847656e-08
+        },
+        "model.layers.7.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.7.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.7.mlp": {
+          "equal": false,
+          "max_abs_error": 2.9802322387695312e-08
+        },
+        "lm_head": {
+          "equal": false,
+          "max_abs_error": 2.384185791015625e-07
+        }
+      }
+    },
+    {
+      "dp": 0,
+      "call": 6,
+      "is_prefill": false,
+      "outputs": {
+        "model.embed_tokens": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.self_attn": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.0.mlp": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-09
+        },
+        "model.layers.1.self_attn": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "model.layers.1.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.1.mlp": {
+          "equal": false,
+          "max_abs_error": 1.30385160446167e-08
+        },
+        "model.layers.2.self_attn": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "model.layers.2.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.2.mlp": {
+          "equal": false,
+          "max_abs_error": 1.1175870895385742e-08
+        },
+        "model.layers.3.self_attn": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "model.layers.3.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.3.mlp": {
+          "equal": false,
+          "max_abs_error": 2.2351741790771484e-08
+        },
+        "model.layers.4.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.21540641784668e-08
+        },
+        "model.layers.4.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.4.mlp": {
+          "equal": false,
+          "max_abs_error": 1.885928213596344e-08
+        },
+        "model.layers.5.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.5.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.5.mlp": {
+          "equal": false,
+          "max_abs_error": 2.2351741790771484e-08
+        },
+        "model.layers.6.self_attn": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "model.layers.6.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.6.mlp": {
+          "equal": false,
+          "max_abs_error": 1.862645149230957e-08
+        },
+        "model.layers.7.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.7.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 8.940696716308594e-08
+          }
+        ],
+        "model.layers.7.mlp": {
+          "equal": false,
+          "max_abs_error": 4.0978193283081055e-08
+        },
+        "lm_head": {
+          "equal": false,
+          "max_abs_error": 2.384185791015625e-07
+        }
+      }
+    },
+    {
+      "dp": 1,
+      "call": 0,
+      "is_prefill": true,
+      "outputs": {
+        "model.embed_tokens": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.self_attn": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.0.mlp": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-09
+        },
+        "model.layers.1.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.1.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.1.mlp": {
+          "equal": false,
+          "max_abs_error": 1.4901161193847656e-08
+        },
+        "model.layers.2.self_attn": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "model.layers.2.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.2.mlp": {
+          "equal": false,
+          "max_abs_error": 2.2351741790771484e-08
+        },
+        "model.layers.3.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.940696716308594e-08
+        },
+        "model.layers.3.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.3.mlp": {
+          "equal": false,
+          "max_abs_error": 2.9802322387695312e-08
+        },
+        "model.layers.4.self_attn": {
+          "equal": false,
+          "max_abs_error": 6.332993507385254e-08
+        },
+        "model.layers.4.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 8.940696716308594e-08
+          }
+        ],
+        "model.layers.4.mlp": {
+          "equal": false,
+          "max_abs_error": 2.60770320892334e-08
+        },
+        "model.layers.5.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.5.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.5.mlp": {
+          "equal": false,
+          "max_abs_error": 2.2351741790771484e-08
+        },
+        "model.layers.6.self_attn": {
+          "equal": false,
+          "max_abs_error": 6.705522537231445e-08
+        },
+        "model.layers.6.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.6.mlp": {
+          "equal": false,
+          "max_abs_error": 1.862645149230957e-08
+        },
+        "model.layers.7.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.7.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.7.mlp": {
+          "equal": false,
+          "max_abs_error": 2.60770320892334e-08
+        },
+        "lm_head": {
+          "equal": false,
+          "max_abs_error": 1.4901161193847656e-07
+        }
+      }
+    },
+    {
+      "dp": 1,
+      "call": 1,
+      "is_prefill": true,
+      "outputs": {
+        "model.embed_tokens": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.self_attn": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.0.mlp": {
+          "equal": false,
+          "max_abs_error": 1.1175870895385742e-08
+        },
+        "model.layers.1.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.1.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.1.mlp": {
+          "equal": false,
+          "max_abs_error": 2.2351741790771484e-08
+        },
+        "model.layers.2.self_attn": {
+          "equal": false,
+          "max_abs_error": 6.332993507385254e-08
+        },
+        "model.layers.2.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.2.mlp": {
+          "equal": false,
+          "max_abs_error": 1.210719347000122e-08
+        },
+        "model.layers.3.self_attn": {
+          "equal": false,
+          "max_abs_error": 1.1920928955078125e-07
+        },
+        "model.layers.3.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.3.mlp": {
+          "equal": false,
+          "max_abs_error": 3.3527612686157227e-08
+        },
+        "model.layers.4.self_attn": {
+          "equal": false,
+          "max_abs_error": 7.078051567077637e-08
+        },
+        "model.layers.4.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.4.mlp": {
+          "equal": false,
+          "max_abs_error": 2.9802322387695312e-08
+        },
+        "model.layers.5.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.5.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 8.940696716308594e-08
+          }
+        ],
+        "model.layers.5.mlp": {
+          "equal": false,
+          "max_abs_error": 3.818422555923462e-08
+        },
+        "model.layers.6.self_attn": {
+          "equal": false,
+          "max_abs_error": 1.2665987014770508e-07
+        },
+        "model.layers.6.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.6.mlp": {
+          "equal": false,
+          "max_abs_error": 2.60770320892334e-08
+        },
+        "model.layers.7.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.940696716308594e-08
+        },
+        "model.layers.7.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.7.mlp": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "lm_head": {
+          "equal": false,
+          "max_abs_error": 3.501772880554199e-07
+        }
+      }
+    },
+    {
+      "dp": 1,
+      "call": 2,
+      "is_prefill": false,
+      "outputs": {
+        "model.embed_tokens": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.self_attn": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.0.mlp": {
+          "equal": false,
+          "max_abs_error": 1.1175870895385742e-08
+        },
+        "model.layers.1.self_attn": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "model.layers.1.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.1.mlp": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-09
+        },
+        "model.layers.2.self_attn": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "model.layers.2.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.2.mlp": {
+          "equal": false,
+          "max_abs_error": 1.4901161193847656e-08
+        },
+        "model.layers.3.self_attn": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "model.layers.3.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.3.mlp": {
+          "equal": false,
+          "max_abs_error": 1.4901161193847656e-08
+        },
+        "model.layers.4.self_attn": {
+          "equal": false,
+          "max_abs_error": 7.82310962677002e-08
+        },
+        "model.layers.4.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.4.mlp": {
+          "equal": false,
+          "max_abs_error": 2.421438694000244e-08
+        },
+        "model.layers.5.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.960464477539063e-08
+        },
+        "model.layers.5.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.5.mlp": {
+          "equal": false,
+          "max_abs_error": 2.9802322387695312e-08
+        },
+        "model.layers.6.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.940696716308594e-08
+        },
+        "model.layers.6.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.6.mlp": {
+          "equal": false,
+          "max_abs_error": 1.862645149230957e-08
+        },
+        "model.layers.7.self_attn": {
+          "equal": false,
+          "max_abs_error": 2.9802322387695312e-08
+        },
+        "model.layers.7.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.7.mlp": {
+          "equal": false,
+          "max_abs_error": 2.0023435354232788e-08
+        },
+        "lm_head": {
+          "equal": false,
+          "max_abs_error": 2.384185791015625e-07
+        }
+      }
+    },
+    {
+      "dp": 1,
+      "call": 3,
+      "is_prefill": false,
+      "outputs": {
+        "model.embed_tokens": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.self_attn": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.0.mlp": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-09
+        },
+        "model.layers.1.self_attn": {
+          "equal": false,
+          "max_abs_error": 2.2351741790771484e-08
+        },
+        "model.layers.1.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.1.mlp": {
+          "equal": false,
+          "max_abs_error": 9.313225746154785e-09
+        },
+        "model.layers.2.self_attn": {
+          "equal": false,
+          "max_abs_error": 4.0978193283081055e-08
+        },
+        "model.layers.2.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.2.mlp": {
+          "equal": false,
+          "max_abs_error": 1.30385160446167e-08
+        },
+        "model.layers.3.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.940696716308594e-08
+        },
+        "model.layers.3.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 2.9802322387695312e-08
+          }
+        ],
+        "model.layers.3.mlp": {
+          "equal": false,
+          "max_abs_error": 2.2351741790771484e-08
+        },
+        "model.layers.4.self_attn": {
+          "equal": false,
+          "max_abs_error": 5.21540641784668e-08
+        },
+        "model.layers.4.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.4.mlp": {
+          "equal": false,
+          "max_abs_error": 3.5390257835388184e-08
+        },
+        "model.layers.5.self_attn": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-08
+        },
+        "model.layers.5.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.5.mlp": {
+          "equal": false,
+          "max_abs_error": 1.862645149230957e-08
+        },
+        "model.layers.6.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.940696716308594e-08
+        },
+        "model.layers.6.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 2.9802322387695312e-08
+          }
+        ],
+        "model.layers.6.mlp": {
+          "equal": false,
+          "max_abs_error": 1.862645149230957e-08
+        },
+        "model.layers.7.self_attn": {
+          "equal": false,
+          "max_abs_error": 6.51925802230835e-08
+        },
+        "model.layers.7.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 8.940696716308594e-08
+          }
+        ],
+        "model.layers.7.mlp": {
+          "equal": false,
+          "max_abs_error": 2.9802322387695312e-08
+        },
+        "lm_head": {
+          "equal": false,
+          "max_abs_error": 2.086162567138672e-07
+        }
+      }
+    },
+    {
+      "dp": 1,
+      "call": 4,
+      "is_prefill": false,
+      "outputs": {
+        "model.embed_tokens": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.self_attn": {
+          "equal": true,
+          "max_abs_error": 0.0
+        },
+        "model.layers.0.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          }
+        ],
+        "model.layers.0.mlp": {
+          "equal": false,
+          "max_abs_error": 1.1175870895385742e-08
+        },
+        "model.layers.1.self_attn": {
+          "equal": false,
+          "max_abs_error": 2.7008354663848877e-08
+        },
+        "model.layers.1.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.1.mlp": {
+          "equal": false,
+          "max_abs_error": 2.2351741790771484e-08
+        },
+        "model.layers.2.self_attn": {
+          "equal": false,
+          "max_abs_error": 2.60770320892334e-08
+        },
+        "model.layers.2.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.2.mlp": {
+          "equal": false,
+          "max_abs_error": 1.4901161193847656e-08
+        },
+        "model.layers.3.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.940696716308594e-08
+        },
+        "model.layers.3.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 8.940696716308594e-08
+          }
+        ],
+        "model.layers.3.mlp": {
+          "equal": false,
+          "max_abs_error": 5.21540641784668e-08
+        },
+        "model.layers.4.self_attn": {
+          "equal": false,
+          "max_abs_error": 4.470348358154297e-08
+        },
+        "model.layers.4.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.4.mlp": {
+          "equal": false,
+          "max_abs_error": 3.166496753692627e-08
+        },
+        "model.layers.5.self_attn": {
+          "equal": false,
+          "max_abs_error": 7.450580596923828e-08
+        },
+        "model.layers.5.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 1.1920928955078125e-07
+          }
+        ],
+        "model.layers.5.mlp": {
+          "equal": false,
+          "max_abs_error": 1.4901161193847656e-08
+        },
+        "model.layers.6.self_attn": {
+          "equal": false,
+          "max_abs_error": 8.940696716308594e-08
+        },
+        "model.layers.6.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 5.960464477539063e-08
+          }
+        ],
+        "model.layers.6.mlp": {
+          "equal": false,
+          "max_abs_error": 2.60770320892334e-08
+        },
+        "model.layers.7.self_attn": {
+          "equal": false,
+          "max_abs_error": 2.2351741790771484e-07
+        },
+        "model.layers.7.mlp.router": [
+          {
+            "equal": true,
+            "max_abs_error": 0.0
+          },
+          {
+            "equal": false,
+            "max_abs_error": 2.9802322387695312e-08
+          }
+        ],
+        "model.layers.7.mlp": {
+          "equal": false,
+          "max_abs_error": 2.60770320892334e-08
+        },
+        "lm_head": {
+          "equal": false,
+          "max_abs_error": 3.8743019104003906e-07
+        }
+      }
+    }
+  ]
+}

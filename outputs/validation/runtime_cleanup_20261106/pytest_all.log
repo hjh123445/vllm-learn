@@ -1,0 +1,13 @@
+
+==================================== ERRORS ====================================
+______________ ERROR collecting v9/tests/test_rotary_reference.py ______________
+v9/tests/test_rotary_reference.py:12: in <module>
+    cfg=AutoConfig.from_pretrained(model).thinker_config.text_config
+/home/ifly_jyhe23/env/miniconda3/lib/python3.10/site-packages/transformers/models/auto/configuration_auto.py:433: in from_pretrained
+    raise ValueError(
+E   ValueError: Unrecognized model in v9/tests. Should have a `model_type` key in its config.json.
+=========================== short test summary info ============================
+ERROR v9/tests/test_rotary_reference.py - ValueError: Unrecognized model in v...
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 4.23s
+

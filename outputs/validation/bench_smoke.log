@@ -1,0 +1,19 @@
+[worker-device] rank=0 gpu_id=0 visible='0,1,2,3' count=4 current=0
+[worker-device] rank=2 gpu_id=2 visible='0,1,2,3' count=4 current=2
+[worker-device] rank=3 gpu_id=3 visible='0,1,2,3' count=4 current=3
+[worker-device] rank=1 gpu_id=1 visible='0,1,2,3' count=4 current=1
+{"workload": "warmup", "repeat": -1, "policy": {"microbatch_tokens": 128, "max_concurrent_batches": 1}, "dp": 1, "pp": 1, "ep": 4, "tp": 4, "wall_s": 0.24704262800514698, "construction_s": 8.942258863011375, "profiled": false, "benchmark_valid": true, "output_tokens": 32, "output_tok_s": 129.53230079520245, "request_s": 32.38307519880061, "ttft_s": {"50": 0.10248310898896307, "95": 0.1696500270627439, "99": 0.1696500270627439}, "e2e_s": {"50": 0.19851012097205967, "95": 0.2469600880285725, "99": 0.2469600880285725}, "tpot_s": {"50": 0.032009003994365536, "95": 0.035754877336633704, "99": 0.035754877336633704}, "itl_s": {"50": 0.032823747023940086, "95": 0.04008567100390792, "99": 0.04008567100390792}, "percentile_method": "nearest observed order statistic: round((n-1)*q/100); units seconds"}
+{"workload": "short", "repeat": 0, "policy": {"microbatch_tokens": 128, "max_concurrent_batches": 1}, "dp": 1, "pp": 1, "ep": 4, "tp": 4, "wall_s": 0.22965703590307385, "construction_s": 8.942258863011375, "profiled": false, "benchmark_valid": true, "output_tokens": 32, "output_tok_s": 139.3382087083346, "request_s": 34.83455217708365, "ttft_s": {"50": 0.08631109993439168, "95": 0.1533610550686717, "99": 0.1533610550686717}, "e2e_s": {"50": 0.18149590899702162, "95": 0.22959333809558302, "99": 0.22959333809558302}, "tpot_s": {"50": 0.03172826968754331, "95": 0.03311996600435426, "99": 0.03311996600435426}, "itl_s": {"50": 0.03229961195029318, "95": 0.03386411000974476, "99": 0.03386411000974476}, "percentile_method": "nearest observed order statistic: round((n-1)*q/100); units seconds"}
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.7
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.7
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.7
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.7
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+

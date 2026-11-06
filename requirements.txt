@@ -1,15 +1,12 @@
 # vllm-learn v9 依赖
 # 实测环境：python 3.10 / A800-80G (sm80) / cuda 13.0
-# 环境细节（flash-attn 编译、vLLM 统一环境、代理坑）见 ENVIRONMENT.md
+# 精确实验版本见各次capture的manifest；环境范围见 ENVIRONMENT.md。
 #
-# 与 vLLM 统一环境的方法（推荐，见 ENVIRONMENT.md §5）：
-#   python -m venv xxx && xxx/bin/pip install vllm && xxx/bin/pip install xxhash
-#   —— vllm 会带全 torch/triton/numpy/transformers/safetensors/tokenizers，本项目只需再补 xxhash
-#   不直接装主环境的原因：vllm 会把 torch 2.9.1 顶成 2.13.0
+# 建议独立环境，避免安装vLLM时替换共享PyTorch。
 
 # ---- 核心推理 ----
 torch>=2.4              # 实测 2.9.1+cu130；需 CUDA 版本（pip 默认源装的是 CPU/cu12 版，按自己的 CUDA 选）
-triton>=3.0              # 实测 3.5.1；v4 的手写 kernel 依赖
+triton>=3.0              # 实测 3.5.1；CUDA kernel依赖
 safetensors>=0.4         # 实测 0.8.0；权重加载
 numpy>=1.24              # 实测 2.2.6；KV block hash 与 profiling 工具使用
 xxhash>=3.0              # 实测 4.0.1；KV block hash 使用
@@ -19,5 +16,5 @@ transformers>=4.51       # 实测 5.12.0；注意 5.x 的 rope_theta 挪进了 c
 tokenizers>=0.20        # 实测 0.22.2
 
 # ---- v9 的 FlashAttention/Triton kernel 依赖 ----
-# 无 torch2.9+cu130 的预编译 wheel，需源码编译，流程见 ENVIRONMENT.md §4
+# 可选，必须匹配PyTorch/CUDA ABI；参考Attention路径不要求安装。
 # flash-attn==2.8.4

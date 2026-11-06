@@ -16,6 +16,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from layers.kernels import silu_and_mul
+
 
 def _reduce_routes(routes, expert_ids):
     """Reduce returned top-k routes; the HF order is a diagnostic oracle."""
@@ -91,6 +93,14 @@ class GroupedExperts(nn.Module):
         self.backend = os.getenv('VLLM_LEARN_EXPERT_BACKEND', 'loop')
         if self.backend not in ('auto', 'loop', 'torch_grouped'):
             raise ValueError('expert backend must be auto, loop, or torch_grouped')
+        # Numerical oracle: keep expert GEMMs, route weighting and the expert
+        # TP reduction in FP32. BF16 complete/partitioned GEMMs otherwise have
+        # different rounding boundaries. This is opt-in, not a speed policy.
+        self.precision = os.getenv('VLLM_LEARN_EXPERT_PRECISION', 'model')
+        if self.precision not in ('model', 'float32'):
+            raise ValueError('expert precision must be model or float32')
+        if self.precision == 'float32' and self.backend == 'torch_grouped':
+            raise ValueError('float32 expert oracle requires loop or auto backend')
         self.w13 = nn.Parameter(torch.empty(self.num_experts, 2 * self.inter, hidden_size))
         self.w2 = nn.Parameter(torch.empty(self.num_experts, hidden_size, self.inter))
 
@@ -148,7 +158,6 @@ class GroupedExperts(nn.Module):
         flat_token = torch.arange(T, device=x.device).repeat_interleave(k)
         flat_w = topk_w.reshape(-1)
 
-        route_out = torch.empty((T * k, H), device=x.device, dtype=x.dtype)
         counts = torch.bincount(flat_expert, minlength=E)
         offsets = counts.cumsum(0)                     # 每个专家在排序后序列的终点
         # 稳定排序：同一专家的 token 连续排布
@@ -158,6 +167,7 @@ class GroupedExperts(nn.Module):
 
         xs = x[sorted_token]
         out = self.compute_sorted(xs, offsets)
+        route_out = torch.empty((T * k, H), device=x.device, dtype=out.dtype)
         route_out[order] = out * sorted_w[:, None].to(out.dtype)
         return _reduce_routes(route_out.view(T, k, H), topk_idx)
 
@@ -177,6 +187,8 @@ class GroupedExperts(nn.Module):
             w2 = dequantize(self.w2_packed, self.w2_scales, g).reshape(self.num_experts, self.hidden, self.inter).to(xs.dtype)
         else:
             w13, w2 = self.w13, self.w2
+        if self.precision == 'float32':
+            xs, w13, w2 = xs.float(), w13.float(), w2.float()
         if xs.shape[0] == 0:
             return xs.new_empty((0, self.hidden))
         backend = self.resolve_backend(xs)
@@ -202,8 +214,7 @@ class GroupedExperts(nn.Module):
                 raise RuntimeError('torch_grouped requires CUDA BF16 and a compatible native grouped_mm')
             offs = offsets.to(dtype=torch.int32)
             h13 = grouped_mm(xs, w13.transpose(-2, -1), offs=offs)
-            gate, up = h13.chunk(2, dim=-1)
-            act = F.silu(gate) * up
+            act = silu_and_mul(h13)
             return grouped_mm(act, w2.transpose(-2, -1), offs=offs)
         output = xs.new_empty((xs.shape[0], self.hidden))
         start = 0
@@ -211,8 +222,7 @@ class GroupedExperts(nn.Module):
             if end == start:                           # 本批没 token 命中该专家
                 continue
             h13 = xs[start:end] @ w13[e].t()           # [n_e, 2I]
-            gate, up = h13.chunk(2, dim=-1)
-            act = F.silu(gate) * up                    # [n_e, I]
+            act = silu_and_mul(h13)                    # [n_e, I]
             out = act @ w2[e].t()                      # [n_e, H]
             output[start:end] = out
             start = end
@@ -250,7 +260,8 @@ class MoEMLP(nn.Module):
         if STATE.enable_expert_parallel and STATE.ep_size > 1:
             return self._forward_tp_replicated_input(x)
         idx, w = self.router(x)
-        return tp_allreduce(self.experts(x, idx, w))
+        # Cast only AFTER summing expert-TP partials in oracle mode.
+        return tp_allreduce(self.experts(x, idx, w)).to(x.dtype)
 
     def _forward_tp_replicated_input(self, x):
         """TP token ownership -> DP x TP all-to-allv -> TP output restore.
@@ -288,12 +299,12 @@ class MoEMLP(nn.Module):
     def _experts_local(self, xs, eids, ws=None):
         """本地专家子集的分组计算（eids 是本地编号）。"""
         E = self.experts.num_experts
-        final = torch.empty_like(xs)
         counts = torch.bincount(eids, minlength=E)
         offsets = counts.cumsum(0)
         order = torch.argsort(eids, stable=True)
         xs_s = xs[order]
         out = self.experts.compute_sorted(xs_s, offsets)
+        final = torch.empty_like(out)
         final[order] = out if ws is None else out * ws[order, None].to(out.dtype)
         return final
 
@@ -326,8 +337,9 @@ class MoEMLP(nn.Module):
         send_counts = torch.bincount(dest, minlength=world).to(torch.int64)
         recv_counts = torch.empty_like(send_counts)
         dist.all_to_all_single(recv_counts, send_counts, group=STATE.ep_group)
-        ss = [int(v) for v in send_counts.tolist()]
-        rs = [int(v) for v in recv_counts.tolist()]
+        # PyTorch variable splits require host lists, not CUDA offsets.
+        ss = send_counts.tolist()
+        rs = recv_counts.tolist()
 
         def a2a(inp, out_shape, splits_in, splits_out):
             out = torch.empty(out_shape, dtype=inp.dtype, device=inp.device)
@@ -349,4 +361,4 @@ class MoEMLP(nn.Module):
         route_out = torch.empty_like(returned)
         route_out[order] = (returned * send_w[:, None].to(returned.dtype)
                             if self.weight_at_source else returned)
-        return _reduce_routes(route_out.view(T, k, H), idx)
+        return _reduce_routes(route_out.view(T, k, H), idx).to(x.dtype)

@@ -13,7 +13,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from engine.core import EngineCore, rebuild_specs
 from engine.scheduler import Scheduler
-from engine.sequence import Sequence, SequenceStatus
+from engine.sequence import Sequence
 from samplingParams import SamplingParams
 
 
@@ -60,7 +60,6 @@ def core_for_test(pp=4, depth=None, executor=None, config=None):
     core.pp_size = pp
     core.max_concurrent_batches = pp if depth is None else depth
     core.pipeline_microbatch_tokens = 64
-    core.pipeline_mode = "optimized"
     core._worker_timeout = 2
     core.config = config or configuration()
     core.scheduler = Scheduler(core.config)
@@ -231,3 +230,16 @@ def test_nondefault_kv_block_size_survives_worker_snapshot():
     assert seq.num_blocks == 2
     assert spec.block_size == 512
     assert spec.last_block_num_tokens == 1
+
+
+def test_schedule_snapshot_preserves_identity_without_lane():
+    from engine.core import _spec_msg
+    seq = Sequence([3, 7], SamplingParams(temperature=0.))
+    seq.num_scheduled_tokens = 2
+    seq.block_table = [4]
+    message = _spec_msg([seq], True, microbatch_id=5)
+    assert message["microbatch_id"] == 5
+    assert "pipeline_lane" not in message
+    assert rebuild_specs(message)[0][:2] == [3, 7]
+    seq.block_table.append(9)
+    assert message["scheduled"][0]["block_table"] == [4]

@@ -84,7 +84,7 @@ def test_production_worker_initialization_and_cached_generation(tmp_path, monkey
             pipeline_microbatch_tokens=8, config_kwargs=dict(
                 max_model_len=128, max_num_batched_tokens=8, max_num_seqs=16,
                 gpu_memory_utilization=.98, max_kvcache_blocks=16,
-                enforce_eager=True, batch_execution_mode="per_request"))
+                batch_execution_mode="per_request"))
         try:
             result = core.generate(prompts, SamplingParams(temperature=0., max_tokens=4, ignore_eos=True))
             outputs.append([tokens for _, tokens in result])
@@ -116,7 +116,7 @@ def test_production_dp_ep_unequal_batches_and_idle_replicas(tmp_path, monkeypatc
     path = tmp_path / "tiny-omni"
     checkpoint(path)
     config = dict(max_model_len=128, max_num_batched_tokens=8, max_num_seqs=16,
-                  gpu_memory_utilization=.98, max_kvcache_blocks=16, enforce_eager=True)
+                  gpu_memory_utilization=.98, max_kvcache_blocks=16)
     prompts = [[1, 2], list(range(2, 12)), list(range(3, 28)), [5, 6, 7], [1, 2]]
     sampling = SamplingParams(temperature=0., max_tokens=4, ignore_eos=True)
     serial = EngineCore(str(path), config_kwargs=config)
@@ -163,6 +163,17 @@ def test_production_dp_ep_unequal_batches_and_idle_replicas(tmp_path, monkeypatc
     assert all(process.exitcode == 0 for process in processes)
 
 
+def test_dp2tp2_ep4_cached_generation_with_fp32_experts(tmp_path, monkeypatch):
+    """The exact original cached batch, changing only expert arithmetic.
+
+    Reuse its strict token assertion AND the subsequent one-sided idle-DP
+    round. The model-dtype test remains separate and is not weakened.
+    """
+    monkeypatch.setenv('VLLM_LEARN_EXPERT_PRECISION', 'float32')
+    test_production_dp_ep_unequal_batches_and_idle_replicas(
+        tmp_path, monkeypatch, dp=2, tp=2, pp=1)
+
+
 def test_dp2tp2_ep4_fixed_prefix_logits_against_expert_tp(tmp_path, monkeypatch):
     """Same inputs/prefixes; compare logits before free-generation drift.
 
@@ -188,7 +199,7 @@ def test_dp2tp2_ep4_fixed_prefix_logits_against_expert_tp(tmp_path, monkeypatch)
             enable_expert_parallel=enable_ep, master_port=free_port(), gpus=list(range(4)),
             config_kwargs=dict(max_model_len=128, max_num_batched_tokens=8,
                 max_num_seqs=16, gpu_memory_utilization=.98, max_kvcache_blocks=16,
-                enforce_eager=True))
+                ))
         try:
             for forced_prefix in ([], [54], [54, 60]):
                 for prompt in prompts:

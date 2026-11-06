@@ -37,7 +37,6 @@ def _dequant_gemm_kernel(X, WPK, WS, Y,
 
     rm = pid_m * BM + tl.arange(0, BM)
     rn = pid_n * BN + tl.arange(0, BN)
-    rk = tl.arange(0, BK)            # 全 K tile 的列
     rk2 = tl.arange(0, BK // 2)      # packed/偶奇半块的列
 
     acc = tl.zeros((BM, BN), dtype=tl.float32)
@@ -80,11 +79,24 @@ def dequant_gemm(x: torch.Tensor, w_packed: torch.Tensor, w_scales: torch.Tensor
                  group: int = 128) -> torch.Tensor:
     """x [M, K] bf16 × dequant(W) [N, K] → [M, N]。
     w_packed [N, K/2] uint8; w_scales [N, K/G] fp16。
-    约束: K % (2*64) == 0（BK=64 对齐打包半块）；G % BK == 0（scale tile 内单一组）。"""
+    当前 kernel 用 BK=128，故要求 K 为 128 的倍数；G 按每个 nibble lane
+    独立索引，支持 64 的倍数。其他形状由调用方回退到 PyTorch 路径。"""
+    if x.ndim != 2:
+        raise ValueError("dequant_gemm expects a 2D [M, K] activation")
+    if not x.is_cuda or x.dtype != torch.bfloat16:
+        raise ValueError("dequant_gemm requires CUDA BF16 activations")
     M, K = x.shape
     N = w_packed.shape[0]
-    assert K % 2 == 0 and K % group == 0
-    assert group % 64 == 0, f"G={group} 需 64 的倍数（BK tile 不跨组）"
+    if group <= 0 or group % 64 or K % 128 or K % group:
+        raise ValueError("dequant_gemm requires K%128==0, K%group==0, group%64==0")
+    if x.stride(1) != 1 or not w_packed.is_contiguous() or not w_scales.is_contiguous():
+        raise ValueError("dequant_gemm requires contiguous inner dimensions and weights")
+    if w_packed.device != x.device or w_scales.device != x.device:
+        raise ValueError("dequant_gemm inputs must be on the same CUDA device")
+    if w_packed.dtype != torch.uint8 or w_packed.shape[1] != K // 2:
+        raise ValueError("packed weight shape must be [N, K/2] uint8")
+    if w_scales.dtype != torch.float16 or w_scales.shape != (N, K // group):
+        raise ValueError("scale shape must be [N, K/group]")
     y = torch.empty(M, N, dtype=x.dtype, device=x.device)
     # Triton dot 的矩阵 M 维至少为 16；BM=16 配合行 mask 覆盖 M=1
     # 的 decode，同时保留小 batch 的融合反量化路径。
@@ -95,20 +107,6 @@ def dequant_gemm(x: torch.Tensor, w_packed: torch.Tensor, w_scales: torch.Tensor
         M, N, K, x.stride(0), w_packed.stride(0), y.stride(0),
         G=group, BM=BM, BN=BN, BK=BK, num_warps=8)
     return y
-
-
-def quant_linear(x, w_packed, w_scales, group=128, dequant_threshold=64):
-    """量化权重的混合路由（vLLM w4a16 的策略同款）：
-    - 小 M（decode，带宽 bound）：B2 融合 kernel——int4 读 + 寄存器反量化；
-    - 大 M（prefill，算力 bound）：B1 反量化 + cuBLAS——dequant 开销被
-      大 M 摊薄（实测 M=4096: B1 0.356ms vs B2 4.4ms，B1 赢 12x）。
-    阈值由 K/N 形状微调，默认 64（M<64 走 kernel）。"""
-    M = x.shape[0]
-    if M <= dequant_threshold:
-        return dequant_gemm(x, w_packed, w_scales, group)
-    from layers.quantized import dequantize
-    w = dequantize(w_packed, w_scales, group).to(x.dtype)
-    return x @ w.t()
 
 
 if __name__ == "__main__":

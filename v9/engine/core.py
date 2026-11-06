@@ -11,9 +11,6 @@ independent requests are ready. No iteration-wide microbatch drain/barrier.
 单卡退化（对齐 UniProcExecutor）: world_size==1 时不 spawn 子进程，
 ModelRunner 同进程直调——同一条 EngineCore 代码路径。
 
-与 v6.4 centralized 的对照（VLLM_ARCH.md）: scheduler 从"rank0 进程兼任"
-变成"EngineCore 主进程独占"，worker 从"镜像状态的完整引擎"变成"无状态
-forward 执行器"，通信从固定形状 NCCL 张量变成结构化 MQ 消息。
 """
 
 import multiprocessing as mp
@@ -33,11 +30,10 @@ def _spawn_with_env(env, fn, args):
 from engine.mq import make_channels
 from engine.sequence import Sequence
 from samplingParams import SamplingParams
-from engine.pipeline_schedule import PipelineTopology
 from engine.process_groups import ParallelTopology
 
 
-def _spec_msg(seqs, is_prefill, pipeline_lane=0, microbatch_id=0):
+def _spec_msg(seqs, is_prefill, microbatch_id=0):
     """scheduler 的输出 → 可 pickle 的结构化消息。
 
     对齐 vLLM 的 SchedulerOutput：scheduled（要 forward 的序列描述）+
@@ -60,7 +56,7 @@ def _spec_msg(seqs, is_prefill, pipeline_lane=0, microbatch_id=0):
             "block_size": getattr(s, "block_size", 256),
         })
     return {"type": "schedule", "scheduled": scheduled, "is_prefill": is_prefill,
-            "pipeline_lane": pipeline_lane, "microbatch_id": microbatch_id}
+            "microbatch_id": microbatch_id}
 
 
 class _Spec:
@@ -115,11 +111,11 @@ class _PendingBatch:
 class EngineCore:
     """v9.4 的引擎核心。对外暴露与 LLMEngine.generate 兼容的批推理入口。"""
 
-    def __init__(self, model_path, tp_size=1, ep_size=None, dcp_size=1, pp_size=1,
+    def __init__(self, model_path, tp_size=1, dcp_size=1, pp_size=1,
                  master_port=29600, config_kwargs=None, gpus=None,
-                 pipeline_lanes=2, pipeline_credit=4,
+                 pipeline_credit=4,
                  pipeline_microbatch_tokens=2048, pipeline_mode="optimized",
-                 pipeline_stage_map=None, max_concurrent_batches=None,
+                 max_concurrent_batches=None,
                  enable_expert_parallel=False, dp_size=1, dp_rank=0,
                  _dp_coordinated=False, runner_cls=None, transport_cls=None):
         self._closed = False
@@ -131,20 +127,14 @@ class EngineCore:
         os.environ.setdefault("MKL_NUM_THREADS", str(cpu_threads))
         topology = ParallelTopology(tp_size, dp_size, pp_size, dcp_size,
                                     enable_expert_parallel)
-        if ep_size is not None and ep_size != topology.ep_size:
-            raise ValueError("EP is DP x TP when enabled; replace independent ep_size with DPFrontend(dp_size=..., enable_expert_parallel=True)")
         if not 0 <= dp_rank < dp_size:
             raise ValueError("invalid dp_rank")
         if dp_size > 1 and not _dp_coordinated:
             raise ValueError("Multi-DP EP requires DPFrontend to coordinate idle replicas")
-        ep_size = topology.ep_size
         self.world_size = topology.local_world_size
         self.global_world_size = topology.world_size
-        self.dp_size, self.dp_rank = dp_size, dp_rank
-        self.enable_expert_parallel = enable_expert_parallel
         self._coupled_dp = enable_expert_parallel and dp_size > 1
         self.debug = os.getenv("VLLM_LEARN_DEBUG", "0") == "1"
-        self.tp_size, self.ep_size = tp_size, ep_size
 
         # ---- 顺序关键：runner 先于 scheduler ----
         from engine.scheduler import Scheduler
@@ -155,9 +145,8 @@ class EngineCore:
         config_kwargs = dict(config_kwargs or {})
         if self._coupled_dp and config_kwargs.get("batch_execution_mode", "batched") != "batched":
             raise ValueError("Coupled DP EP requires batched execution; per_request would issue unequal collective counts")
-        self.config_kwargs = config_kwargs
-        self.pipeline_lanes = max(1, int(pipeline_lanes))
-        self.pipeline_credit = max(1, int(pipeline_credit))
+        if pipeline_credit < 1:
+            raise ValueError("pipeline_credit must be positive")
         self.pipeline_microbatch_tokens = max(1, int(pipeline_microbatch_tokens))
         self.max_concurrent_batches = (pp_size if max_concurrent_batches is None
                                        else int(max_concurrent_batches))
@@ -165,17 +154,6 @@ class EngineCore:
             raise ValueError("max_concurrent_batches must be positive")
         if pipeline_mode not in ("baseline", "optimized"):
             raise ValueError("pipeline_mode must be baseline or optimized")
-        self.pipeline_mode = pipeline_mode
-        self.pipeline_topology = PipelineTopology.one_to_one(pp_size)
-        if pipeline_stage_map is not None:
-            mapping = tuple(int(v) for v in pipeline_stage_map)
-            workers = max(mapping) + 1 if mapping else 0
-            candidate = PipelineTopology(pp_size, workers, mapping)
-            if candidate.has_local_multiple_stages:
-                raise NotImplementedError("一张卡承载多个逻辑 PP stage 需要 local-stage executor；当前 runtime 仍是一进程一 stage。")
-            if mapping != tuple(range(pp_size)):
-                raise NotImplementedError("当前单 stage worker runtime 只接受 identity stage_to_worker 映射。")
-            self.pipeline_topology = candidate
         config = Config(model_path, **config_kwargs)
         self.config = config
         from transformers import AutoTokenizer
@@ -185,18 +163,12 @@ class EngineCore:
 
         engine_kwargs = {
             "master_addr": "127.0.0.1", "master_port": master_port,
-            "config_kwargs": config_kwargs, "dcp_size": dcp_size, "gpus": gpus,
-            "pp_size": pp_size,
-            "dp_size": dp_size, "dp_rank": dp_rank,
-            "enable_expert_parallel": enable_expert_parallel,
-            "pipeline_lanes": self.pipeline_lanes,
-            "pipeline_credit": self.pipeline_credit,
-            "pipeline_mode": self.pipeline_mode,
+            "config_kwargs": config_kwargs, "topology": topology, "dp_rank": dp_rank,
+            "pipeline_credit": pipeline_credit, "pipeline_mode": pipeline_mode,
             # Optional importable implementations, preserved across spawn.
             "runner_cls": runner_cls, "transport_cls": transport_cls,
         }
         self.pp_size = pp_size
-        self.dcp_size = dcp_size
 
         if self.global_world_size == 1:
             # UniProc 路径：ModelRunner 同进程直调（分配池子 → 填 config）
@@ -214,8 +186,10 @@ class EngineCore:
             rc_children = [c[1] for c in rc]
             ctx = mp.get_context("spawn")
             self.procs = []
-            gpus = engine_kwargs.get("gpus") or list(range(self.world_size))
+            gpus = gpus or list(range(self.world_size))
             assert len(gpus) >= self.world_size, f"GPUs {gpus} < world_size {self.world_size}"
+            if len(set(gpus[:self.world_size])) != self.world_size:
+                raise ValueError("GPU workers require distinct device ordinals")
             for r in range(self.world_size):
                 # spawn 子进程 env: 只见自己的卡（worker 内 set_device(0) 即本卡）
                 # Do not rewrite CUDA_VISIBLE_DEVICES in the target wrapper:
@@ -226,8 +200,7 @@ class EngineCore:
                 env = dict(os.environ)
                 p = ctx.Process(target=_spawn_with_env,
                                 args=(env, worker_main,
-                                      (r, self.world_size, tp_size, ep_size,
-                                       model_path, bc_children[r],
+                                      (r, model_path, bc_children[r],
                                        rc_children[r], engine_kwargs,
                                        gpus[r])),
                                 daemon=True)
@@ -290,15 +263,13 @@ class EngineCore:
     def _submit_batch(self, seqs, is_prefill):
         batch_id = self._next_microbatch_id
         self._next_microbatch_id += 1
-        # A lane is only a legacy transport slot. Runtime concurrency is
-        # bounded by batch_queue, not a fictitious VirtualEnginePool.
         message = _spec_msg(seqs, is_prefill, microbatch_id=batch_id)
-        message["pipeline_mode"] = self.pipeline_mode
         submitted = perf_counter()
         if self.executor is None:
             future = Future()
             try:
-                tokens = self.inproc_runner.run(rebuild_specs(message), is_prefill)
+                tokens = self.inproc_runner.run(rebuild_specs(message), is_prefill,
+                                               microbatch_id=batch_id)
                 future.set_result({"type": "output", "tokens": tokens,
                                    "seq_ids": [s.seq_id for s in seqs],
                                    "microbatch_id": batch_id})

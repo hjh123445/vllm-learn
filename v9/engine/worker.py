@@ -4,13 +4,13 @@
 对标 vLLM: v1/executor/multiproc_executor.py 的 WorkerProc.worker_main +
 v1/worker/worker_base.py 的 WorkerWrapperBase。
 
-进程拓扑（VLLM_ARCH.md §2）:
+进程拓扑:
     EngineCore 进程（scheduler + MQ 写端）
       └─ spawn N 个本进程（每 GPU 一个）
            主循环: MQ.recv(scheduler_output) → model_runner.run → response MQ.send
 
 PP activation 由 PipelineTransport 管理；receive 在处理消息时懒投递，
-worker 按消息顺序执行 forward。两个 lane 不等于完整预投递或训练 DualPipe。
+worker 按消息顺序执行 forward；PP形状来自同一份调度消息。
 
 与 v6.4 的"N 个全等进程 + NCCL broadcast"的区别：worker 进程里【没有
 scheduler】，每步的 forward 输入完全来自广播的消息（用完即弃，不镜像
@@ -20,23 +20,23 @@ scheduler】，每步的 forward 输入完全来自广播的消息（用完即�
 import os
 
 
-def worker_main(rank, world_size, tp_size, ep_size, model_path,
-                broadcast_conn, response_conn, engine_kwargs, gpu_id=None):
+def worker_main(local_rank, model_path, broadcast_conn, response_conn,
+                engine_kwargs, gpu_id):
     """WorkerProc 入口（multiprocessing.Process 的 target）。
 
-    rank:      全局 worker 序号（0..world_size-1）
-    tp/ep:     TP大小、派生EP大小；全局EP坐标由dp_rank*tp_size+tp_rank产生
-    broadcast_q/response_q: 引擎侧传来的 Queue（mp.Queue 可 pickle 跨进程）
+    local_rank: 本EngineCore内的worker序号。
+    所有并行坐标从唯一的ParallelTopology推导，不重复传world/EP大小。
     """
-    local_rank = rank
-    dp_size, dp_rank = engine_kwargs.get("dp_size", 1), engine_kwargs.get("dp_rank", 0)
-    rank = dp_rank * world_size + local_rank
-    local_world_size = world_size
-    world_size *= dp_size
-    enable_ep = engine_kwargs.get("enable_expert_parallel", False)
+    topology = engine_kwargs["topology"]
+    local_world_size = topology.local_world_size
+    rank = engine_kwargs["dp_rank"] * local_world_size + local_rank
+    dp_rank, pp_rank, tp_rank, cp_rank = topology.coords(rank)
+    tp_size, pp_size, cp_size, dp_size = (
+        topology.tp_size, topology.pp_size, topology.cp_size, topology.dp_size)
+    world_size = topology.world_size
+    enable_ep = topology.enable_expert_parallel
     debug = os.getenv("VLLM_LEARN_DEBUG", "0") == "1"
-    # 设备由 launcher 通过 CUDA_VISIBLE_DEVICES 控制（每 worker 只见一张卡,
-    # spawn 继承父进程 env → EngineCore 在 spawn 前为每个 worker 设置子进程 env）
+    # GPU ordinal is local to the inherited CUDA_VISIBLE_DEVICES list.
     os.environ["RANK"] = str(rank)
     os.environ["WORLD_SIZE"] = str(world_size)
     os.environ["MASTER_ADDR"] = engine_kwargs.get("master_addr", "127.0.0.1")
@@ -51,18 +51,13 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         torch.set_num_interop_threads(1)
     except RuntimeError:
         pass
-    # Normally the wrapper restricts CUDA_VISIBLE_DEVICES to one card.  The
-    # explicit physical id is a fallback for spawn implementations that import
-    # the parent environment before the wrapper runs; this prevents two ranks
-    # silently binding the same default device.
-    requested = int(gpu_id) if gpu_id is not None else 0
+    requested = int(gpu_id)
     visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
-    if "," not in visible and visible.strip() and requested >= torch.cuda.device_count():
-        requested = 0
-    torch.cuda.set_device(requested if requested < torch.cuda.device_count() else 0)
-    print(f"[worker-device] rank={rank} gpu_id={gpu_id} visible={visible!r} "
-          f"count={torch.cuda.device_count()} current={torch.cuda.current_device()}",
-          flush=True)
+    if not 0 <= requested < torch.cuda.device_count():
+        raise ValueError(f"rank {rank}: GPU ordinal {requested} outside visible devices {visible!r}")
+    torch.cuda.set_device(requested)
+    if debug:
+        print(f"[worker-device] rank={rank} gpu_id={gpu_id} visible={visible!r}", flush=True)
     import torch.distributed as dist
 
     # v8.2 教训三件套：device_id 显式绑定 + 组预热 + 对称收发
@@ -76,14 +71,7 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
 
     # Global rank = ((dp * pp_size + pp) * tp_size + tp) * cp_size + cp.
     # EP overlays DP x TP, independent of PP/CP.
-    cp_size = engine_kwargs.get("dcp_size", 1)
-    pp_size = engine_kwargs.get("pp_size", 1)
     inner = tp_size * cp_size
-    pp_rank = local_rank // inner
-    r = local_rank % inner
-    tp_rank = r // cp_size
-    cp_rank = r % cp_size
-    ep_rank = dp_rank * tp_size + tp_rank if enable_ep else 0
     from layers.parallel import configure_parallel, STATE
     from engine.process_groups import create_groups
     groups = create_groups(rank, tp_size, cp_size, dp_size, pp_size, enable_ep)
@@ -98,7 +86,6 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
             dist.all_reduce(torch.zeros(1, device="cuda"), group=group)
     torch.cuda.synchronize()
     configure_parallel(tp_size=tp_size, tp_rank=tp_rank,
-                       ep_size=ep_size, ep_rank=ep_rank,
                        tp_group=tp_group, ep_group=ep_group,
                        cp_size=cp_size, cp_rank=cp_rank,
                        pp_size=pp_size, pp_rank=pp_rank,
@@ -112,7 +99,6 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         transport_cls = engine_kwargs.get("transport_cls") or PipelineTransport
         STATE.pipeline_transport = transport_cls(
             pp_size=pp_size, pp_rank=pp_rank, inner_size=inner,
-            lanes=int(engine_kwargs.get("pipeline_lanes", 2)),
             credit=int(engine_kwargs.get("pipeline_credit", 4)),
             async_enabled=engine_kwargs.get("pipeline_mode", "optimized") != "baseline",
             device="cuda", recv_group=pp_recv_group, send_group=pp_send_group,
@@ -127,7 +113,7 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
     from config import Config
     from engine.model_runner import ModelRunner
     if debug:
-        print(f"[worker-config-before] rank={rank} pp={pp_rank} tp={tp_rank} ep={ep_rank}", flush=True)
+        print(f"[worker-config-before] rank={rank} pp={pp_rank} tp={tp_rank} ep={STATE.ep_rank}", flush=True)
     config = Config(model_path, **engine_kwargs.get("config_kwargs", {}))
     if debug:
         print(f"[worker-config-after] rank={rank}", flush=True)
@@ -169,16 +155,12 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         # scheduler_output → forward 输入（用完即弃的快照）
         from engine.core import rebuild_specs
         specs = rebuild_specs(msg)
-        if STATE.pipeline_transport is not None:
-            STATE.pipeline_transport.async_enabled = msg.get(
-                "pipeline_mode", "optimized") != "baseline"
         is_prefill = msg["is_prefill"]
         token_ids = []
         if specs or (enable_ep and dp_size > 1):
             if debug:
                 print(f"[worker-run] rank={rank} mb={msg.get('microbatch_id')}", flush=True)
             token_ids = runner.run(specs, is_prefill,
-                                   pipeline_lane=msg.get("pipeline_lane", 0),
                                    microbatch_id=msg.get("microbatch_id", 0))
         if is_resp_rank:
             if response_pending:
@@ -186,7 +168,6 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
             response_conn.send({"type": "output", "tokens": token_ids,
                                 "seq_ids": [s.seq_id for s in specs],
                                 "microbatch_id": msg.get("microbatch_id", 0),
-                                "pipeline_lane": msg.get("pipeline_lane", 0),
                                 "n": len(specs)}, wait_ack=False)
             response_pending = True
 

@@ -44,7 +44,6 @@ class ColumnParallelLinear(nn.Module):
     def __init__(self, in_dim: int, out_dim: int, min_out: int = 1, bias: bool = False,
                  gate_up: bool = False):
         super().__init__()
-        self.in_dim, self.out_dim = in_dim, out_dim
         self.gate_up = gate_up
         if gate_up:
             assert out_dim % 2 == 0
@@ -86,7 +85,6 @@ class RowParallelLinear(nn.Module):
 
     def __init__(self, in_dim: int, out_dim: int, bias: bool = False):
         super().__init__()
-        self.in_dim, self.out_dim = in_dim, out_dim
         assert in_dim % STATE.tp_size == 0, \
             f"in_dim={in_dim} 切不动 TP{STATE.tp_size}"
         self.shard_len = in_dim // STATE.tp_size

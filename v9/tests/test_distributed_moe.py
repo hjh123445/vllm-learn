@@ -13,7 +13,7 @@ import torch
 import torch.distributed as dist
 from engine.process_groups import create_groups
 from layers.moe import MoEMLP
-from layers.parallel import configure_parallel, tp_allreduce
+from layers.parallel import configure_parallel
 from types import SimpleNamespace
 
 

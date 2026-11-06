@@ -1,0 +1,16 @@
+{
+  "measurement": "2026-11-06 A800 BF16 I768, matched wrapper, seed731; separate unprofiled timing and profile",
+  "command": "cd /tmp/vllm-profile-tools-20261106 && PYTHONPATH=/tmp/vllm-learn-ep-coupled-20261105-205927/testdeps:/tmp/vllm-profile-tools-20261106/v9 CUDA_VISIBLE_DEVICES=7 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 /home/ifly_jyhe23/env/miniconda3/bin/python v9/tools/kernel_bench.py --intermediate 768 --tokens 1 128 4096 6144 8192 --warmup 30 --iterations 100 --repeats 30 --profile --output /tmp/vllm-profile-tools-20261106/kernel_matched.json",
+  "kernel_math_sha256": "c25c34e6cb4b2f32e343d45a5a27d9110af6fee8b3cd24929c5429fb72f653c5",
+  "note": "Full historical benchmark-file fingerprint was not persisted at measurement time. Current reproduction entry is v9/tools/kernel_bench.py; device math unchanged. Later auto-selection scope changes do not affect explicitly selected torch/triton measurements.",
+  "files": {
+    "command.txt": "bc8431a8d6e892942d8948574e0057d93d23e0befbec0c7ab59ddf5801f739d7",
+    "kernel_matched.json": "e67f03038060c1e053e2db4d776e492f2d8a2739d4c827cd34345e2ce5cafa01",
+    "kernel_matched.tokens1.trace.json.gz": "cd14987d7328f4f5063d6736b15f4b9af02d05d95bb871b3f1f4424d67b74186",
+    "kernel_matched.tokens128.trace.json.gz": "c7c5eb3c318de062d9d10b96ff09ceed8926f22af7d52c89f713b623ace0be07",
+    "kernel_matched.tokens4096.trace.json.gz": "c2d38a98660326aaa7620eebcc0bacc3e55744d448792014bba6a58c64faa4cf",
+    "kernel_matched.tokens6144.trace.json.gz": "2d70ec7f243747442ed1c2d14be655ae2120d1c954dff5d1aced88b25ee6ddf9",
+    "kernel_matched.tokens8192.trace.json.gz": "3ec9b5a74a1920cfb940f15506d02c93fe6b0e9d67e9ad6277ab945667d82abe",
+    "trace_analysis.json": "b0592fa55ad59a157a723e1cbfdaad39cbb51c533be08f5fc7542e57ca199efe"
+  }
+}

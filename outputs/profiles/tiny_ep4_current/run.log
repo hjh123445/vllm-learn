@@ -1,0 +1,17 @@
+[worker-device] rank=3 gpu_id=3 visible='0,1,2,3' count=4 current=3
+[worker-device] rank=0 gpu_id=0 visible='0,1,2,3' count=4 current=0
+[worker-device] rank=1 gpu_id=1 visible='0,1,2,3' count=4 current=1
+[worker-device] rank=2 gpu_id=2 visible='0,1,2,3' count=4 current=2
+{"workload": "short", "repeat": 0, "policy": {"microbatch_tokens": 128, "max_concurrent_batches": 1}, "dp": 1, "pp": 1, "ep": 4, "tp": 4, "wall_s": 0.6271104170009494, "construction_s": 9.67335808207281, "profiled": true, "benchmark_valid": false, "output_tokens": 32, "output_tok_s": null, "request_s": null, "ttft_s": null, "e2e_s": null, "tpot_s": null, "itl_s": null, "percentile_method": "nearest observed order statistic: round((n-1)*q/100); units seconds"}
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.7
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.7
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.7
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.7
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)

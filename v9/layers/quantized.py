@@ -80,7 +80,7 @@ class QuantizedLinear(nn.Module):
     def __init__(self, in_dim: int, out_dim: int, group: int = 128):
         super().__init__()
         assert in_dim % 2 == 0
-        self.in_dim, self.out_dim, self.group = in_dim, out_dim, group
+        self.in_dim, self.group = in_dim, group
         # 打包存储 [N, K/2] uint8 + scales [N, K/g] fp16
         self.register_buffer("w_packed", torch.zeros(out_dim, (in_dim + 1) // 2, dtype=torch.uint8))
         self.register_buffer("w_scales", torch.zeros(out_dim, (in_dim + group - 1) // group,
@@ -89,8 +89,6 @@ class QuantizedLinear(nn.Module):
     def weight_loader(self, param, loaded, shard_id=None):
         """在线量化装载：bf16 权重 → RTN → 打包进 buffer。"""
         w = loaded.to(torch.float32)
-        if w.shape[-1] % self.group != 0:
-            pass                                       # rtn_quantize 内部 pad
         packed, scales = rtn_quantize(w, self.group)
         self.w_packed.copy_(packed.to(self.w_packed.device))
         self.w_scales.copy_(scales.to(self.w_scales.device))
@@ -108,7 +106,19 @@ class QuantizedLinear(nn.Module):
         x: [T, K] → [T, N]。"""
         T, K = x.shape
         assert K == self.in_dim
-        if T <= 64:
+        triton_compatible = (
+            T > 0
+            and T <= 64
+            and x.is_cuda
+            and x.dtype == torch.bfloat16
+            and x.stride(1) == 1
+            and K % 128 == 0
+            and K % self.group == 0
+            and self.group % 64 == 0
+            and self.w_packed.device == x.device
+            and self.w_scales.device == x.device
+        )
+        if triton_compatible:
             from layers.dequant_gemm import dequant_gemm
             return dequant_gemm(x, self.w_packed, self.w_scales, self.group)
         q = unpack_int4(self.w_packed, x.dtype)                # [N, K] bf16
@@ -119,13 +129,6 @@ class QuantizedLinear(nn.Module):
         sv = self.w_scales.to(x.dtype).unsqueeze(-1)          # [N, n_groups, 1]
         deq = (q.reshape(N, -1, self.group) * sv).reshape(N, -1)[:, :K]
         return F.linear(x, deq)
-
-    @staticmethod
-    def from_bf16(linear: nn.Module, group: int = 128) -> "QuantizedLinear":
-        """把已装载 bf16 的 BaseLinear 就地转换（保持 weight_loader 协议）。"""
-        ql = QuantizedLinear(linear.weight.shape[1], linear.weight.shape[0], group)
-        ql.weight_loader(None, linear.weight.data)
-        return ql
 
 
 if __name__ == "__main__":

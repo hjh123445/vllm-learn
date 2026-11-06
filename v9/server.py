@@ -224,13 +224,7 @@ def main():
     ap.add_argument("--tensor-parallel-size", type=int, default=1)
     ap.add_argument("--enable-expert-parallel", action="store_true",
                     help="shard experts over DP x TP; no independent EP axis")
-    ap.add_argument("--expert-parallel-size", type=int, default=None,
-                    help=argparse.SUPPRESS)
     ap.add_argument("--pipeline-parallel-size", type=int, default=1)
-    ap.add_argument("--pipeline-microbatches", type=int, default=1,
-                    help="legacy fixed-count schedule is unsupported; use token budget")
-    ap.add_argument("--zero-bubble", action="store_true",
-                    help="reserved; training DualPipe is not implemented by this inference runtime")
     ap.add_argument("--pipeline-microbatch-tokens", type=int, default=2048)
     ap.add_argument("--max-concurrent-batches", type=int, default=None,
                     help="in-flight batch bound; defaults to pipeline parallel size")
@@ -256,17 +250,14 @@ def main():
     engine = AsyncEngine(
         args.model, max_num_seqs=args.max_num_seqs,
         max_model_len=args.max_model_len,
-        gpu_memory_utilization=args.gpu_mem_util, enforce_eager=True,
+        gpu_memory_utilization=args.gpu_mem_util,
         max_num_batched_tokens=args.max_num_batched_tokens,
         max_kvcache_blocks=args.max_kvcache_blocks,enable_prefix_caching=not args.disable_prefix_caching,
         batch_execution_mode=args.batch_execution_mode,
         max_pending_requests=args.max_pending_requests,stream_buffer_tokens=args.stream_buffer_tokens,
         tensor_parallel_size=args.tensor_parallel_size,
-        expert_parallel_size=args.expert_parallel_size,
         enable_expert_parallel=args.enable_expert_parallel,
         pipeline_parallel_size=args.pipeline_parallel_size,
-        pipeline_microbatches=args.pipeline_microbatches,
-        pipeline_schedule=("zero_bubble" if args.zero_bubble else "forward"),
         pipeline_microbatch_tokens=args.pipeline_microbatch_tokens,
         max_concurrent_batches=args.max_concurrent_batches,
         gpus=gpus, **implementations)

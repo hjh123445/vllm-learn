@@ -1,6 +1,0 @@
-hf_single hf_batch {'cases': 384, 'matches': 370, 'exact': 32, 'worst_abs': 4.32421875}
-hf_single hf_batch_split_sdpa {'cases': 384, 'matches': 373, 'exact': 32, 'worst_abs': 4.125}
-hf_single cached_teacher_ep8_single {'cases': 384, 'matches': 384, 'exact': 384, 'worst_abs': 0.0}
-hf_batch cached_teacher_ep8_batch {'cases': 384, 'matches': 381, 'exact': 322, 'worst_abs': 1.4375}
-hf_batch_split_sdpa cached_teacher_ep8_batch {'cases': 384, 'matches': 384, 'exact': 384, 'worst_abs': 0.0}
-cached_teacher_ep8_batch cached_teacher_pp2ep4_batch {'cases': 384, 'matches': 384, 'exact': 384, 'worst_abs': 0.0}

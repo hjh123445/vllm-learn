@@ -16,7 +16,7 @@ import torch.distributed as dist
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from engine.process_groups import create_groups
-from layers.parallel import configure_parallel, STATE
+from layers.parallel import configure_parallel
 from layers.moe import MoEMLP
 
 
@@ -84,7 +84,9 @@ def worker(rank, dp_size, tp_size, rendezvous, output):
 
 
 @pytest.mark.parametrize("dp,tp", [(1, 4), (2, 2), (4, 1)])
-def test_coupled_ep_matches_full_expert_oracle(tmp_path, dp, tp):
+@pytest.mark.parametrize("precision", ['model', 'float32'])
+def test_coupled_ep_matches_full_expert_oracle(tmp_path, monkeypatch, dp, tp, precision):
+    monkeypatch.setenv('VLLM_LEARN_EXPERT_PRECISION', precision)
     context = mp.get_context("spawn")
     output = context.Queue()
     processes = [context.Process(target=worker, args=(rank, dp, tp,

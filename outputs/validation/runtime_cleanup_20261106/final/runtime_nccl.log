@@ -1,0 +1,197 @@
+......[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 25 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 66 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 25 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 66 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 25 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 66 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 25 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 66 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.02 MB, 激活预算 实测 0.00 GB)
+.[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+{'scope': 'BF16 production, matched DP/TP/PP baseline with EP disabled', 'serial': [[57, 60, 57, 60], [54, 60, 57, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]], 'matched_tp': [[57, 60, 57, 60], [54, 60, 57, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]], 'coupled_ep': [[57, 60, 57, 60], [54, 60, 54, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]]}
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+F[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+{'scope': 'BF16 production, matched DP/TP/PP baseline with EP disabled', 'serial': [[57, 60, 57, 60], [54, 60, 57, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]], 'matched_tp': [[57, 60, 57, 60], [54, 60, 57, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]], 'coupled_ep': [[57, 60, 57, 60], [54, 60, 57, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]]}
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 47 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 44 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+.[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+{'scope': 'BF16 production, matched DP/TP/PP baseline with EP disabled', 'serial': [[57, 60, 57, 60], [54, 60, 57, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]], 'matched_tp': [[57, 60, 57, 60], [54, 60, 57, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]], 'coupled_ep': [[57, 60, 57, 60], [54, 60, 57, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]]}
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+.[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+{'scope': '16 forced-prefix synthetic BF16 logits vectors, DP2TP2 EP4 vs expert TP', 'max_abs': 0.013671875, 'greedy_mismatches': 0, 'atol': 0.02, 'rtol': 0.03, 'task_accuracy': False}
+.
+=================================== FAILURES ===================================
+________ test_production_dp_ep_unequal_batches_and_idle_replicas[2-2-1] ________
+v9/tests/test_pipeline_worker_runtime.py:155: in test_production_dp_ep_unequal_batches_and_idle_replicas
+    assert actual == matched_reference
+E   assert [[57, 60, 57,..., 60, 57, 60]] == [[57, 60, 57,..., 60, 57, 60]]
+E     
+E     At index 1 diff: [54, 60, 54, 60] != [54, 60, 57, 60]
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED v9/tests/test_pipeline_worker_runtime.py::test_production_dp_ep_unequal_batches_and_idle_replicas[2-2-1]
+1 failed, 10 passed in 181.45s (0:03:01)
+
+[rank3]:[W1106 17:02:41.478464311 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 1 PG GUID 3 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank2]:[W1106 17:02:41.478945847 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 1 PG GUID 2 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank1]:[W1106 17:02:41.479000673 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 1 PG GUID 1 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank0]:[W1106 17:02:42.798451875 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 1 PG GUID 1 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank1]:[W1106 17:02:42.154051688 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 2 PG GUID 2 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank2]:[W1106 17:02:42.490837445 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 2 PG GUID 3 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank2]:[W1106 17:02:48.311003031 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 3 PG GUID 5 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank3]:[W1106 17:02:48.311131651 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 3 PG GUID 6 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank0]:[W1106 17:02:49.866768434 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 3 PG GUID 5 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank1]:[W1106 17:02:49.866795298 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 3 PG GUID 6 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank2]:[W1106 17:02:55.514422252 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 2 PG GUID 3 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank3]:[W1106 17:02:55.514585291 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 2 PG GUID 4 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank0]:[W1106 17:02:56.958549263 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 2 PG GUID 3 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank1]:[W1106 17:02:56.958631229 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 2 PG GUID 4 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank1]:[W1106 17:03:27.038210195 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 1 PG GUID 1 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank2]:[W1106 17:03:27.038521130 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 1 PG GUID 2 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank3]:[W1106 17:03:27.039065212 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 1 PG GUID 3 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank0]:[W1106 17:03:27.106453717 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 1 PG GUID 1 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank1]:[W1106 17:03:27.172360818 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 2 PG GUID 2 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank2]:[W1106 17:03:27.248729969 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 2 PG GUID 3 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank3]:[W1106 17:03:37.318007569 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 3 PG GUID 6 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank2]:[W1106 17:03:37.318339100 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 3 PG GUID 5 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank0]:[W1106 17:03:37.398082275 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 3 PG GUID 5 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank1]:[W1106 17:03:37.398119641 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 3 PG GUID 6 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank2]:[W1106 17:03:47.440493246 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 2 PG GUID 3 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank3]:[W1106 17:03:47.441345628 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 2 PG GUID 4 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank0]:[W1106 17:03:47.513573982 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 2 PG GUID 3 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank1]:[W1106 17:03:47.513573822 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 2 PG GUID 4 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank1]:[W1106 17:04:28.942177315 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 1 PG GUID 1 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank1]:[W1106 17:04:28.942506508 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 1 PG GUID 1 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank0]:[W1106 17:04:28.015268024 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 1 PG GUID 1 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank0]:[W1106 17:04:28.016363045 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 1 PG GUID 1 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank3]:[W1106 17:04:41.653414834 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 3 PG GUID 6 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank1]:[W1106 17:04:41.653462886 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 3 PG GUID 5 Rank 1] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank2]:[W1106 17:04:41.739768479 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 3 PG GUID 6 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())
+[rank0]:[W1106 17:04:41.739786887 ProcessGroupNCCL.cpp:3961] Warning: [PG ID 3 PG GUID 5 Rank 0] An unbatched P2P op (send/recv) was called on this ProcessGroup with size 2.  In eager initialization mode, unbatched P2P ops are treated as independent collective ops, and are thus serialized with all other ops on this ProcessGroup, including other P2P ops. To avoid serialization, either create additional independent ProcessGroups for the P2P ops or use batched P2P ops. You can squash this warning by setting the environment variable TORCH_NCCL_SHOW_EAGER_INIT_P2P_SERIALIZATION_WARNING to false. (function operator())

@@ -1,29 +1,12 @@
-# v9/layers/parallel.py
-"""v9.3 并行组件架构：Linear 组件原生感知并行，weight_loader 直接装载本 rank 切片。
+"""Process-local parallel state, PP layer bounds and TP shard arithmetic.
 
-v6-v8 的做法（shard_model_for_tp：全量加载后就地切片）的三个结构性问题：
-   根本走不了这条路（被迫发明 layer_device_map）。组件架构从构造起就只有
-   本 rank 的 1/N，装载时切片，GPU 上从不出现全量权重；
-2. **切分逻辑在引擎侧伸手进模型内部**（`attn.q_proj.weight = ...`），
-   模型文件对并行无感知。组件架构里并行语义归属组件，模型只管组装；
-3. **绕过 weight_loader 协议**（先装载全量再切）——narrow().contiguous()
-   的 view 陷阱（ENGINEERING_NOTES 2.0）正是"事后切"模式的产物。
-
-组件清单：
-  ParallelState         全局并行状态（tp/ep 坐标 + 通信组），launcher 在构造模型前注入
-  ColumnParallelLinear  输出维切（q/k/v/w13）：本 rank 持 [N/tp, K]
-  RowParallelLinear     输入维切（o/w2）：本 rank 持 [N, K/tp]，forward 带 allreduce
-  shard_bounds          切分边界（支持头复制：kv_heads < tp 时多 rank 共享同一切片）
-
-单卡零开销：tp=1 时组件退化为普通 Linear（weight [N,K] 全量，loader 直拷），
-单卡/多卡是同一条代码路径——这是组件架构相对"事后切"的核心优势。
+Configure before constructing layers. EP coordinates derive from DP x TP;
+parallel Linear implementations and weight loaders live in layers/linear.py.
 """
 
 import os
 import torch
 import torch.distributed as dist
-import torch.nn.functional as F
-from torch import nn
 
 
 # ================= 全局并行状态 =================
@@ -34,22 +17,23 @@ class ParallelState:
 
     def __init__(self):
         self.tp_size, self.tp_rank = 1, 0
-        self.ep_size, self.ep_rank = 1, 0
         self.dp_size, self.dp_rank = 1, 0
         self.replica_size, self.replica_rank = 1, 0  # diagnostic IDs, also for independent DP worlds
         self.enable_expert_parallel = False
         self.cp_size, self.cp_rank = 1, 0       # DCP（decode cache 并行）
         self.pp_size, self.pp_rank = 1, 0       # PP（层切 stage）
-        # PP transport 的运行时元数据，由 ModelRunner 在每个微批开始时写入。
-        self.pipeline_lane, self.microbatch_id = 0, 0
         self.pipeline_warmup = False
         self.pipeline_transport = None
         self.tp_group = None       # o_proj/w2 的 allreduce 域（tp 维）
         self.ep_group = None       # same PP/CP, union of DP x TP
 
     @property
-    def tp_enabled(self):
-        return self.tp_size > 1
+    def ep_size(self):
+        return self.dp_size * self.tp_size if self.enable_expert_parallel else 1
+
+    @property
+    def ep_rank(self):
+        return self.dp_rank * self.tp_size + self.tp_rank if self.enable_expert_parallel else 0
 
     def __repr__(self):
         return (f"ParallelState(tp={self.tp_rank}/{self.tp_size}, "
@@ -59,27 +43,22 @@ class ParallelState:
 STATE = ParallelState()
 
 
-def configure_parallel(tp_size=1, tp_rank=0, ep_size=None, ep_rank=None,
+def configure_parallel(tp_size=1, tp_rank=0,
                        tp_group=None,
                        ep_group=None,
                        cp_size=1, cp_rank=0, pp_size=1, pp_rank=0,
                        dp_size=1, dp_rank=0, enable_expert_parallel=False):
     """launcher 注入（构造模型前调用）。通信组由引擎侧建好传入——
     组件不建组（v8.2 教训：new_group 必须全 rank 对称 + device_id + 预热）。"""
-    derived_size = dp_size * tp_size if enable_expert_parallel else 1
-    derived_rank = dp_rank * tp_size + tp_rank if enable_expert_parallel else 0
-    if ep_size is not None and ep_size != derived_size:
-        raise ValueError("EP is derived from DP x TP; use enable_expert_parallel, not an independent ep_size")
-    if ep_rank is not None and ep_rank != derived_rank:
-        raise ValueError("EP rank must equal dp_rank * tp_size + tp_rank")
-    if not 0 <= dp_rank < dp_size or not 0 <= tp_rank < tp_size:
-        raise ValueError("invalid DP/TP rank")
+    if any(not 0 <= rank < size for rank, size in (
+            (dp_rank, dp_size), (tp_rank, tp_size),
+            (pp_rank, pp_size), (cp_rank, cp_size))):
+        raise ValueError("invalid DP/TP/PP/CP rank")
     STATE.tp_size, STATE.tp_rank = tp_size, tp_rank
     STATE.dp_size, STATE.dp_rank = dp_size, dp_rank
     STATE.replica_size = int(os.getenv("VLLM_LEARN_DP_REPLICA_COUNT", str(dp_size)))
     STATE.replica_rank = int(os.getenv("VLLM_LEARN_DP_REPLICA_ID", str(dp_rank)))
     STATE.enable_expert_parallel = enable_expert_parallel
-    STATE.ep_size, STATE.ep_rank = derived_size, derived_rank
     STATE.cp_size, STATE.cp_rank = cp_size, cp_rank
     STATE.pp_size, STATE.pp_rank = pp_size, pp_rank
     STATE.tp_group, STATE.ep_group = tp_group, ep_group
@@ -123,12 +102,3 @@ def shard_bounds(out_dim: int, tp_size: int, tp_rank: int, min_out: int = 1):
         f"out={out_dim} 切不动 per={per}（tp={tp_size}, min_out={min_out}）"
     shard = tp_rank * n_shards // tp_size
     return shard * per, per
-
-# 注意：ColumnParallelLinear / RowParallelLinear 组件在 layers/linear.py
-# （与 BaseLinear 同文件——它们是 Linear）。用模块级 __getattr__ 惰性
-# re-export 保持旧 import 兼容（直接 import 会循环：linear → parallel → linear）
-def __getattr__(name):
-    if name in ("ColumnParallelLinear", "RowParallelLinear"):
-        import layers.linear as _lin
-        return getattr(_lin, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

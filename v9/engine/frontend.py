@@ -103,9 +103,11 @@ class DPFrontend:
         topology = ParallelTopology(engine_kwargs.get("tp_size", 1), dp_size,
             engine_kwargs.get("pp_size", 1), engine_kwargs.get("dcp_size", 1),
             engine_kwargs.get("enable_expert_parallel", False))
-        legacy_ep = engine_kwargs.pop("ep_size", None)
-        if legacy_ep is not None and legacy_ep != topology.ep_size:
-            raise ValueError("EP size is derived from DP x TP; use enable_expert_parallel=True")
+        from inspect import signature
+        from engine.core import EngineCore
+        unknown = set(engine_kwargs) - set(signature(EngineCore).parameters)
+        if unknown:
+            raise TypeError(f"Unknown EngineCore options: {sorted(unknown)}")
         if self._coupled and engine_kwargs.get("config_kwargs", {}).get("batch_execution_mode", "batched") != "batched":
             raise ValueError("Coupled DP EP cannot use per_request: collective counts would diverge")
         requested_gpus = engine_kwargs.pop("gpus", None)

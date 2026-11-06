@@ -1,4 +1,4 @@
-"""Multi-stage transport oracle: variable shapes, lanes, credits and groups.
+"""Multi-stage transport oracle: variable shapes, credits and groups.
 
 Run with torchrun --standalone --nproc-per-node=4 ... --backend gloo|nccl.
 No checkpoint or private data is needed.
@@ -34,24 +34,23 @@ def main():
     try:
         for dedicated in (False, True):
             for asynchronous in (False, True):
-                pipe = PipelineTransport(size, rank, 1, lanes=2, credit=1,
+                pipe = PipelineTransport(size, rank, 1, credit=1,
                     async_enabled=asynchronous, device=str(device),
                     recv_group=incoming if dedicated else None,
                     send_group=outgoing if dedicated else None)
                 for mb, tokens in enumerate((0, 1, 7, 2, 13, 1, 5)):
-                    lane = mb % 2
                     if rank == 0:
                         hidden = torch.full((tokens, 5), mb, dtype=torch.bfloat16, device=device)
                         residual = torch.full_like(hidden, -mb)
                     else:
-                        hidden, residual, actual_mb, actual_lane = pipe.recv_forward(lane)
-                        assert (actual_mb, actual_lane) == (mb, lane)
+                        hidden, residual = pipe.recv_forward(microbatch_id=mb,
+                            shape=(tokens, 5), dtype=torch.bfloat16)
                         assert hidden.shape == (tokens, 5)
                         expected = mb + sum(range(1, rank))
                         torch.testing.assert_close(hidden, torch.full_like(hidden, expected), rtol=0, atol=0)
                         torch.testing.assert_close(residual, torch.full_like(residual, -mb), rtol=0, atol=0)
                         hidden = hidden + rank
-                    pipe.send_forward(hidden, residual, lane, mb)
+                    pipe.send_forward(hidden, residual, microbatch_id=mb)
                 pipe.shutdown()
                 dist.barrier()
                 if rank == 0:
