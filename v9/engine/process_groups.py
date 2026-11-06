@@ -65,15 +65,27 @@ def group_plan(tp_size=1, cp_size=1, dp_size=1, pp_size=1,
 
 def create_groups(rank, tp_size=1, cp_size=1, dp_size=1, pp_size=1,
                   enable_expert_parallel=False):
+    import os
     import torch.distributed as dist
-    groups = dict(tp=None, cp=None, dp=None, ep=None)
+    groups = dict(tp=None, cp=None, dp=None, ep=None, ep2=None)
     # new_group is collective over the default group, including nonmembers.
     # Creating only one's own group gives incompatible rendezvous sequences.
-    for name, members in group_plan(tp_size, cp_size, dp_size, pp_size,
-                                    enable_expert_parallel):
+    plans = list(group_plan(tp_size, cp_size, dp_size, pp_size,
+                            enable_expert_parallel))
+    for name, members in plans:
         group = dist.new_group(ranks=members)
         if rank in members:
             groups[name] = group
+    # Optional duplicate EP communicator for the dispatch/combine pipeline
+    # (VLLM_LEARN_EP_OVERLAP=1). Same membership, separate NCCL stream so two
+    # all-to-allv can be in flight at once. Created symmetrically on all ranks.
+    if os.getenv("VLLM_LEARN_EP_OVERLAP", "0") == "1":
+        for name, members in plans:
+            if name != "ep":
+                continue
+            group = dist.new_group(ranks=members)
+            if rank in members:
+                groups["ep2"] = group
     return groups
 
 

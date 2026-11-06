@@ -15,6 +15,8 @@ def main():
     ap.add_argument('--output', required=True)
     ap.add_argument('--pp', type=int, default=2)
     ap.add_argument('--enable-expert-parallel', action='store_true')
+    ap.add_argument('--gpus', default=None)
+    ap.add_argument('--master-port', type=int, default=31136)
     ap.add_argument('--mode', choices=['baseline', 'optimized'], default='optimized')
     ap.add_argument('--workload', default='short64')
     ap.add_argument('--requests', type=int, default=8)
@@ -40,8 +42,10 @@ def main():
     (out/'config.json').write_text(json.dumps(dict(vars(args), profiled=True,
         note='GPU synchronization and trace export change scheduling; exclude from throughput tables'), indent=2))
     (out/'inputs.json').write_text(json.dumps(rows))
-    core = EngineCore(args.model, tp_size=args.tp, enable_expert_parallel=args.enable_expert_parallel, pp_size=args.pp, master_port=31136,
+    gpus = [int(x) for x in args.gpus.split(',')] if args.gpus else None
+    core = EngineCore(args.model, tp_size=args.tp, enable_expert_parallel=args.enable_expert_parallel, pp_size=args.pp, master_port=args.master_port,
         runner_cls=ObservedModelRunner, transport_cls=ObservedPipelineTransport,
+        gpus=gpus,
         pipeline_microbatch_tokens=args.microbatch_tokens, pipeline_lanes=2,
         pipeline_mode=args.mode, config_kwargs=dict(max_num_seqs=128, max_model_len=8192,
         max_num_batched_tokens=512, gpu_memory_utilization=.70, enforce_eager=True,

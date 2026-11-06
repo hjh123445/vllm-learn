@@ -161,13 +161,15 @@ class GroupedExperts(nn.Module):
         route_out[order] = out * sorted_w[:, None].to(out.dtype)
         return _reduce_routes(route_out.view(T, k, H), topk_idx)
 
-    def compute_sorted(self, xs, offsets):
+    def compute_sorted(self, xs, offsets, offsets_host=None):
         """Compute expert-contiguous routes using local weights only.
 
         ``offsets[e]`` is the exclusive end of expert e, including empty
         experts. Native grouped GEMM keeps this prefix sum on the GPU.
         Explicit selection fails on unsupported platforms instead of silently
         falling back to the Python loop and mislabelling measurements.
+        ``offsets_host``: caller-supplied host endpoints — skips the
+        ``offsets.tolist()`` D2H sync in the loop backend.
         """
         if self.quantized:
             from layers.quantized import dequantize
@@ -180,7 +182,8 @@ class GroupedExperts(nn.Module):
         if xs.shape[0] == 0:
             return xs.new_empty((0, self.hidden))
         backend = self.resolve_backend(xs)
-        return self._compute_sorted_backend(xs, offsets, w13, w2, backend)
+        return self._compute_sorted_backend(xs, offsets, w13, w2, backend,
+                                            offsets_host)
 
     def resolve_backend(self, xs):
         """Select the grouped kernel for supported CUDA BF16 inputs.
@@ -195,7 +198,8 @@ class GroupedExperts(nn.Module):
             return 'torch_grouped'
         return 'loop'
 
-    def _compute_sorted_backend(self, xs, offsets, w13, w2, backend):
+    def _compute_sorted_backend(self, xs, offsets, w13, w2, backend,
+                                offsets_host=None):
         if backend == 'torch_grouped':
             grouped_mm = getattr(F, 'grouped_mm', None) or getattr(torch, '_grouped_mm', None)
             if grouped_mm is None or not xs.is_cuda or xs.dtype != torch.bfloat16:
@@ -207,7 +211,8 @@ class GroupedExperts(nn.Module):
             return grouped_mm(act, w2.transpose(-2, -1), offs=offs)
         output = xs.new_empty((xs.shape[0], self.hidden))
         start = 0
-        for e, end in enumerate(offsets.tolist()):
+        ends = offsets_host if offsets_host is not None else offsets.tolist()
+        for e, end in enumerate(ends):
             if end == start:                           # 本批没 token 命中该专家
                 continue
             h13 = xs[start:end] @ w13[e].t()           # [n_e, 2I]
@@ -237,6 +242,26 @@ class MoEMLP(nn.Module):
         # batch, changing top-k weights and occasionally expert selection.
         # Default to the same router shape as EP1; local routing is opt-in.
         self.local_router = os.getenv('VLLM_LEARN_EP_LOCAL_ROUTER', '0') == '1'
+        # Experimental ownership-aware fast path (see _ep_forward_fast):
+        # counts provider + packed dispatch payload + source-side weighting
+        # -> counts allgather + dispatch + combine (3 collectives/layer,
+        # down from 5 in _ep_forward_alltoallv) and ONE D2H per layer.
+        self.fastmeta = os.getenv('VLLM_LEARN_EP_FASTMETA', '0') == '1'
+        # Optional second-communicator pipeline: parity-split routes,
+        # dispatch(B) overlaps experts(A), combine(A) overlaps experts(B).
+        self.overlap = (self.fastmeta
+                        and os.getenv('VLLM_LEARN_EP_OVERLAP', '0') == '1')
+        # Counts provider. 'exchange' (DP x TP coupled form, upstream
+        # ownership topology): local bincount over OWNED routes + one tiny
+        # packed allgather + one D2H — valid for ANY per-rank input batch,
+        # including empty DP replicas. 'analytic': only valid when dp==1 and
+        # the router ran on the full replicated batch (default), because the
+        # ownership split is then derivable locally; anything else falls back
+        # to exchange. Equivalence on identical inputs is token-level
+        # checkable.
+        self.meta_mode = os.getenv('VLLM_LEARN_EP_META', 'exchange')
+        self._ov_streams = None
+        self._rowmap_cache = {}
         self.router = MoERouter(config.hidden_size, config.num_experts,
                                 config.num_experts_per_tok,
                                 getattr(config, "norm_topk_prob", True))
@@ -270,10 +295,17 @@ class MoEMLP(nn.Module):
         local_x = x[start:min(start + rows, tokens)]
         if self.local_router:
             ids, weights = self.router(local_x)
+            full = None
         else:
             all_ids, all_weights = self.router(x)
             ids, weights = all_ids[start:start + rows], all_weights[start:start + rows]
-        local_out = self._ep_forward_alltoallv(local_x, ids, weights)
+            full = all_ids
+        if self.fastmeta and x.dtype == torch.bfloat16:
+            local_out = self._ep_forward_fast(local_x, ids, weights,
+                                              full=full, start=start,
+                                              rows=rows)
+        else:
+            local_out = self._ep_forward_alltoallv(local_x, ids, weights)
         if STATE.tp_size == 1 or tokens == 0:
             return local_out
         # NCCL all_gather_into_tensor requires equal sizes. This pads only the
@@ -350,3 +382,263 @@ class MoEMLP(nn.Module):
         route_out[order] = (returned * send_w[:, None].to(returned.dtype)
                             if self.weight_at_source else returned)
         return _reduce_routes(route_out.view(T, k, H), idx)
+
+    # ============ experimental fast path (VLLM_LEARN_EP_FASTMETA) ============
+
+    def _meta_host(self, *tensors):
+        """一次 D2H 同步取回全部元数据(list[int] 拼接)。"""
+        return torch.cat(tensors).tolist()
+
+    def _local_experts_host(self, recv, rows, me, per, ends_host, H):
+        """接收缓冲 → 专家计算（带 host 偏移，无 .tolist() 同步）。"""
+        rx = recv[:, :H]
+        le = recv[:, H].contiguous().view(torch.int16).to(torch.int64) \
+            - me * per
+        rorder = torch.argsort(le, stable=True)
+        xs_s = rx[rorder]
+        offs_gpu = torch.tensor(ends_host, dtype=torch.int32,
+                                device=rx.device)
+        out_s = self.experts.compute_sorted(xs_s, offs_gpu,
+                                            offsets_host=ends_host)
+        final = torch.empty((rows, H), dtype=rx.dtype, device=rx.device)
+        final[rorder] = out_s
+        return final
+
+    def _pack(self, x, rows, k, flat_e, H):
+        """把 (token 行 | int16 专家号) 打包成单个 bf16 载荷 [n, H+1]。"""
+        return torch.cat([x[rows // k],
+                          flat_e[rows].to(torch.int16).unsqueeze(1)
+                                      .view(torch.bfloat16)], dim=1)
+
+    def _counts_host(self, gcE, gcD, world, me, per, E):
+        """exchange provider（DP×TP 耦合形态）：本地 bincount（仅本 rank
+        owned 路由）+ 一次打包 allgather(E+world 个 int32) + **每层一次**
+        D2H → (send_splits, recv_splits, 本地专家终点)。对任意 per-rank
+        输入批次成立，包括空 DP 副本；与 analytic 在同输入下逐 token 等价。
+        """
+        from layers.parallel import STATE
+        import torch.distributed as dist
+        W = E + world
+        cnt = torch.cat([gcE, gcD]).to(torch.int32)
+        gathered = torch.empty(world * W, dtype=torch.int32,
+                               device=gcE.device)
+        dist.all_gather_into_tensor(gathered, cnt, group=STATE.ep_group)
+        meta = gathered.tolist()                      # <<< 每层唯一一次 D2H
+        ssl = meta[me * W + E: me * W + E + world]
+        rs = [meta[j * W + E + me] for j in range(world)]
+        ends, acc = [], 0
+        for e in range(me * per, (me + 1) * per):
+            acc += sum(meta[j * W + e] for j in range(world))
+            ends.append(acc)
+        return ssl, rs, ends
+
+    def _counts_host_analytic(self, full_ids, rows, world, me, per, E):
+        """analytic provider（ownership 拓扑）：仅当 DP=1 且 router 作用于
+        全量复制 batch 时成立——ownership 切分规则确定（owner = row//rows），
+        全组 send/专家计数可由 [owner,dest]/[owner,expert] 两个 bincount
+        本地推出，一次 D2H、零额外交集通信。其他情形一律 fall back 到
+        exchange（调用侧保证）。"""
+        T_full, k = full_ids.shape
+        rows = max(rows, 1)
+        flat_e = full_ids.reshape(-1).to(torch.int64)
+        dest = torch.div(flat_e, per, rounding_mode="floor")
+        owner = torch.arange(T_full, device=full_ids.device,
+                             dtype=torch.int64).repeat_interleave(k) // rows
+        sd = torch.bincount(owner * world + dest, minlength=world * world)
+        oe = torch.bincount(owner * E + flat_e, minlength=world * E)
+        meta = self._meta_host(sd, oe)                # <<< 每层唯一一次 D2H
+        ssl = [meta[me * world + d] for d in range(world)]
+        rs = [meta[j * world + me] for j in range(world)]
+        base = world * world
+        ends, acc = [], 0
+        for e in range(me * per, (me + 1) * per):
+            acc += sum(meta[base + j * E + e] for j in range(world))
+            ends.append(acc)
+        return ssl, rs, ends
+
+    def _ep_forward_fast(self, x, idx, w, full=None, start=0, rows=None):
+        """ownership 拓扑下的实验性 EP 快路径（VLLM_LEARN_EP_FASTMETA）。
+
+        相对默认 _ep_forward_alltoallv：
+          - 计数链：counts 专用 all_to_all + 2 次 tolist + 专家循环
+            offsets tolist → 一次打包（allgather 或解析）+ **一次** D2H；
+          - 载荷打包 (x|int16 e) + 源侧加权：每层集合通信 5 次 → 3 次
+            （counts-allgather + dispatch + combine）；
+          - 专家循环的 host 偏移由 provider 直接给出（无额外 D2H）。
+        数学与默认路径一致（GEMM 形状不变、top-k FP32 归并相同）。
+        full：DP=1 且 router 作用于全量复制 batch 时的完整路由表 [T,k]，
+        供 analytic provider 使用；空本地批次（T=0）照常参与全部集合通信
+        ——空闲 DP 副本必须接收并执行其他副本发来的 route。
+        """
+        from layers.parallel import STATE
+        import torch.distributed as dist
+        T, H = x.shape
+        k = idx.shape[1]
+        world, me = STATE.ep_size, STATE.ep_rank
+        per = self.experts.num_experts
+        E = per * world
+        flat_e = idx.reshape(-1).to(torch.int64)
+        flat_w = w.reshape(-1)
+        dest = torch.div(flat_e, per, rounding_mode="floor")
+        if self.overlap and STATE.ep_group2 is not None and k % 2 == 0:
+            return self._ep_forward_fast_overlap(x, idx, w, flat_e, flat_w,
+                                                 dest)
+        with torch.autograd.profiler.record_function("moe.dispatch.meta"):
+            if (self.meta_mode == 'analytic' and full is not None
+                    and STATE.dp_size == 1):
+                ssl, rs, ends_host = self._counts_host_analytic(
+                    full, rows, world, me, per, E)
+            else:
+                gcE = torch.bincount(flat_e, minlength=E)
+                gcD = torch.bincount(dest, minlength=world)
+                ssl, rs, ends_host = self._counts_host(gcE, gcD, world, me,
+                                                       per, E)
+        order = torch.argsort(dest, stable=True)
+        packed = self._pack(x, order, k, flat_e, H)
+        with torch.autograd.profiler.record_function("moe.dispatch"):
+            recv = torch.empty((sum(rs), H + 1), dtype=x.dtype,
+                               device=x.device)
+            dist.all_to_all_single(recv, packed, output_split_sizes=rs,
+                                   input_split_sizes=ssl, group=STATE.ep_group)
+        with torch.autograd.profiler.record_function("moe.expert"):
+            final = self._local_experts_host(recv, recv.shape[0], me, per,
+                                             ends_host, H)
+        with torch.autograd.profiler.record_function("moe.combine"):
+            returned = torch.empty((order.numel(), H), dtype=x.dtype,
+                                   device=x.device)
+            dist.all_to_all_single(returned, final, output_split_sizes=ssl,
+                                   input_split_sizes=rs,
+                                   group=STATE.ep_group)
+        full = torch.empty_like(returned)
+        full[order] = returned * flat_w[order].unsqueeze(1).to(returned.dtype)
+        return _reduce_routes(full.view(T, k, H), idx)
+
+    def _ep_forward_fast_overlap(self, x, idx, w, flat_e, flat_w, dest):
+        """双通信域流水的 fastmeta 变体。
+
+        路由按 top-k 槽位奇偶（k=8，偶槽/奇槽各 4 个、天然均衡）拆成两路，
+        分别走 STATE.ep_group / ep_group2。事件编排：
+            dispatch A ‖ dispatch B（两条 NCCL comm 并行）
+            experts  A ‖ dispatch B
+            combine  A ‖ experts  B
+            combine  B ‖ （本层尾部）
+        每个专家 GEMM 的 M 维变为原来一半——数值需 token 级对拍确认。
+        ownership 拓扑下计数一律走 exchange provider（本地 bincount + 一次
+        打包 allgather + 一次 D2H），对任意输入分布与空副本成立。
+        """
+        from layers.parallel import STATE
+        import torch.distributed as dist
+        T, H = x.shape
+        k = idx.shape[1]
+        world, me = STATE.ep_size, STATE.ep_rank
+        per = self.experts.num_experts
+        E = per * world
+        k2 = k // 2
+        dmat = dest.view(T, k)
+        emat = flat_e.view(T, k)
+        dA = dmat[:, 0::2].reshape(-1)
+        dB = dmat[:, 1::2].reshape(-1)
+        eA = emat[:, 0::2].reshape(-1)
+        eB = emat[:, 1::2].reshape(-1)
+        with torch.autograd.profiler.record_function("moe.dispatch.meta"):
+            bcA = torch.bincount(dA, minlength=world)
+            bcB = torch.bincount(dB, minlength=world)
+            bcEA = torch.bincount(eA, minlength=E)
+            bcEB = torch.bincount(eB, minlength=E)
+            # exchange：每 rank 打包 [dA(world), dB(world), eA(E), eB(E)]
+            # 一次 allgather + 一次 D2H——对任意 per-rank 批次成立（含空副本）。
+            cnt = torch.cat([bcA, bcB, bcEA, bcEB]).to(torch.int32)
+            W2 = cnt.numel()
+            gathered = torch.empty(world * W2, dtype=torch.int32,
+                                   device=x.device)
+            dist.all_gather_into_tensor(gathered, cnt,
+                                        group=STATE.ep_group)
+            g = gathered.tolist()                     # <<< 每层唯一一次 D2H
+            row = me * W2
+            ssA = g[row: row + world]
+            ssB = g[row + world: row + 2 * world]
+            rsA = [g[j * W2 + me] for j in range(world)]
+            rsB = [g[j * W2 + world + me] for j in range(world)]
+            endsA, acc = [], 0
+            for e in range(me * per, (me + 1) * per):
+                acc += sum(g[j * W2 + 2 * world + e] for j in range(world))
+                endsA.append(acc)
+            endsB, acc = [], 0
+            for e in range(me * per, (me + 1) * per):
+                acc += sum(g[j * W2 + 2 * world + E + e]
+                           for j in range(world))
+                endsB.append(acc)
+        # A 子域位置 p ↔ flat route id: token p//k2, slot p%k2 → t*k + 2j
+        key = (T, k)
+        maps = self._rowmap_cache.get(key)
+        if maps is None:
+            p = torch.arange(T * k2, device=x.device)
+            rmA = (p // k2) * k + 2 * (p % k2)
+            maps = (rmA, rmA + 1)
+            self._rowmap_cache[key] = maps
+        rmA, rmB = maps
+        orderA = torch.argsort(dA, stable=True)
+        orderB = torch.argsort(dB, stable=True)
+        rowsA = rmA[orderA]
+        rowsB = rmB[orderB]
+        packedA = self._pack(x, rowsA, k, flat_e, H)
+        packedB = self._pack(x, rowsB, k, flat_e, H)
+        if self._ov_streams is None:
+            self._ov_streams = (torch.cuda.Stream(), torch.cuda.Stream())
+        sA, sB = self._ov_streams
+        main = torch.cuda.current_stream()
+        ev_pack = torch.cuda.Event()
+        ev_pack.record(main)
+        recvA = torch.empty((sum(rsA), H + 1), dtype=x.dtype, device=x.device)
+        recvB = torch.empty((sum(rsB), H + 1), dtype=x.dtype, device=x.device)
+        with torch.autograd.profiler.record_function("moe.dispatch"):
+            with torch.cuda.stream(sA):
+                sA.wait_event(ev_pack)
+                dist.all_to_all_single(recvA, packedA, output_split_sizes=rsA,
+                                       input_split_sizes=ssA,
+                                       group=STATE.ep_group)
+                ev_dA = torch.cuda.Event()
+                ev_dA.record(sA)
+            with torch.cuda.stream(sB):
+                sB.wait_event(ev_pack)
+                dist.all_to_all_single(recvB, packedB, output_split_sizes=rsB,
+                                       input_split_sizes=ssB,
+                                       group=STATE.ep_group2)
+                ev_dB = torch.cuda.Event()
+                ev_dB.record(sB)
+        with torch.autograd.profiler.record_function("moe.expert"):
+            main.wait_event(ev_dA)
+            finalA = self._local_experts_host(recvA, recvA.shape[0], me, per,
+                                              endsA, H)
+        ev_eA = torch.cuda.Event()
+        ev_eA.record(main)
+        combA = torch.empty((rowsA.numel(), H), dtype=x.dtype, device=x.device)
+        with torch.autograd.profiler.record_function("moe.combine"):
+            with torch.cuda.stream(sA):
+                sA.wait_event(ev_eA)
+                dist.all_to_all_single(combA, finalA, output_split_sizes=ssA,
+                                       input_split_sizes=rsA,
+                                       group=STATE.ep_group)
+                ev_cA = torch.cuda.Event()
+                ev_cA.record(sA)
+        with torch.autograd.profiler.record_function("moe.expert"):
+            main.wait_event(ev_dB)
+            finalB = self._local_experts_host(recvB, recvB.shape[0], me, per,
+                                              endsB, H)
+        ev_eB = torch.cuda.Event()
+        ev_eB.record(main)
+        combB = torch.empty((rowsB.numel(), H), dtype=x.dtype, device=x.device)
+        with torch.autograd.profiler.record_function("moe.combine"):
+            with torch.cuda.stream(sB):
+                sB.wait_event(ev_eB)
+                dist.all_to_all_single(combB, finalB, output_split_sizes=ssB,
+                                       input_split_sizes=rsB,
+                                       group=STATE.ep_group2)
+                ev_cB = torch.cuda.Event()
+                ev_cB.record(sB)
+        main.wait_event(ev_cA)
+        main.wait_event(ev_cB)
+        full = torch.empty((T * k, H), dtype=x.dtype, device=x.device)
+        full[rowsA] = combA * flat_w[rowsA].unsqueeze(1).to(combA.dtype)
+        full[rowsB] = combB * flat_w[rowsB].unsqueeze(1).to(combB.dtype)
+        return _reduce_routes(full.view(T, k, H), idx)

@@ -93,6 +93,7 @@ def worker_main(rank, world_size, tp_size, ep_size, model_path,
         pp_recv_group, pp_send_group = create_pipeline_edge_groups(rank, inner, pp_size, dp_size)
         groups.update(pp_recv=pp_recv_group, pp_send=pp_send_group)
     tp_group, ep_group, cp_group = (groups[k] for k in ("tp", "ep", "cp"))
+    STATE.ep_group2 = groups.get("ep2")
     for group in groups.values():
         if group is not None:
             dist.all_reduce(torch.zeros(1, device="cuda"), group=group)

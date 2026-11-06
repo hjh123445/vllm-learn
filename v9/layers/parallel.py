@@ -46,6 +46,7 @@ class ParallelState:
         self.pipeline_transport = None
         self.tp_group = None       # o_proj/w2 的 allreduce 域（tp 维）
         self.ep_group = None       # same PP/CP, union of DP x TP
+        self.ep_group2 = None      # 可选第二 EP 通信域（a2a/专家流水重叠用）
 
     @property
     def tp_enabled(self):

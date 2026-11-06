@@ -82,6 +82,11 @@ def main():
                     help='capture only; reported timings are diagnostic, no benchmark percentiles/rates')
     ap.add_argument('--profile-start-message', type=int, default=3)
     ap.add_argument('--profile-messages', type=int, default=16)
+    ap.add_argument('--gpus', default=None,
+                    help='comma-separated physical GPU ids (default: ranks 0..world-1)')
+    ap.add_argument('--master-port', type=int, default=31030)
+    ap.add_argument('--expert-backend', default=None,
+                    help='sets VLLM_LEARN_EXPERT_BACKEND (loop/auto/torch_grouped)')
     args = ap.parse_args()
     selected = args.workloads.split(',')
     if args.profile:
@@ -103,13 +108,18 @@ def main():
     from utils.observation_config import configure_observation
     configure_observation(out, profile=args.profile, start_message=args.profile_start_message,
                           messages=args.profile_messages)
+    os.environ['VLLM_LEARN_METRICS_DIR'] = str(out)
+    if args.expert_backend:
+        os.environ['VLLM_LEARN_EXPERT_BACKEND'] = args.expert_backend
+    gpus = [int(x) for x in args.gpus.split(',')] if args.gpus else None
     config = dict(max_num_seqs=128, max_model_len=8192, max_num_batched_tokens=args.budget,
                   max_kvcache_blocks=args.max_kv_blocks,
                   gpu_memory_utilization=.70, enforce_eager=True, enable_prefix_caching=False)
-    kw = dict(tp_size=args.tp, enable_expert_parallel=args.enable_expert_parallel, pp_size=args.pp, master_port=31030,
+    kw = dict(tp_size=args.tp, enable_expert_parallel=args.enable_expert_parallel, pp_size=args.pp,
+              master_port=args.master_port,
               runner_cls=ObservedModelRunner, transport_cls=ObservedPipelineTransport,
               pipeline_microbatch_tokens=args.microbatch_tokens, pipeline_lanes=args.lanes,
-              pipeline_mode=args.mode, config_kwargs=config)
+              pipeline_mode=args.mode, config_kwargs=config, gpus=gpus)
     write(out / 'config.json', dict(vars(args), engine_config=config,
           ep_derived_from_dp_tp=args.enable_expert_parallel,
           numerical_policy={name: os.getenv(name, default) for name, default in (
