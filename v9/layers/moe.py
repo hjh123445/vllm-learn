@@ -19,6 +19,35 @@ import torch.nn.functional as F
 from layers.kernels import silu_and_mul
 
 
+def _bucket_order(keys, num_buckets, counts=None):
+    """Stable grouping order via counting scatter; equals argsort(stable=True).
+
+    When the key domain is small (EP ranks or local experts), counting the
+    in-bucket rank avoids the multi-pass int64 radix sort: for short decode
+    batches sorting was several times the cost of the gather it orders.
+    ``counts`` may be reused when the caller already histogrammed ``keys``.
+    """
+    n = keys.numel()
+    if counts is None:
+        counts = torch.bincount(keys, minlength=num_buckets)
+    starts = counts.cumsum(0) - counts
+    rank_in_key = (keys.unsqueeze(1) == torch.arange(num_buckets, device=keys.device,
+                                                     dtype=keys.dtype)).to(torch.int32).cumsum(0)
+    rank_of = rank_in_key.gather(1, keys.unsqueeze(1)).squeeze(1).to(torch.int64) - 1
+    positions = starts[keys] + rank_of
+    order = torch.empty(n, device=keys.device, dtype=torch.int64)
+    order.scatter_(0, positions, torch.arange(n, device=keys.device))
+    return order
+
+
+def _moe_ordering():
+    """'argsort' (default) keeps the single fused radix kernel; 'counting'
+    is an ablation. Measured on 8xA800 EP8: counting loses 1.5-3.8% tok/s
+    — this engine is CPU-launch-bound, so 7 small kernels cost more than
+    one multi-pass sort. radixSort itself was only ~2% of busy time."""
+    return os.getenv('VLLM_LEARN_MOE_ORDER', 'argsort')
+
+
 def _reduce_routes(routes, expert_ids):
     """Reduce returned top-k routes; the HF order is a diagnostic oracle."""
     if os.getenv('VLLM_LEARN_MOE_REDUCTION', 'fp32') == 'hf_reference':
@@ -160,8 +189,9 @@ class GroupedExperts(nn.Module):
 
         counts = torch.bincount(flat_expert, minlength=E)
         offsets = counts.cumsum(0)                     # 每个专家在排序后序列的终点
-        # 稳定排序：同一专家的 token 连续排布
-        order = torch.argsort(flat_expert, stable=True)
+        # 同一专家的 token 连续排布（counting 与 argsort(stable) 逐位一致）
+        order = (_bucket_order(flat_expert, E, counts) if _moe_ordering() == 'counting'
+                 else torch.argsort(flat_expert, stable=True))
         sorted_token = flat_token[order]
         sorted_w = flat_w[order]
 
@@ -247,6 +277,11 @@ class MoEMLP(nn.Module):
         # batch, changing top-k weights and occasionally expert selection.
         # Default to the same router shape as EP1; local routing is opt-in.
         self.local_router = os.getenv('VLLM_LEARN_EP_LOCAL_ROUTER', '0') == '1'
+        # Packed dispatch: one (x|e|w) payload all-to-all replaces three,
+        # counts exchange overlaps the packing on a side stream, and both
+        # split vectors reach the host in one D2H read. Opt-in experiment.
+        self.ep_packed = os.getenv('VLLM_LEARN_EP_PACKED', '0') == '1'
+        self._ep_comm_stream = None
         self.router = MoERouter(config.hidden_size, config.num_experts,
                                 config.num_experts_per_tok,
                                 getattr(config, "norm_topk_prob", True))
@@ -284,7 +319,8 @@ class MoEMLP(nn.Module):
         else:
             all_ids, all_weights = self.router(x)
             ids, weights = all_ids[start:start + rows], all_weights[start:start + rows]
-        local_out = self._ep_forward_alltoallv(local_x, ids, weights)
+        local_out = (self._ep_forward_alltoallv_packed(local_x, ids, weights)
+                     if self.ep_packed else self._ep_forward_alltoallv(local_x, ids, weights))
         if STATE.tp_size == 1 or tokens == 0:
             return local_out
         # NCCL all_gather_into_tensor requires equal sizes. This pads only the
@@ -301,7 +337,8 @@ class MoEMLP(nn.Module):
         E = self.experts.num_experts
         counts = torch.bincount(eids, minlength=E)
         offsets = counts.cumsum(0)
-        order = torch.argsort(eids, stable=True)
+        order = (_bucket_order(eids, E, counts) if _moe_ordering() == 'counting'
+                 else torch.argsort(eids, stable=True))
         xs_s = xs[order]
         out = self.experts.compute_sorted(xs_s, offsets)
         final = torch.empty_like(out)
@@ -328,13 +365,14 @@ class MoEMLP(nn.Module):
         flat_w = w.reshape(-1)
         flat_t = torch.arange(T, device=x.device, dtype=torch.int64).repeat_interleave(k)
         dest = torch.div(flat_e, experts_per_rank, rounding_mode="floor")
-        order = torch.argsort(dest, stable=True)
+        world = STATE.ep_size
+        send_counts = torch.bincount(dest, minlength=world).to(torch.int64)
+        order = (_bucket_order(dest, world, send_counts) if _moe_ordering() == 'counting'
+                 else torch.argsort(dest, stable=True))
         send_e = flat_e[order].contiguous()
         send_w = flat_w[order].contiguous()
         send_t = flat_t[order].contiguous()
         send_x = x[send_t].contiguous()
-        world = STATE.ep_size
-        send_counts = torch.bincount(dest, minlength=world).to(torch.int64)
         recv_counts = torch.empty_like(send_counts)
         dist.all_to_all_single(recv_counts, send_counts, group=STATE.ep_group)
         # PyTorch variable splits require host lists, not CUDA offsets.
@@ -361,4 +399,87 @@ class MoEMLP(nn.Module):
         route_out = torch.empty_like(returned)
         route_out[order] = (returned * send_w[:, None].to(returned.dtype)
                             if self.weight_at_source else returned)
+        return _reduce_routes(route_out.view(T, k, H), idx).to(x.dtype)
+
+    def _comm_stream(self):
+        if self._ep_comm_stream is None:
+            self._ep_comm_stream = torch.cuda.Stream()
+        return self._ep_comm_stream
+
+    def _ep_forward_alltoallv_packed(self, x, idx, w):
+        """Three-collective EP dispatch/combine with overlapped counts exchange.
+
+        One uint8 payload row per route (x bf16 | e int32 | w bf16) replaces
+        the three payload all-to-alls, so a MoE layer issues counts + payload
+        + combine instead of five transfers.  The counts exchange runs on a
+        side stream while the payload is gathered, and both split vectors
+        reach the host in a single D2H read (the unpacked path syncs twice).
+        Route output scaling stays at the source, which is the exact same
+        multiply order as ``weight_at_source="1"`` on the unpacked path.
+        """
+        from layers.parallel import STATE
+        if STATE.ep_group is None:
+            raise RuntimeError("EP all-to-allv requires an ep_group")
+        import torch.distributed as dist
+        T, H = x.shape
+        k = idx.shape[1]
+        experts_per_rank = self.experts.num_experts
+        flat_e = idx.reshape(-1).to(torch.int64)
+        flat_w = w.reshape(-1)
+        flat_t = torch.arange(T, device=x.device, dtype=torch.int64).repeat_interleave(k)
+        dest = torch.div(flat_e, experts_per_rank, rounding_mode="floor")
+        world = STATE.ep_size
+        send_counts = torch.bincount(dest, minlength=world).to(torch.int64)
+        order = (_bucket_order(dest, world, send_counts) if _moe_ordering() == 'counting'
+                 else torch.argsort(dest, stable=True))
+        n = flat_e.numel()
+
+        recv_counts = torch.empty_like(send_counts)
+        current = torch.cuda.current_stream() if x.is_cuda else None
+        if current is not None:
+            comm = self._comm_stream()
+            comm.wait_stream(current)
+            with torch.cuda.stream(comm):
+                dist.all_to_all_single(recv_counts, send_counts, group=STATE.ep_group)
+
+        send_t = flat_t[order]
+        send_e = flat_e[order]
+        send_w = flat_w[order]
+        send_x = x.index_select(0, send_t)
+        # Row: e int32 (4B) | x (esz*H) | w (esz); pad the row stride to a
+        # multiple of 4B so the strided int32 view on the receiver is legal.
+        esz = x.element_size()
+        row_bytes = (4 + esz * H + esz + 3) // 4 * 4
+        payload = torch.empty((n, row_bytes), device=x.device, dtype=torch.uint8)
+        payload[:, :4].copy_(send_e.to(torch.int32).view(torch.uint8).view(n, 4))
+        payload[:, 4:4 + esz * H].copy_(send_x.view(torch.uint8).view(n, esz * H))
+        payload[:, 4 + esz * H:4 + esz * H + esz].copy_(send_w.view(torch.uint8).view(n, esz))
+
+        if current is None:
+            dist.all_to_all_single(recv_counts, send_counts, group=STATE.ep_group)
+        else:
+            current.wait_stream(comm)
+        # One host sync for both split vectors (the reference path syncs twice).
+        both = torch.cat((send_counts, recv_counts)).tolist()
+        ss, rs = both[:world], both[world:]
+
+        in_bytes = [s * row_bytes for s in ss]
+        out_bytes = [r * row_bytes for r in rs]
+        m = sum(rs)
+        recv_flat = torch.empty((m * row_bytes,), device=x.device, dtype=torch.uint8)
+        dist.all_to_all_single(recv_flat, payload.view(-1), output_split_sizes=out_bytes,
+                               input_split_sizes=in_bytes, group=STATE.ep_group)
+        packed_recv = recv_flat.view(m, row_bytes)
+        recv_x = packed_recv[:, 4:4 + esz * H].view(x.dtype)
+        recv_e = packed_recv[:, :4].view(torch.int32).squeeze(1).to(torch.int64)
+
+        local_e = recv_e - STATE.ep_rank * experts_per_rank
+        recv_out = self._experts_local(recv_x, local_e, None)
+        returned_flat = torch.empty((sum(ss) * H,), device=x.device, dtype=recv_out.dtype)
+        dist.all_to_all_single(returned_flat, recv_out.reshape(-1),
+                               output_split_sizes=[s * H for s in ss],
+                               input_split_sizes=[r * H for r in rs], group=STATE.ep_group)
+        returned = returned_flat.view(sum(ss), H)
+        route_out = torch.empty_like(returned)
+        route_out[order] = returned * send_w[:, None].to(returned.dtype)
         return _reduce_routes(route_out.view(T, k, H), idx).to(x.dtype)
