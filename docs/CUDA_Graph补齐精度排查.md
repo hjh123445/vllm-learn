@@ -6,7 +6,7 @@
 
 batch 补齐是正常 CUDA Graph 技术，不能通过只允许精确 batch 绕开差异。最终增加 `--batch-invariant` 策略：在本次已测范围内，未补齐 eager、补齐 eager、Graph replay 的完整 logits 逐位一致，同时检查各 TP rank 一致及有效 KV 不受 capture 污染。严格测试要求 `unpadded_max_abs == 0`，没有放宽容差。
 
-普通吞吐策略仍可用；严格策略固定 GEMM 和归约，承担性能、通信和显存成本。不能由此宣布任意模型、batch、硬件都逐位一致，也不能将内部一致性当作 HF 整模质量认证。
+Graph 请求现在默认自动启用严格策略（`VLLM_LEARN_DECODE_GRAPH_STRICT=1`）：固定 GEMM、RMSNorm 和归约顺序，承担性能、通信和显存成本，并且 warmup、KV 预算和 capture 使用同一数值路径。只有显式设置 `VLLM_LEARN_DECODE_GRAPH_STRICT=0` 才会运行形状敏感的快速消融；该模式不承诺未补齐 batch 与 Graph 逐位一致。不能由此宣布任意模型、batch、硬件都逐位一致，也不能将内部一致性当作 HF 整模质量认证。
 
 ## 2. vLLM 为什么能补齐
 
@@ -101,7 +101,7 @@ python tools/diagnose_graph_padding.py --model MODEL --batch 3 --bucket 4 --outp
 VLLM_LEARN_BATCH_INVARIANT=1 python tools/diagnose_graph_padding.py --model MODEL --batch 7 --bucket 8 --output /tmp/padding_fixed
 ```
 
-正常 benchmark 使用 `tools/benchmark.py --decode-graph --batch-invariant`，其余 model/TP/EP/inputs/budget/max-num-seqs 按正常负载设置。加 --profile 只采轨迹，profile 时间不进入吞吐提升表。
+正常 benchmark 使用 `tools/benchmark.py --decode-graph`（该选项自动设置严格数值策略），其余 model/TP/EP/inputs/budget/max-num-seqs 按正常负载设置。加 --profile 只采轨迹，profile 时间不进入吞吐提升表。捕获完成后执行元数据会记录 `graph_capture_count` 和实际 `graph_capture_bytes`；若图池超过 `decode_graph_reserve_bytes`，启动直接失败并提示调大预留或缩小 bucket，禁止静默回退到 eager。
 
 `graph_invariant_cli_profile/trace/cuda_rankN.json.gz` 含单rank CPU/CUDA/NCCL；八卡合并按 PROFILE.md 使用 merge 工具。Graph replay 不执行每层 Python hooks，不能说图内每个节点已有完整 layer 归属；审计显式标记 layer_attribution_verified=false。
 

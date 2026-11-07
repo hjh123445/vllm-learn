@@ -259,7 +259,10 @@ class ObservedModelRunner(ModelRunner):
                     STATE.pp_rank * STATE.tp_size + STATE.tp_rank) * STATE.cp_size + STATE.cp_rank
                 _write(Path(directory) / f"execution_rank{rank}.json",
                     dict(rank=rank, graph_requested=os.getenv('VLLM_LEARN_DECODE_GRAPH', '0') == '1',
+                         graph_strict=getattr(self, '_decode_graph_strict', False),
                          captured_buckets=sorted(getattr(self, 'decode_graphs', {})),
+                         graph_capture_count=getattr(self, 'graph_capture_count', 0),
+                         graph_capture_bytes=getattr(self, '_graph_capture_bytes', 0),
                          graph_replays=getattr(self, 'graph_replay_count', 0),
                          graph_disabled_reason=getattr(self, '_graph_disabled_reason', None)))
                 _write(Path(directory) / f"memory_rank{rank}.json",

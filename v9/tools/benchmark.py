@@ -134,7 +134,7 @@ def main():
     ap.add_argument('--max-num-seqs', '--max-batch-size', type=int, default=128)
     ap.add_argument('--profile', action='store_true',
                     help='capture only; reported timings are diagnostic, no benchmark percentiles/rates')
-    ap.add_argument('--decode-graph', action='store_true', help='strict static decode preset: dense EP/BMM, Triton attention and QK; requires DP=PP=1 and TP>1')
+    ap.add_argument('--decode-graph', action='store_true', help='static decode preset with strict batch-invariant numerics: dense EP/BMM, Triton attention and QK; requires DP=PP=1 and TP>1')
     ap.add_argument('--batch-invariant', action='store_true',
                     help='fixed GEMM tiles, RMSNorm and rank/expert reduction order; costs performance')
     ap.add_argument('--profile-start-message', type=int, default=1)
@@ -146,7 +146,9 @@ def main():
     if args.decode_graph:
         if args.dp != 1 or args.pp != 1 or args.tp <= 1 or not args.enable_expert_parallel:
             ap.error('--decode-graph requires DP=PP=1, TP>1 and --enable-expert-parallel')
-        os.environ.update(VLLM_LEARN_DECODE_GRAPH='1', VLLM_LEARN_EP_DENSE_DECODE='1',
+        os.environ.update(VLLM_LEARN_DECODE_GRAPH='1', VLLM_LEARN_DECODE_GRAPH_STRICT='1',
+            VLLM_LEARN_BATCH_INVARIANT='1',
+            VLLM_LEARN_EP_DENSE_DECODE='1',
             VLLM_LEARN_DENSE_EXPERT_BACKEND='bmm', VLLM_LEARN_REFERENCE_QK='0',
             VLLM_LEARN_ATTENTION_BACKEND='triton')
     if min(args.tp, args.dp, args.pp, args.repeats, args.budget, args.microbatch_tokens) < 1:
@@ -197,7 +199,8 @@ def main():
               ('VLLM_LEARN_REFERENCE_QK', os.getenv('VLLM_LEARN_REFERENCE_MATH', '1')),
               ('VLLM_LEARN_EP_DENSE_DECODE', '0'),
               ('VLLM_LEARN_DENSE_EXPERT_BACKEND', 'bmm'),
-              ('VLLM_LEARN_DECODE_GRAPH', '0'), ('VLLM_LEARN_MM', '0'),
+              ('VLLM_LEARN_DECODE_GRAPH', '0'),
+              ('VLLM_LEARN_DECODE_GRAPH_STRICT', '1'), ('VLLM_LEARN_MM', '0'),
               ('VLLM_LEARN_BATCH_INVARIANT', '0'))},
           tp_reduction_dtype=os.getenv('VLLM_LEARN_TP_REDUCTION_DTYPE', 'model'),
           source_sha256={str(path.relative_to(Path(__file__).resolve().parents[1])):

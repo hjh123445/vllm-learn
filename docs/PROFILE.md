@@ -2,7 +2,7 @@
 
 更新：2026-11-07。命令在仓库根目录运行。采集需要 Linux/CUDA；分析、合并只需 Python 标准库。
 
-CUDA Graph 补齐的数值排查和严格验证见 [CUDA_Graph补齐精度排查.md](CUDA_Graph补齐精度排查.md)。离线 benchmark 支持 `--decode-graph --batch-invariant --profile`。Graph replay 有真实 CPU launch、GPU stream/kernel 和 NCCL 记录，但不会再次执行逐层 Python hooks；审计对含 replay 的 trace 将 `layer_attribution_verified` 标为 false，不能把 replay 的 GPU 活动完整性说成所有图节点均已逐层归属。严格模式的固定 GEMM、固定归约会改变数值策略与性能，A/B 两侧必须保持相同策略。
+CUDA Graph 补齐的数值排查和严格验证见 [CUDA_Graph补齐精度排查.md](CUDA_Graph补齐精度排查.md)。离线 benchmark 支持 `--decode-graph --profile`；`--decode-graph` 默认自动启用 batch-invariant 固定 GEMM/归约，只有显式 `VLLM_LEARN_DECODE_GRAPH_STRICT=0` 才关闭。Graph replay 有真实 CPU launch、GPU stream/kernel 和 NCCL 记录，但不会再次执行逐层 Python hooks；审计对含 replay 的 trace 将 `layer_attribution_verified` 标为 false，不能把 replay 的 GPU 活动完整性说成所有图节点均已逐层归属。严格模式的固定 GEMM、固定归约会改变数值策略与性能，A/B 两侧必须保持相同策略。
 
 ## 1. 正常 serve 顺便采集
 

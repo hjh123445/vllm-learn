@@ -20,6 +20,21 @@ class ModelRunner:
 
     def __init__(self, config: Config, dtype=None):
         self.config = config
+        # A padded CUDA Graph changes the GEMM/collective shapes.  In the
+        # ordinary BF16 path that is allowed to change the reduction tree and
+        # therefore the logits of the real rows.  Graph mode is a correctness
+        # feature by default: select the fixed-tile/fixed-reduction policy
+        # before warmup, so activation sizing and graph capture see the same
+        # numerical path.  Set VLLM_LEARN_DECODE_GRAPH_STRICT=0 only for an
+        # explicitly requested fast (shape-sensitive) experiment.
+        import os as _os
+        self._decode_graph_requested = _os.getenv('VLLM_LEARN_DECODE_GRAPH', '0') == '1'
+        self._decode_graph_strict = (
+            self._decode_graph_requested
+            and (_os.getenv('VLLM_LEARN_DECODE_GRAPH_STRICT', '1') != '0'
+                 or _os.getenv('VLLM_LEARN_BATCH_INVARIANT', '0') == '1'))
+        if self._decode_graph_strict:
+            _os.environ['VLLM_LEARN_BATCH_INVARIANT'] = '1'
         # thinker 的 text_config 是嵌套 dict → 平铺成 SimpleNamespace（模型文件按属性读）
         from types import SimpleNamespace
         t = load_thinker_config(config.model)
@@ -27,7 +42,6 @@ class ModelRunner:
         hf.dtype = getattr(hf, "dtype", None) or torch.bfloat16
         config.hf_config = hf
         # ---- 多模态(可选,env VLLM_LEARN_MM=1):thinker vision_config ----
-        import os as _os
         if _os.getenv('VLLM_LEARN_MM') == '1':
             import json as _json
             raw = _json.load(open(f'{config.model}/config.json', encoding='utf-8'))['thinker_config']
@@ -75,12 +89,24 @@ class ModelRunner:
         """Release request-scoped auxiliary resources."""
         if hasattr(self, '_vision_features'):
             self._vision_features.clear()
-        if getattr(self, 'decode_graphs', None):
-            torch.cuda.synchronize()
-            for state in self.decode_graphs.values():
-                state['graph'].reset()
-            self.decode_graphs.clear()
+        self._release_decode_graphs()
+
+    def _release_decode_graphs(self):
+        """Destroy graph executables after all previously enqueued replays.
+
+        Keeping this in one place matters for a failed multi-bucket capture:
+        a partially populated graph pool must not survive into shutdown or a
+        retry and make the next capture account for stale device allocations.
+        """
+        graphs = getattr(self, 'decode_graphs', None)
+        if not graphs:
             self._graph_pool = None
+            return
+        torch.cuda.synchronize()
+        for state in graphs.values():
+            state['graph'].reset()
+        graphs.clear()
+        self._graph_pool = None
 
     # ================= 显存 =================
 
@@ -424,22 +450,69 @@ class ModelRunner:
                 raise ValueError(f'CUDA graph requested but unsupported: {why}')
             return
         self.graph_replay_count = 0
+        self.graph_capture_count = 0
         self._graph_dummy_block = self.config.num_kvcache_blocks
+        if self._graph_dummy_block != self.kv_cache.shape[2] - 1:
+            raise RuntimeError('decode graph dummy KV block is outside the allocated cache')
         cap = self.config.max_num_seqs
+        if cap < 1:
+            raise ValueError('CUDA graph requires max_num_seqs >= 1')
         buckets = sorted({b for b in (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
                           if b <= cap} | {cap})
         max_blocks = (self.config.max_model_len + self.block_size - 1) // self.block_size
-        for b in buckets:
-            self._capture_decode_graph(b, max_blocks)
+        if max_blocks < 1:
+            raise ValueError('CUDA graph requires max_model_len >= 1')
+        # The KV budget subtracts decode_graph_reserve_bytes before allocation.
+        # Measure the actual persistent graph footprint as well: a too-small
+        # reserve must fail with an actionable error instead of surfacing later
+        # as an unrelated allocator OOM during the last bucket.
+        torch.cuda.synchronize()
+        baseline_alloc = torch.cuda.memory_allocated()
+        baseline_reserved = torch.cuda.memory_reserved()
+        try:
+            for b in buckets:
+                self._graph_barrier()
+                self._capture_decode_graph(b, max_blocks)
+                torch.cuda.synchronize()
+                self._graph_barrier()
+                self.graph_capture_count += 1
+            graph_alloc = max(0, torch.cuda.memory_allocated() - baseline_alloc)
+            graph_reserved = max(0, torch.cuda.memory_reserved() - baseline_reserved)
+            self._graph_capture_bytes = max(graph_alloc, graph_reserved)
+            reserve = int(self.config.decode_graph_reserve_bytes)
+            if self._graph_capture_bytes > reserve:
+                raise RuntimeError(
+                    'captured CUDA Graph pool exceeds decode_graph_reserve_bytes: '
+                    f'actual={self._graph_capture_bytes / 2**30:.2f} GiB, '
+                    f'reserve={reserve / 2**30:.2f} GiB; increase the reserve or '
+                    'reduce max_num_seqs/max_model_len')
+        except RuntimeError as exc:
+            self._release_decode_graphs()
+            raise RuntimeError(
+                'CUDA Graph capture failed; no eager fallback is permitted for a '
+                f'requested graph run ({exc})') from exc
         ranks = getattr(__import__('layers.parallel', fromlist=['STATE']), 'STATE')
         if getattr(ranks, 'tp_rank', 0) == 0:
-            print(f'[decode-graph] captured buckets {sorted(self.decode_graphs)}')
+            print(f'[decode-graph] captured buckets {sorted(self.decode_graphs)} '
+                  f'(strict={self._decode_graph_strict}, '
+                  f'pool={self._graph_capture_bytes / 2**20:.1f} MiB)')
+
+    def _graph_barrier(self):
+        """Keep NCCL graph capture order identical on every TP/EP rank."""
+        import torch.distributed as dist
+        from layers.parallel import STATE
+        group = getattr(STATE, 'ep_group', None) or getattr(STATE, 'tp_group', None)
+        if group is not None and dist.is_available() and dist.is_initialized():
+            if dist.get_world_size(group) > 1:
+                dist.barrier(group=group)
 
     @torch.inference_mode()
     def _capture_decode_graph(self, B, max_blocks):
         """静态输入缓冲(id/pos/slot/lens/bt)+ 一次模型前向 + logits 入图。
         slot=-1:fused kernel 的 keep mask 跳过 KV 写,capture/warmup 不污染池;
         decode_attn 对 len=1 只读专用零块,不会访问有效请求的 KV。"""
+        if B < 1 or max_blocks < 1:
+            raise ValueError('decode graph shape must be positive')
         dev = self.device
         ids = torch.zeros(B, dtype=torch.int64, device=dev)
         pos = torch.zeros(B, dtype=torch.int64, device=dev)
@@ -448,6 +521,7 @@ class ModelRunner:
         bt = torch.full((B, max_blocks), self._graph_dummy_block, dtype=torch.int32, device=dev)
         previous = get_context()
         set_context(False, slot_mapping=slots, context_lens=lens, block_tables=bt)
+        g = None
         try:
             s = torch.cuda.Stream()
             s.wait_stream(torch.cuda.current_stream())
@@ -463,6 +537,8 @@ class ModelRunner:
                 logits = self.model.compute_logits(h)
         finally:
             set_context(**{name: getattr(previous, name) for name in previous.__dataclass_fields__})
+        if g is None:
+            raise RuntimeError(f'CUDA Graph capture produced no graph for bucket {B}')
         self._graph_pool = g.pool()
         self.decode_graphs[B] = dict(graph=g, ids=ids, pos=pos, slots=slots,
                                      lens=lens, bt=bt, logits=logits)
@@ -478,25 +554,38 @@ class ModelRunner:
     def _replay_decode_graph(self, st, seqs):
         """把本步 decode 元数据填进静态缓冲 → replay → 返回 logits[:B](视图)。"""
         B, bs = len(seqs), self.block_size
+        if B == 0:
+            return st['logits'][:0]
+        gb = int(st['ids'].shape[0])
+        if B > gb:
+            raise ValueError(f'decode batch {B} exceeds captured bucket {gb}')
+        max_blocks = int(st['bt'].shape[1])
+        dummy = int(self._graph_dummy_block)
         ids_l, pos_l, slot_l, len_l = [], [], [], []
         for seq in seqs:
             ids_l.append(seq.last_token)
             pos_l.append(len(seq) - 1 + ((getattr(seq, 'mm', None) or {}).get('delta', 0)))
             if len(seq) > self.config.max_model_len:
                 raise ValueError('decode length exceeds captured context capacity')
+            if len(seq) < 1:
+                raise ValueError('decode sequence must contain at least one token')
+            needed_blocks = (len(seq) + bs - 1) // bs
+            if len(seq.block_table) < needed_blocks or len(seq.block_table) > max_blocks:
+                raise ValueError('sequence block table does not match captured capacity')
+            used_blocks = seq.block_table[:needed_blocks]
+            if any(int(block) < 0 or int(block) >= dummy for block in seq.block_table):
+                raise ValueError('sequence block table references the reserved graph dummy block')
             len_l.append(len(seq))
-            slot_l.append(seq.block_table[-1] * bs + seq.last_block_num_tokens - 1)
-        gb = st['ids'].shape[0]
+            slot_l.append(used_blocks[-1] * bs + seq.last_block_num_tokens - 1)
         ids_l += [0] * (gb - B); pos_l += [0] * (gb - B)
         slot_l += [-1] * (gb - B); len_l += [1] * (gb - B)
         st['ids'].copy_(torch.tensor(ids_l, dtype=torch.int64), non_blocking=True)
         st['pos'].copy_(torch.tensor(pos_l, dtype=torch.int64), non_blocking=True)
         st['slots'].copy_(torch.tensor(slot_l, dtype=torch.int32), non_blocking=True)
         st['lens'].copy_(torch.tensor(len_l, dtype=torch.int32), non_blocking=True)
-        max_blocks = st['bt'].shape[1]
         rows = [list(seq.block_table) + [-1] * (max_blocks - len(seq.block_table))
                 for seq in seqs]
-        rows += [[self._graph_dummy_block] * max_blocks for _ in range(gb - B)]
+        rows += [[dummy] * max_blocks for _ in range(gb - B)]
         st['bt'].copy_(torch.tensor(rows, dtype=torch.int32), non_blocking=True)
         # Copies and replay execute in order on the same CUDA stream.
         st['graph'].replay()
@@ -542,6 +631,13 @@ class ModelRunner:
                 temperatures = torch.tensor([seq.temperature for seq in seqs],
                                             dtype=torch.float32, device=self.device)
                 return self.sampler(logits, temperatures).tolist()
+            if getattr(self, '_decode_graph_requested', False):
+                # A requested graph run must never silently turn into eager
+                # because a caller exceeded the captured capacity.  Eager is
+                # still available by leaving VLLM_LEARN_DECODE_GRAPH unset.
+                raise RuntimeError(
+                    f'decode batch {len(seqs)} has no captured CUDA Graph bucket '
+                    f'(max={max(getattr(self, "decode_graphs", {}), default=0)})')
             input_ids, positions = self.prepare_decode(seqs)
         intermediate = None
         transport = STATE.pipeline_transport
