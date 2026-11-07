@@ -57,7 +57,7 @@ class BlockManager:
         self.free_block_ids.append(block_id)
 
     def can_allocate(self, seq: Sequence) -> int:
-        if not self.enable_prefix_caching:
+        if not self.enable_prefix_caching or getattr(seq, 'mm', None):
             return 0 if len(self.free_block_ids) >= seq.num_blocks else -1
         h = -1
         num_cached_blocks = 0
@@ -122,7 +122,9 @@ class BlockManager:
             seq.block_table.append(self._allocate_block())
 
     def hash_blocks(self, seq: Sequence):
-        if not self.enable_prefix_caching:
+        # Image placeholder IDs do not identify image contents. Until APC
+        # includes media identity, never read or publish multimodal KV hashes.
+        if not self.enable_prefix_caching or getattr(seq, 'mm', None):
             return
         start = seq.num_cached_tokens // self.block_size
         end = (seq.num_cached_tokens + seq.num_scheduled_tokens) // self.block_size

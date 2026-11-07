@@ -12,6 +12,7 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
+from layers.batch_invariant import linear as forward_linear
 
 from layers.parallel import STATE, shard_bounds, tp_allreduce
 
@@ -53,7 +54,7 @@ class LmHead(nn.Module):
         param.data.copy_(loaded[self.vocab_start:self.vocab_start + self.vocab_len])
 
     def forward(self, x):
-        part = F.linear(x, self.weight)          # [T, vocab/tp]
+        part = forward_linear(x, self.weight)          # [T, vocab/tp]
         if STATE.tp_group is not None and dist.is_available() and dist.is_initialized():
             parts = [torch.empty_like(part) for _ in range(STATE.tp_size)]
             dist.all_gather(parts, part.contiguous(), group=STATE.tp_group)

@@ -192,7 +192,8 @@ def test_engine_and_model_sources_have_no_capture_dependencies():
     forbidden = ("torch.profiler", "autograd.profiler", "record_function", "nvtx",
         "VLLM_LEARN_TRACE", "VLLM_LEARN_PROFILE", "VLLM_LEARN_CUDA_PROFILE",
         "VLLM_LEARN_LOGITS", "VLLM_LEARN_ACTIVATIONS", "VLLM_LEARN_METRICS",
-        "module_profiling", "activation_capture", "observed_runner")
+        "module_profiling", "activation_capture", "observed_runner",
+        "VLLM_LOGIT_DUMP", "torch.save", "_t.save")
     for directory in ("engine", "models", "layers"):
         for path in (root / directory).rglob("*.py"):
             source = path.read_text(encoding="utf-8-sig")

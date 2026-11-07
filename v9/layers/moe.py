@@ -17,6 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from layers.kernels import silu_and_mul
+from layers.batch_invariant import enabled as batch_invariant, linear as forward_linear, all_reduce as fixed_all_reduce, expert_sum
 
 
 def _bucket_order(keys, num_buckets, counts=None):
@@ -60,6 +61,20 @@ def _reduce_routes(routes, expert_ids):
     return routes.float().sum(dim=1).to(routes.dtype)
 
 
+def _local_route_weights(idx, weights, first_expert, local_experts):
+    """Fixed-size scatter: no boolean selection/nonzero or host offsets.
+
+    Invalid routes scatter zero into a clamped local slot. Top-k expert IDs
+    are unique per token, so every valid destination has one nonzero value.
+    Returns [E_local, T]; shape depends only on the decode batch bucket.
+    """
+    local = idx - first_expert
+    valid = (local >= 0) & (local < local_experts)
+    out = torch.zeros((idx.shape[0], local_experts), device=idx.device, dtype=torch.float32)
+    out.scatter_add_(1, local.clamp(0, local_experts - 1), weights.float() * valid)
+    return out.t().contiguous()
+
+
 class MoERouter(nn.Module):
     """模型 dtype 的 logits、FP32 softmax 与 top-k；支持显式 FP32 消融。"""
 
@@ -83,8 +98,8 @@ class MoERouter(nn.Module):
 
     def forward(self, x: torch.Tensor):
         """x: [T, H] → (topk_idx [T,k], topk_w [T,k])。"""
-        logits = (F.linear(x, self.weight) if self.logits_dtype == "model"
-                  else F.linear(x.float(), self.weight.float()))
+        logits = (forward_linear(x, self.weight) if self.logits_dtype == "model"
+                  else forward_linear(x.float(), self.weight.float()))
         probs = logits.softmax(dim=-1, dtype=torch.float32)
         w, idx = probs.topk(self.top_k, dim=-1)
         if self.norm_topk_prob:
@@ -230,6 +245,8 @@ class GroupedExperts(nn.Module):
         Explicit ``torch_grouped`` stays strict for reproducible ablations;
         ``auto`` falls back to the readable loop on unsupported platforms.
         """
+        if batch_invariant():
+            return 'loop'
         if self.backend != 'auto':
             return self.backend
         grouped_mm = getattr(F, 'grouped_mm', None) or getattr(torch, '_grouped_mm', None)
@@ -251,9 +268,9 @@ class GroupedExperts(nn.Module):
         for e, end in enumerate(offsets.tolist()):
             if end == start:                           # 本批没 token 命中该专家
                 continue
-            h13 = xs[start:end] @ w13[e].t()           # [n_e, 2I]
+            h13 = forward_linear(xs[start:end], w13[e])           # [n_e, 2I]
             act = silu_and_mul(h13)                    # [n_e, I]
-            out = act @ w2[e].t()                      # [n_e, H]
+            out = forward_linear(act, w2[e])                      # [n_e, H]
             output[start:end] = out
             start = end
         return output
@@ -285,6 +302,9 @@ class MoEMLP(nn.Module):
         # 相同 → router 输出逐位相同 → 免 dispatch;本地专家全 token dense
         # grouped GEMM + 权重矩阵聚合 + 一次 allreduce,全部静态形状。
         self.ep_dense_decode = os.getenv('VLLM_LEARN_EP_DENSE_DECODE', '0') == '1'
+        self.dense_backend = os.getenv('VLLM_LEARN_DENSE_EXPERT_BACKEND', 'bmm')
+        if self.dense_backend not in ('bmm', 'torch_grouped'):
+            raise ValueError('dense expert backend must be bmm or torch_grouped')
         self._ep_comm_stream = None
         self.router = MoERouter(config.hidden_size, config.num_experts,
                                 config.num_experts_per_tok,
@@ -311,10 +331,11 @@ class MoEMLP(nn.Module):
 
         TP 副本内 x 逐位相同 → 各 rank 的 router 输出逐位相同 → 无需
         dispatch/counts 交换:本地 E_per 个专家对全部 T 个 token 做 dense
-        grouped GEMM(静态 offs = [T, 2T, ...]),路由权重用 [E_per, T] 矩阵
-        散射聚合,最后 EP 组一次 allreduce。与 dispatch 版语义等价,求和
-        顺序不同 → bf16 数值微差;GEMM 行数 ×E_per(decode launch-bound,
-        FLOPs 非瓶颈)。要求:非量化专家、dp=1、backend=torch_grouped。"""
+        BMM(或显式选择 grouped GEMM),路由权重用 [E_per, T] 矩阵
+        散射聚合,最后 EP 组一次 FP32 allreduce。要求非量化专家、DP=1。
+        每个 token 计算全部专家,总 FLOPs 约为稀疏 top-k 的 E/k 倍;
+        是否合算取决于负载,不能把它当成通用最优。数学上与 dispatch
+        等价不代表 BF16 逐位一致;这里只保证已测的同形状 graph/eager。"""
         from layers.parallel import STATE
         import torch.distributed as dist
         exp = self.experts
@@ -323,24 +344,32 @@ class MoEMLP(nn.Module):
         E_per = exp.num_experts                  # EP 构造已切成本地专家数
         r0 = STATE.ep_rank * E_per
         idx, w = self.router(x)                  # [T,k];TP 组内逐位一致
-        el = (idx - r0).reshape(-1)
-        valid = (el >= 0) & (el < E_per)
-        flat_t = torch.arange(T, device=x.device).repeat_interleave(idx.shape[1])
-        wm = torch.zeros((E_per, T), device=x.device, dtype=torch.float32)
-        wm.index_put_((el[valid], flat_t[valid]), w.reshape(-1)[valid].float(),
-                      accumulate=True)
-        xs = x.repeat(E_per, 1)                  # [E_per*T, H] 定形展开
-        offs = torch.arange(1, E_per + 1, device=x.device, dtype=torch.int32) * T
-        gmm = getattr(F, 'grouped_mm', None) or getattr(torch, '_grouped_mm', None)
-        if gmm is None:
-            raise RuntimeError('dense EP decode requires native grouped_mm')
-        h13 = gmm(xs, exp.w13.transpose(-2, -1), offs=offs)
-        act = silu_and_mul(h13)
-        out = gmm(act, exp.w2.transpose(-2, -1), offs=offs)   # [E_per*T, H]
-        y = out.view(E_per, T, H) * wm.to(out.dtype).unsqueeze(-1)
-        y = y.sum(0)
-        dist.all_reduce(y, group=STATE.ep_group)
-        return y
+        wm = _local_route_weights(idx, w, r0, E_per)
+        if self.dense_backend == 'bmm':
+            # Static expert batches have no CPU offset metadata. Native
+            # grouped_mm on A800 may copy offsets internally during capture.
+            xs = x.unsqueeze(0).expand(E_per, T, H)
+            h13 = forward_linear(xs, exp.w13)
+            act = silu_and_mul(h13.reshape(E_per * T, -1)).view(E_per, T, exp.inter)
+            out = forward_linear(act, exp.w2)
+        else:
+            xs = x.repeat(E_per, 1)
+            offs = torch.arange(1, E_per + 1, device=x.device, dtype=torch.int32) * T
+            gmm = getattr(F, 'grouped_mm', None) or getattr(torch, '_grouped_mm', None)
+            if gmm is None:
+                raise RuntimeError('dense grouped decode requires native grouped_mm')
+            h13 = gmm(xs, exp.w13.transpose(-2, -1), offs=offs)
+            act = silu_and_mul(h13)
+            out = gmm(act, exp.w2.transpose(-2, -1), offs=offs)
+        # Match the sparse path's BF16 route multiply, then accumulate in
+        # FP32 locally AND across ranks. Reduction order still differs.
+        weighted = out.view(E_per, T, H) * wm.to(out.dtype).unsqueeze(-1)
+        y = expert_sum(weighted) if batch_invariant() else weighted.float().sum(0)
+        if batch_invariant():
+            y = fixed_all_reduce(y, STATE.ep_group)
+        else:
+            dist.all_reduce(y, group=STATE.ep_group)
+        return y.to(x.dtype)
 
     def _forward_tp_replicated_input(self, x):
         """TP token ownership -> DP x TP all-to-allv -> TP output restore.

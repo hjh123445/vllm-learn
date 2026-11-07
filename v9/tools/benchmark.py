@@ -74,25 +74,39 @@ def build_mm_workload(model, mm_jsonl, mm_pixels_out):
         if not line.strip():
             continue
         r = json.loads(line)
-        conv = [{'role': 'user', 'content': [{'type': 'image'}, {'type': 'text', 'text': r['text']}]}]
+        media = r.get('images') or ([r['image']] if r.get('image') else [])
+        if not media:
+            raise ValueError('multimodal row requires image or images')
+        conv = [{'role': 'user', 'content': ([{'type': 'image'} for _ in media]
+                 + [{'type': 'text', 'text': r['text']}])}]
         text = proc.apply_chat_template(conv, tokenize=False, add_generation_prompt=True)
-        pat, grid = image_to_patches(r['image'])
-        t, gh, gw = grid[0].tolist()
-        llm_len = t * (gh // 2) * (gw // 2)
         pad = '<|image_pad|>'
-        assert pad in text, 'chat template must contain <|image_pad|>'
-        a, b = text.split(pad, 1)
         enc = proc.tokenizer
-        ids = (enc.encode(a, add_special_tokens=False)
-               + [151655] * llm_len
-               + enc.encode(b, add_special_tokens=False))
-        pos = len(enc.encode(a, add_special_tokens=False))
-        pos3, delta = mrope_positions(len(ids), [(pos, t, gh // 2, gw // 2)])
-        pixels.append(pat.numpy())
+        image_id = enc.convert_tokens_to_ids(pad)
+        if image_id is None or image_id == enc.unk_token_id:
+            raise ValueError('tokenizer does not define image_pad')
+        parts = text.split(pad)
+        if len(parts) != len(media) + 1:
+            raise ValueError('image count disagrees with chat template placeholders')
+        ids, image_rows, spans = [], [], []
+        for i, path in enumerate(media):
+            ids.extend(enc.encode(parts[i], add_special_tokens=False))
+            image_path = Path(path)
+            if not image_path.is_absolute():
+                image_path = Path(mm_jsonl).resolve().parent / image_path
+            pat, grid = image_to_patches(str(image_path))
+            t, gh, gw = grid[0].tolist()
+            pos = len(ids)
+            ids.extend([image_id] * (t * (gh // 2) * (gw // 2)))
+            image_rows.append(dict(pos=pos, grid=[t, gh, gw], pixel_idx=len(pixels),
+                source_sha256=hashlib.sha256(image_path.read_bytes()).hexdigest()))
+            spans.append((pos, t, gh // 2, gw // 2))
+            pixels.append(pat.numpy())
+        ids.extend(enc.encode(parts[-1], add_special_tokens=False))
+        pos3, delta = mrope_positions(len(ids), spans)
         pos3s.append(pos3)
         rows.append(dict(input_ids=ids, max_tokens=int(r.get('max_tokens', 16)),
-                         mm={'pos': pos, 'grid': [t, gh, gw], 'pixel_idx': len(pixels) - 1,
-                             'delta': delta, 'pos3_idx': len(pixels) - 1}))
+                         mm={'images': image_rows, 'delta': delta, 'pos3_idx': len(pos3s) - 1}))
     save = {f'p{i}': p for i, p in enumerate(pixels)}
     save.update({f'pos3_{i}': p for i, p in enumerate(pos3s)})
     np.savez_compressed(mm_pixels_out, **save)
@@ -120,16 +134,33 @@ def main():
     ap.add_argument('--max-num-seqs', '--max-batch-size', type=int, default=128)
     ap.add_argument('--profile', action='store_true',
                     help='capture only; reported timings are diagnostic, no benchmark percentiles/rates')
+    ap.add_argument('--decode-graph', action='store_true', help='strict static decode preset: dense EP/BMM, Triton attention and QK; requires DP=PP=1 and TP>1')
+    ap.add_argument('--batch-invariant', action='store_true',
+                    help='fixed GEMM tiles, RMSNorm and rank/expert reduction order; costs performance')
     ap.add_argument('--profile-start-message', type=int, default=1)
     ap.add_argument('--profile-messages', type=int, default=0, help='0 = all forwards until shutdown (default)')
     ap.add_argument('--record-shapes', action='store_true')
     args = ap.parse_args()
+    if args.batch_invariant:
+        os.environ['VLLM_LEARN_BATCH_INVARIANT'] = '1'
+    if args.decode_graph:
+        if args.dp != 1 or args.pp != 1 or args.tp <= 1 or not args.enable_expert_parallel:
+            ap.error('--decode-graph requires DP=PP=1, TP>1 and --enable-expert-parallel')
+        os.environ.update(VLLM_LEARN_DECODE_GRAPH='1', VLLM_LEARN_EP_DENSE_DECODE='1',
+            VLLM_LEARN_DENSE_EXPERT_BACKEND='bmm', VLLM_LEARN_REFERENCE_QK='0',
+            VLLM_LEARN_ATTENTION_BACKEND='triton')
     if min(args.tp, args.dp, args.pp, args.repeats, args.budget, args.microbatch_tokens) < 1:
         ap.error('parallel sizes, repeats and token budgets must be positive')
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     inputs = json.loads(Path(args.inputs).read_text()) if args.inputs else build_workloads(args.model)
+    if args.inputs and Path(args.inputs).resolve().parent != out.resolve():
+        source_pixels = Path(args.inputs).resolve().parent / 'mm_pixels.npz'
+        if source_pixels.exists():
+            import shutil
+            shutil.copyfile(source_pixels, out / 'mm_pixels.npz')
     if args.mm_jsonl:
+        os.environ['VLLM_LEARN_MM'] = '1'
         mm_rows = build_mm_workload(args.model, args.mm_jsonl, out / 'mm_pixels.npz')
         inputs = dict(inputs)
         inputs['mm'] = mm_rows
@@ -162,13 +193,17 @@ def main():
               ('VLLM_LEARN_ROUTER_LOGITS_DTYPE', 'model'),
               ('VLLM_LEARN_REFERENCE_MATH', '1'),
               ('VLLM_LEARN_MOE_REDUCTION', 'fp32'),
-              ('VLLM_LEARN_ATTENTION_BACKEND', 'default'))},
+              ('VLLM_LEARN_ATTENTION_BACKEND', 'sdpa_reference'),
+              ('VLLM_LEARN_REFERENCE_QK', os.getenv('VLLM_LEARN_REFERENCE_MATH', '1')),
+              ('VLLM_LEARN_EP_DENSE_DECODE', '0'),
+              ('VLLM_LEARN_DENSE_EXPERT_BACKEND', 'bmm'),
+              ('VLLM_LEARN_DECODE_GRAPH', '0'), ('VLLM_LEARN_MM', '0'),
+              ('VLLM_LEARN_BATCH_INVARIANT', '0'))},
+          tp_reduction_dtype=os.getenv('VLLM_LEARN_TP_REDUCTION_DTYPE', 'model'),
           source_sha256={str(path.relative_to(Path(__file__).resolve().parents[1])):
-              hashlib.sha256(path.read_bytes()).hexdigest() for path in (
-                  Path(__file__).resolve().parents[1] / 'layers/moe.py',
-                  Path(__file__).resolve().parents[1] / 'layers/parallel.py',
-                  Path(__file__).resolve().parents[1] / 'engine/core.py',
-                  Path(__file__).resolve().parents[1] / 'engine/worker.py')},
+              hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in sorted(Path(__file__).resolve().parents[1].rglob('*.py'))
+              if '__pycache__' not in path.parts},
           measurement=('diagnostic profile; exclude all timings from performance tables' if args.profile
                        else 'local engine completion timestamps, excluding initialization; no HTTP'),
           inputs_sha256=hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()))
@@ -196,9 +231,11 @@ def main():
                     import numpy as _np
                     npz = _np.load(out / 'mm_pixels.npz')
                     m = row['mm']
-                    mm = {'images': [{'pixels': npz[f"p{m['pixel_idx']}"], 'grid': m['grid'],
-                                      'pos': m['pos']}],
+                    images = m.get('images', [m])  # old single-image input files remain readable
+                    mm = {'images': [{'pixels': npz[f"p{im['pixel_idx']}"], 'grid': im['grid'],
+                                      'pos': im['pos']} for im in images],
                           'delta': m['delta'], 'pos3': npz[f"pos3_{m['pos3_idx']}"]}
+                    npz.close()
                 seq = core.add_request(row['input_ids'], sp, mm=mm)
                 if args.dp > 1:
                     seq = seq[0]

@@ -19,10 +19,15 @@ class Config:
     kvcache_block_size: int = 256
     num_kvcache_blocks: int = -1
     max_kvcache_blocks: int | None = None
+    mm_feature_cache_bytes: int = 256 * 1024**2
+    mm_encoder_reserve_bytes: int = 2 * 1024**3
+    decode_graph_reserve_bytes: int = 1024**3
 
     def __post_init__(self):
         assert os.path.isdir(self.model)
         assert self.kvcache_block_size % 256 == 0
+        if min(self.mm_feature_cache_bytes, self.mm_encoder_reserve_bytes, self.decode_graph_reserve_bytes) < 0:
+            raise ValueError('optional-path memory reserves must be nonnegative')
         if self.max_kvcache_blocks is not None and self.max_kvcache_blocks <= 0:
             raise ValueError('max_kvcache_blocks must be positive')
         if self.batch_execution_mode not in ("batched", "per_request"):

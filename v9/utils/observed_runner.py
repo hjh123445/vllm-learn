@@ -130,6 +130,7 @@ class _WorkerCapture:
             self._start()
         self.current = dict(message_index=self.index, microbatch_id=batch,
             is_prefill=prefill, scheduled_sequences=len(seqs), stage=self.stage)
+        self._replays_before = getattr(self.runner, 'graph_replay_count', 0)
         if self.open:
             return torch.profiler.record_function(
                 f"rank{self.rank}.stage{self.stage}.message{self.index}.mb{batch}."
@@ -138,6 +139,7 @@ class _WorkerCapture:
 
     def after(self, started, *, succeeded):
         self.current['succeeded'] = succeeded
+        self.current['graph_replays'] = getattr(self.runner, 'graph_replay_count', 0) - self._replays_before
         if self.trace_dir:
             self.events.append(dict(name=f"stage{self.stage}.forward", cat="forward", ph="X",
                 ts=started * 1e6, dur=(time.perf_counter() - started) * 1e6,
@@ -255,6 +257,11 @@ class ObservedModelRunner(ModelRunner):
                 local_size = STATE.pp_size * STATE.tp_size * STATE.cp_size
                 rank = STATE.replica_rank * local_size + (
                     STATE.pp_rank * STATE.tp_size + STATE.tp_rank) * STATE.cp_size + STATE.cp_rank
+                _write(Path(directory) / f"execution_rank{rank}.json",
+                    dict(rank=rank, graph_requested=os.getenv('VLLM_LEARN_DECODE_GRAPH', '0') == '1',
+                         captured_buckets=sorted(getattr(self, 'decode_graphs', {})),
+                         graph_replays=getattr(self, 'graph_replay_count', 0),
+                         graph_disabled_reason=getattr(self, '_graph_disabled_reason', None)))
                 _write(Path(directory) / f"memory_rank{rank}.json",
                     dict(rank=rank, gpu=torch.cuda.current_device(), pp_stage=STATE.pp_rank,
                          tp_rank=STATE.tp_rank, ep_rank=STATE.ep_rank,

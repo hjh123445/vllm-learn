@@ -54,7 +54,9 @@ def _spec_msg(seqs, is_prefill, microbatch_id=0):
             "seq_len": len(s),
             "temperature": s.temperature,
             "block_size": getattr(s, "block_size", 256),
-            "mm": getattr(s, "mm", None),
+            # Decode needs only the rotary offset, not raw media arrays.
+            "mm": (getattr(s, "mm", None) if is_prefill else
+                   ({"delta": s.mm.get("delta", 0)} if getattr(s, "mm", None) else None)),
         })
     return {"type": "schedule", "scheduled": scheduled, "is_prefill": is_prefill,
             "microbatch_id": microbatch_id}
@@ -331,6 +333,23 @@ class EngineCore:
             raise
 
     def add_request(self, prompt_ids, sampling_params=None, mm=None):
+        if mm and mm.get('images'):
+            if os.getenv('VLLM_LEARN_MM', '0') != '1':
+                raise ValueError('image requests require VLLM_LEARN_MM=1 before engine initialization')
+            if self.pp_size != 1:
+                raise ValueError('image requests currently require PP=1')
+            import numpy as np
+            pos3 = np.asarray(mm.get('pos3'))
+            if pos3.shape != (3, len(prompt_ids)):
+                raise ValueError('image requests require pos3 with shape [3, prompt_length]')
+            last_end = 0
+            for image in mm['images']:
+                t, h, w = map(int, image['grid'])
+                start = int(image['pos'])
+                end = start + t * (h // 2) * (w // 2)
+                if min(t, h, w) <= 0 or h % 2 or w % 2 or start < last_end or end > len(prompt_ids):
+                    raise ValueError('image spans must be valid, ordered and disjoint within the prompt')
+                last_end = end
         sp = sampling_params or SamplingParams(temperature=0.0)
         seq = Sequence(list(prompt_ids), sp)
         seq.mm = mm

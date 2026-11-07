@@ -199,19 +199,7 @@ class Qwen3MoeForCausalLM(nn.Module):
         return self.model(input_ids, positions, intermediate_tensors, mm_batch=mm_batch)
 
     def compute_logits(self, x):
-        logits = self.lm_head(x)
-        # 调试:VLLM_LOGIT_DUMP=<dir> 时逐步落盘 last-token logits(仅 tp_rank0)
-        import os as _os
-        dump = _os.environ.get('VLLM_LOGIT_DUMP')
-        if dump:
-            from layers.parallel import STATE as _ST
-            if _ST.tp_rank == 0:
-                n = getattr(self, '_dump_n', 0)
-                import torch as _t
-                _os.makedirs(dump, exist_ok=True)
-                _t.save(logits[-1].detach().float().cpu(), f'{dump}/step{n:03d}.pt')
-                self._dump_n = n + 1
-        return logits
+        return self.lm_head(x)
 
     def quantize_int4(self, group: int = 128, skip_dense: bool = False):
         """就地量化（装载后调用）：

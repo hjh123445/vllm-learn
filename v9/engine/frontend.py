@@ -52,7 +52,7 @@ def _enginecore_process(conn, model_path, core_kwargs, physical_gpus):
             if debug:
                 print(f"[dp-cmd] gpus={physical_gpus} cmd={cmd}", flush=True)
             if cmd == "add":
-                seq = core.add_request(payload[0], payload[1])
+                seq = core.add_request(payload[0], payload[1], mm=payload[2] if len(payload) > 2 else None)
                 conn.send(("seq", seq.seq_id))
             elif cmd == "step":
                 completed = core.step()
@@ -188,7 +188,7 @@ class DPFrontend:
 
     # ---------------- 请求路由 ----------------
 
-    def add_request(self, prompt_ids, sampling_params=None, dp_rank=None):
+    def add_request(self, prompt_ids, sampling_params=None, dp_rank=None, mm=None):
         """dp_rank=None → round-robin（负载均匀的默认）；显式指定则定向
         （vLLM 的 data_parallel_rank 参数同款语义——调用方按业务粘性路由）。"""
         if dp_rank is None:
@@ -197,7 +197,7 @@ class DPFrontend:
         if not 0 <= dp_rank < self.dp_size:
             raise ValueError(f"invalid dp_rank {dp_rank}")
         conn = self._conns[dp_rank]
-        conn.send(("add", (prompt_ids, sampling_params)))
+        conn.send(("add", (prompt_ids, sampling_params, mm)))
         _, local_id = self._recv(dp_rank)
         # Each spawned EngineCore starts its own Sequence counter at zero.
         # Namespace local ids before merging outputs from different replicas.

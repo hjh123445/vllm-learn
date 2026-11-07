@@ -6,6 +6,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from layers.batch_invariant import linear as forward_linear
 
 from layers.parallel import STATE, shard_bounds, tp_allreduce
 
@@ -22,7 +23,7 @@ class BaseLinear(nn.Module):
             self.register_parameter("bias", None)
     
     def forward(self,x:torch.Tensor):
-        return F.linear(x,self.weight,self.bias)
+        return forward_linear(x,self.weight,self.bias)
     
     def weight_loader(self, param, loaded, shard_id=None):
         assert param.shape == loaded.shape
@@ -74,7 +75,7 @@ class ColumnParallelLinear(nn.Module):
         param.data.copy_(w.to(param.dtype))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return F.linear(x, self.weight, self.bias)
+        return forward_linear(x, self.weight, self.bias)
 
 
 class RowParallelLinear(nn.Module):
@@ -106,7 +107,7 @@ class RowParallelLinear(nn.Module):
         param.data.copy_(w.to(param.dtype))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out = F.linear(x, self.weight, self.bias)
+        out = forward_linear(x, self.weight, self.bias)
         return tp_allreduce(out)
 
 

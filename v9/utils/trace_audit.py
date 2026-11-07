@@ -54,6 +54,12 @@ def coverage_errors(row, capture=None, *, require_cuda=True):
             # Idle DP workers intentionally service MoE only; no local attention.
             if entry.get('scheduled_sequences') == 0:
                 required = {c for c in components if c.endswith('.moe')}
+            if entry.get('graph_replays', 0):
+                # Replay bypasses Python modules: certify launch and GPU
+                # activity, but never invent per-layer Python/GPU ranges.
+                required = set()
+                if message.get('graph_launches', 0) != entry['graph_replays']:
+                    errors.append(f'{name}: graph launch count disagrees with executed replays')
         for side in ('cpu', 'gpu') if require_cuda else ('cpu',):
             missing = required - set(message[f'{side}_components'])
             if missing:
@@ -77,7 +83,9 @@ def audit_trace(path, capture=None, *, require_cuda=None):
         require_cuda = capture.get('cuda_activities', True) if capture else True
     errors = coverage_errors(row, capture, require_cuda=require_cuda)
     counts = row['categories']
-    if not counts.get('cpu_op') or not row['module_labels']:
+    all_graph = bool(capture and capture['captured_messages']) and all(
+        m.get('graph_replays', 0) for m in capture['captured_messages'])
+    if not counts.get('cpu_op') or (not row['module_labels'] and not all_graph):
         errors.append('missing ATen or module ranges')
     if require_cuda and (not row['gpu_kernels'] or not
                         (counts.get('cuda_runtime') or counts.get('cuda_driver'))):
@@ -88,6 +96,8 @@ def audit_trace(path, capture=None, *, require_cuda=None):
         nccl_kernels=row['nccl_kernels'], cuda_streams=row['cuda_streams'],
         module_labels=row['module_labels'], cuda_verified=bool(row['gpu_kernels']),
         completeness_verified=not errors, errors=errors, message_coverage=row['message_gpu'],
+        layer_attribution_verified=not errors and not any(
+            m.get('graph_replays', 0) for m in (capture or {}).get('captured_messages', [])),
         note='Checks executed-message inventory, CPU/GPU Attention+MoE coverage and launch correlation; '
              'not proof of zero dropped events, numerical correctness or performance.')
 

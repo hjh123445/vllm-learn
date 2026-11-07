@@ -183,3 +183,24 @@ def test_trace_check_direct_cli_without_pythonpath(tmp_path):
     result = subprocess.run(command, env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
     assert json.loads(result.stdout)['passed']
+
+
+def test_graph_replay_requires_actual_launch_and_gpu_events(tmp_path):
+    from utils.trace_audit import audit_trace
+    path, events, capture = capture_fixture(tmp_path)
+    events = [e for e in events if e['ts'] < 2000]
+    events.extend([
+        dict(name='rank0.stage0.message2.mb2.decode', cat='user_annotation', ph='X',
+             pid=1, tid=1, ts=2000, dur=500),
+        dict(name='aten::copy_', cat='cpu_op', ph='X', pid=1, tid=1, ts=2010, dur=2),
+        dict(name='cudaGraphLaunch', cat='cuda_runtime', ph='X', pid=1, tid=1,
+             ts=2020, dur=10, args={'correlation': 999}),
+        dict(name='graph_gemm', cat='kernel', ph='X', pid=0, tid=7,
+             ts=2040, dur=10, args={'correlation': 999, 'graph id': 2, 'stream': 7})])
+    capture['captured_messages'][1]['graph_replays'] = 1
+    path.write_text(json.dumps(dict(baseTimeNanoseconds=1, traceEvents=events)))
+    audit = audit_trace(path, capture)
+    assert audit['completeness_verified'], audit['errors']
+    assert not audit['layer_attribution_verified']
+    path.write_text(json.dumps(dict(traceEvents=[e for e in events if e['name'] != 'cudaGraphLaunch'])))
+    assert not audit_trace(path, capture)['completeness_verified']

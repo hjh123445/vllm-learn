@@ -45,6 +45,14 @@ class ModuleProfileRanges:
             return self
         try:
             for path, layer in self.model.named_modules():
+                if path.endswith('vision_tower'):
+                    self._attach(layer, f'stage{self.stage}.vision.encoder')
+                vision = re.search(r'vision_tower\.blocks\.(\d+)$', path)
+                if vision:
+                    prefix = f'stage{self.stage}.vision.block{vision[1]}'
+                    self._attach(layer, prefix)
+                    self._attach(layer.attn, f'{prefix}.attention')
+                    self._attach(layer.mlp, f'{prefix}.mlp')
                 match = re.search(r"(?:^|\.)layers\.(\d+)$", path)
                 if not match or not hasattr(layer, "self_attn") or not hasattr(layer, "mlp"):
                     continue  # Includes PPMissingLayer on non-local stages.

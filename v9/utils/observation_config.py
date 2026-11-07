@@ -9,9 +9,9 @@ def configure_observation(output, *, profile=False, start_message=1, messages=0,
     if start_message < 1 or messages < 0:
         raise ValueError("profile start_message must be positive; messages must be >= 0 (0 = until shutdown)")
     for key in tuple(os.environ):
-        if key.startswith(("VLLM_LEARN_PROFILE_", "VLLM_LEARN_ACTIVATIONS_", "VLLM_LEARN_LOGITS_")):
+        if key.startswith(("VLLM_LEARN_PROFILE_", "VLLM_LEARN_ACTIVATIONS_", "VLLM_LEARN_LOGITS_", "VLLM_LEARN_SDPA_CAPTURE_")):
             os.environ.pop(key)
-    for key in ("VLLM_LEARN_CUDA_PROFILE", "VLLM_LEARN_TRACE_DIR"):
+    for key in ("VLLM_LEARN_CUDA_PROFILE", "VLLM_LEARN_TRACE_DIR", "VLLM_LOGIT_DUMP"):
         os.environ.pop(key, None)
     directory = Path(output).resolve()
     os.environ["VLLM_LEARN_METRICS_DIR"] = str(directory)

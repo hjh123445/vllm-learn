@@ -60,6 +60,7 @@ def analyze(path):
     grouped_children=Counter()
     ext, corr, kernels, copies = {}, {}, [], []
     ext_message,corr_message={},{}
+    graph_launches = Counter()
     api = Counter()
     launches = set()
     for event in TraceReader(path).events():
@@ -86,6 +87,8 @@ def analyze(path):
             if index>=0:
                 a,b,message=message_scopes[key][index]
                 if a<=event['ts']<b:
+                    if event.get('name') in ('cudaGraphLaunch', 'cuGraphLaunch'):
+                        graph_launches[message] += 1
                     if 'External id' in args:
                         ext_message[args['External id']]=message
                     if 'correlation' in args:
@@ -161,7 +164,7 @@ def analyze(path):
         longest_observed_gaps=[dict(duration_us=d, start_us=t) for d,t in sorted(gaps,reverse=True)[:8]],
         layers=layer_rows, base_ns=reader.metadata.get('baseTimeNanoseconds'))
     row['unmatched_kernel_launches']=sorted(launches-{k[5] for k in kernels})
-    row['message_gpu']=[dict(message=name,kernel_count=b['kernels'],global_layers=sorted(b['layers']),
+    row['message_gpu']=[dict(message=name,kernel_count=b['kernels'],graph_launches=graph_launches[name],global_layers=sorted(b['layers']),
         cpu_components=['stage%s.layer%s.%s' % label for label in sorted(cpu_components[name])],
         gpu_components=['stage%s.layer%s.%s' % label for label in sorted(gpu_components[name])],
         attention_union_us=duration(b['attention']),moe_union_us=duration(b['moe']),

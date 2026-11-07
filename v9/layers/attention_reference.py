@@ -1,12 +1,10 @@
 """Slow paged SDPA oracle for numerical diagnosis, excluded from benchmarks."""
 import os
-from pathlib import Path
 
 import torch
 import torch.nn.functional as F
 
 
-_debug_capture_count = 0
 
 
 def paged_sdpa(q, k_cache, v_cache, block_tables, query_lengths, key_lengths, scale,
@@ -47,25 +45,6 @@ def paged_sdpa(q, k_cache, v_cache, block_tables, query_lengths, key_lengths, sc
         result = F.scaled_dot_product_attention(query, key, value,
             attn_mask=mask, is_causal=causal, dropout_p=0., scale=scale,
             enable_gqa=use_gqa)
-        capture_dir = os.getenv('VLLM_LEARN_SDPA_CAPTURE_DIR')
-        target_k = int(os.getenv('VLLM_LEARN_SDPA_CAPTURE_KEY_LENGTH', '-1'))
-        max_captures = int(os.getenv('VLLM_LEARN_SDPA_CAPTURE_MAX', '8'))
-        global _debug_capture_count
-        if (capture_dir and _debug_capture_count < max_captures and seq == 0
-                and nq == 1 and nk == target_k):
-            rank = (torch.distributed.get_rank()
-                    if torch.distributed.is_available()
-                    and torch.distributed.is_initialized() else 0)
-            if rank == 0:
-                Path(capture_dir).mkdir(parents=True, exist_ok=True)
-                torch.save({
-                    'query': query.detach().cpu(), 'key': key.detach().cpu(),
-                    'value': value.detach().cpu(), 'result': result.detach().cpu(),
-                    'mask': mask.detach().cpu() if mask is not None else None,
-                    'causal': causal, 'scale': scale, 'use_gqa': use_gqa,
-                    'seq': seq, 'query_length': nq, 'key_length': nk,
-                }, Path(capture_dir) / f'layer{_debug_capture_count}.pt')
-            _debug_capture_count += 1
         output[offset:offset+nq] = result[0].transpose(0, 1)
         offset += nq
     if offset != q.shape[0]:

@@ -72,7 +72,15 @@ class ModelRunner:
         self._setup_decode_graphs()
 
     def shutdown(self):
-        """Lifecycle boundary for runner implementations owning resources."""
+        """Release request-scoped auxiliary resources."""
+        if hasattr(self, '_vision_features'):
+            self._vision_features.clear()
+        if getattr(self, 'decode_graphs', None):
+            torch.cuda.synchronize()
+            for state in self.decode_graphs.values():
+                state['graph'].reset()
+            self.decode_graphs.clear()
+            self._graph_pool = None
 
     # ================= 显存 =================
 
@@ -179,6 +187,13 @@ class ModelRunner:
         else:
             peak = torch.cuda.memory_stats()["allocated_bytes.all.peak"]
             budget = int(total * config.gpu_memory_utilization) - used - peak + current
+        # Text warmup excludes image encoder activations and graph pools.
+        if getattr(self.model.model, 'vision_tower', None) is not None:
+            budget -= config.mm_feature_cache_bytes + config.mm_encoder_reserve_bytes
+        import os
+        graph_requested = os.getenv('VLLM_LEARN_DECODE_GRAPH', '0') == '1'
+        if graph_requested:
+            budget -= config.decode_graph_reserve_bytes
         config.num_kvcache_blocks = budget // block_bytes
         if config.max_kvcache_blocks is not None:
             config.num_kvcache_blocks = min(config.num_kvcache_blocks, config.max_kvcache_blocks)
@@ -189,9 +204,13 @@ class ModelRunner:
                 f'budget={budget/1e9:.2f} GB, block={block_bytes/1e6:.2f} MB. '
                 'Reduce memory demand or choose a device with more free memory; '
                 'gpu_memory_utilization applies to total device memory, including other processes.')
-        self.kv_cache = torch.empty(2, _n, config.num_kvcache_blocks,
+        # Capture and padded rows read a dedicated zero block inaccessible
+        # to the scheduler; slots=-1 prevent writes to live KV.
+        self.kv_cache = torch.empty(2, _n, config.num_kvcache_blocks + int(graph_requested),
                                     self.block_size, num_kv_heads, head_dim,
                                     dtype=self.dtype, device=self.device)
+        if graph_requested:
+            self.kv_cache[:, :, -1].zero_()
         self._assign_layer_caches(self.kv_cache)
         print(f"[v3 显存预算] 总显存 {total/1e9:.1f} GB × 利用率 {config.gpu_memory_utilization}")
         act = getattr(self, "_activation_peak", None)
@@ -237,63 +256,65 @@ class ModelRunner:
 
     @torch.inference_mode()
     def _build_mm_batch(self, seqs):
-        """prefill 批的多模态载荷:滑窗内的图像 patch 过 vision tower,
-        返回 (merged, ds_list, spos) 或 None。
+        """Encode complete images, then slice merged/deepstack features.
 
-        窗口对齐:图 i 占 prompt 中 llm_len = t*(h/2)*(w/2) 个 image_pad token,
-        与之对应的 raw patch 行数为 4*llm_len(block-major 顺序天然对齐)。
-        滑窗 [win0, win0+wlen) 与图的 token 区间 [p0, p0+llm_len) 求交,
-        相交部分做到 patch 行级切片。"""
+        Vision attention is bidirectional inside an image. Splitting raw
+        patches changes semantics; only the language-model tokens may chunk.
+        """
         if getattr(self.model.model, 'vision_tower', None) is None:
+            if any((getattr(s, 'mm', None) or {}).get('images') for s in seqs):
+                raise ValueError('image input requires VLLM_LEARN_MM=1 and vision weights')
             return None
-        seg_pix, seg_grid, seg_llm, seg_pos = [], [], [], []
+        from engine.vision_cache import VisionFeatureCache
+        if not hasattr(self, '_vision_features'):
+            self._vision_features = VisionFeatureCache(self.config.mm_feature_cache_bytes)
+        merged_rows, deep_rows, seg_pos = [], None, []
         flat_off = 0
         for seq in seqs:
             win0 = seq.num_cached_tokens
             wlen = seq.num_scheduled_tokens
             mm = getattr(seq, 'mm', None)
-            for img in (mm or {}).get('images', []):
+            for image_id, img in enumerate((mm or {}).get('images', [])):
                 t, gh, gw = img['grid']
                 llm_len = t * (gh // 2) * (gw // 2)
                 p0 = int(img['pos'])
                 lo, hi = max(p0, win0), min(p0 + llm_len, win0 + wlen)
                 if hi <= lo:
                     continue
-                pr0 = (lo - p0) * 4
-                pr1 = pr0 + (hi - lo) * 4
-                pix = img['pixels']
-                if not torch.is_tensor(pix):
-                    pix = torch.from_numpy(pix)
-                seg_pix.append(pix[pr0:pr1])
-                seg_grid.append(torch.tensor([[t, gh, gw]], dtype=torch.int64))
-                # tower 内部以 raw 网格运行;输出再切片回窗口(llm 行区间)
-                seg_llm.append((len(seg_pix) - 1, lo - p0, hi - p0))
+                if min(t, gh, gw) <= 0 or gh % 2 or gw % 2:
+                    raise ValueError('image grid must be positive with even spatial dimensions')
+                key = (seq.seq_id, image_id)
+                features = self._vision_features.get(key)
+                if features is None:
+                    pix = torch.as_tensor(img['pixels'])
+                    if pix.ndim != 2 or pix.shape[0] != t * gh * gw:
+                        raise ValueError('pixel rows must match the COMPLETE image grid')
+                    grid = torch.tensor([[t, gh, gw]], dtype=torch.int64, device=self.device)
+                    features = self.model.run_vision(pix.to(self.device, torch.float32), grid)
+                    if features[0].shape[0] != llm_len or any(d.shape != features[0].shape for d in features[1]):
+                        raise ValueError('vision output disagrees with image span')
+                    if hi < p0 + llm_len:
+                        self._vision_features.put(key, features)
+                merged, deepstack = features
+                if deep_rows is None:
+                    deep_rows = [[] for _ in deepstack]
+                if len(deep_rows) != len(deepstack):
+                    raise ValueError('inconsistent deepstack feature count')
+                a, b = lo - p0, hi - p0
+                merged_rows.append(merged[a:b])
+                for rows, feature in zip(deep_rows, deepstack):
+                    rows.append(feature[a:b])
+                if hi == p0 + llm_len:
+                    self._vision_features.pop(key)
                 base = flat_off + (lo - win0)
                 seg_pos.extend(range(base, base + (hi - lo)))
             flat_off += wlen
         cs = self._mrope_rows(seqs)
-        if not seg_pix:
+        if not merged_rows:
             return (None, [], None, cs) if cs is not None else None
-        import torch as _t
-        pixels = _t.cat([p.to(_t.float32) for p in seg_pix]).to(self.device)
-        grids = _t.cat(seg_grid).to(self.device)
-        merged_full, ds_full = self.model.run_vision(pixels, grids)
-        # 按 (seg_idx, llm_lo, llm_hi) 切片:merged_full 行序 = seg_pix 顺序的
-        # 每图 t*(gh/2)*(gw/2) 行
-        merged_rows, ds_rows_list, pos_list = [], [[] for _ in ds_full], []
-        rows_off = 0
-        tot_off = 0
-        for (i, a, b) in seg_llm:
-            t_, gh_, gw_ = seg_grid[i][0].tolist()
-            n = t_ * (gh_ // 2) * (gw_ // 2)
-            merged_rows.append(merged_full[rows_off + a: rows_off + b])
-            for j, d in enumerate(ds_full):
-                ds_rows_list[j].append(d[rows_off + a: rows_off + b])
-            rows_off += n
-            tot_off += (b - a)
-        merged = _t.cat(merged_rows)
-        ds_list = [_t.cat(r) for r in ds_rows_list]
-        spos = _t.tensor(seg_pos, dtype=_t.int64, device=self.device)
+        merged = torch.cat(merged_rows)
+        ds_list = [torch.cat(r) for r in deep_rows]
+        spos = torch.tensor(seg_pos, dtype=torch.int64, device=self.device)
         assert merged.size(0) == spos.numel(), (merged.shape, spos.shape)
         return merged, ds_list, spos, cs
 
@@ -359,9 +380,7 @@ class ModelRunner:
     # ================= decode CUDA graph(可选,env VLLM_LEARN_DECODE_GRAPH=1) =================
 
     def _decode_graph_supported(self):
-        """Phase A 边界:定形 decode(TP-only,triton kernel)才进图——
-        EP alltoallv 的 split 形状逐步动态(需 padded-capacity 变体,Phase B),
-        reference qk 的布尔索引同理。pp/dcp/per_request 排除。"""
+        """Only admit a genuinely static decode path; fail explicitly."""
         import os as _os
         if _os.getenv('VLLM_LEARN_DECODE_GRAPH', '0') != '1':
             return False, 'unset'
@@ -370,6 +389,8 @@ class ModelRunner:
             return False, 'pp>1'
         if getattr(STATE, 'cp_size', 1) > 1:
             return False, 'dcp'
+        if not STATE.enable_expert_parallel or STATE.ep_size <= 1:
+            return False, 'requires dense EP decode; sparse expert offsets are dynamic'
         if STATE.enable_expert_parallel and getattr(STATE, 'ep_size', 1) > 1:
             # EP 常规 dispatch(a2a split 逐值动态)不能进图;dense-EP decode
             # 变体(免 dispatch 定形 GEMM)可以,但要求 dp=1
@@ -381,16 +402,29 @@ class ModelRunner:
         from layers import kernels as _k
         if _k._REFERENCE_QK:
             return False, 'reference qk (data-dependent shapes); set VLLM_LEARN_REFERENCE_QK=0'
+        from layers.attention import Attention
+        from layers.moe import GroupedExperts, MoEMLP
         for m in self.model.modules():
-            if hasattr(m, 'backend') and getattr(m, 'backend', 'triton') != 'triton':
-                return False, 'attention backend != triton'
+            if isinstance(m, Attention) and m.backend != 'triton':
+                return False, 'requires VLLM_LEARN_ATTENTION_BACKEND=triton'
+            if isinstance(m, MoEMLP) and not m.ep_dense_decode:
+                return False, 'requires VLLM_LEARN_EP_DENSE_DECODE=1'
+            if isinstance(m, MoEMLP) and m.dense_backend != 'bmm':
+                return False, 'dense decode graph requires DENSE_EXPERT_BACKEND=bmm'
+            if isinstance(m, GroupedExperts):
+                if m.quantized or m.precision != 'model':
+                    return False, 'requires non-quantized model-precision experts'
         return True, ''
 
     def _setup_decode_graphs(self):
         ok, why = self._decode_graph_supported()
         if not ok:
             self._graph_disabled_reason = why
+            if why != 'unset':
+                raise ValueError(f'CUDA graph requested but unsupported: {why}')
             return
+        self.graph_replay_count = 0
+        self._graph_dummy_block = self.config.num_kvcache_blocks
         cap = self.config.max_num_seqs
         buckets = sorted({b for b in (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
                           if b <= cap} | {cap})
@@ -401,40 +435,46 @@ class ModelRunner:
         if getattr(ranks, 'tp_rank', 0) == 0:
             print(f'[decode-graph] captured buckets {sorted(self.decode_graphs)}')
 
+    @torch.inference_mode()
     def _capture_decode_graph(self, B, max_blocks):
         """静态输入缓冲(id/pos/slot/lens/bt)+ 一次模型前向 + logits 入图。
         slot=-1:fused kernel 的 keep mask 跳过 KV 写,capture/warmup 不污染池;
-        decode_attn 对 len=1 只读 block 0,无害读。"""
+        decode_attn 对 len=1 只读专用零块,不会访问有效请求的 KV。"""
         dev = self.device
         ids = torch.zeros(B, dtype=torch.int64, device=dev)
         pos = torch.zeros(B, dtype=torch.int64, device=dev)
         slots = torch.full((B,), -1, dtype=torch.int32, device=dev)
         lens = torch.ones(B, dtype=torch.int32, device=dev)
-        bt = torch.zeros(B, max_blocks, dtype=torch.int32, device=dev)
+        bt = torch.full((B, max_blocks), self._graph_dummy_block, dtype=torch.int32, device=dev)
+        previous = get_context()
         set_context(False, slot_mapping=slots, context_lens=lens, block_tables=bt)
-        s = torch.cuda.Stream()
-        s.wait_stream(torch.cuda.current_stream())
-        with torch.cuda.stream(s):
-            for _ in range(3):                      # 触发 kernel 加载/autotune 再捕获
+        try:
+            s = torch.cuda.Stream()
+            s.wait_stream(torch.cuda.current_stream())
+            with torch.cuda.stream(s):
+                for _ in range(3):
+                    h = self.model(ids, pos)
+                    _ = self.model.compute_logits(h)
+            torch.cuda.current_stream().wait_stream(s)
+            torch.cuda.synchronize()
+            g = torch.cuda.CUDAGraph()
+            with torch.cuda.graph(g, pool=self._graph_pool):
                 h = self.model(ids, pos)
-                _ = self.model.compute_logits(h)
-        torch.cuda.current_stream().wait_stream(s)
-        torch.cuda.synchronize()
-        g = torch.cuda.CUDAGraph()
-        with torch.cuda.graph(g, pool=self._graph_pool):
-            h = self.model(ids, pos)
-            logits = self.model.compute_logits(h)
+                logits = self.model.compute_logits(h)
+        finally:
+            set_context(**{name: getattr(previous, name) for name in previous.__dataclass_fields__})
         self._graph_pool = g.pool()
         self.decode_graphs[B] = dict(graph=g, ids=ids, pos=pos, slots=slots,
                                      lens=lens, bt=bt, logits=logits)
 
     def _pick_decode_graph(self, n):
-        best = None
-        for b in self.decode_graphs:
-            if b >= n and (best is None or b < best):
-                best = b
-        return best
+        # Padding is a normal graph execution shape. Compare replay against
+        # eager at THIS shape; a different M may change BF16 GEMM/collective
+        # rounding in either execution mode. Do not silently fall back to
+        # eager just because a batch is not itself a captured bucket.
+        return min((b for b in self.decode_graphs if b >= n), default=None)
 
+    @torch.inference_mode()
     def _replay_decode_graph(self, st, seqs):
         """把本步 decode 元数据填进静态缓冲 → replay → 返回 logits[:B](视图)。"""
         B, bs = len(seqs), self.block_size
@@ -442,7 +482,9 @@ class ModelRunner:
         for seq in seqs:
             ids_l.append(seq.last_token)
             pos_l.append(len(seq) - 1 + ((getattr(seq, 'mm', None) or {}).get('delta', 0)))
-            len_l.append(min(len(seq), st['bt'].shape[1] * bs))
+            if len(seq) > self.config.max_model_len:
+                raise ValueError('decode length exceeds captured context capacity')
+            len_l.append(len(seq))
             slot_l.append(seq.block_table[-1] * bs + seq.last_block_num_tokens - 1)
         gb = st['ids'].shape[0]
         ids_l += [0] * (gb - B); pos_l += [0] * (gb - B)
@@ -454,10 +496,11 @@ class ModelRunner:
         max_blocks = st['bt'].shape[1]
         rows = [list(seq.block_table) + [-1] * (max_blocks - len(seq.block_table))
                 for seq in seqs]
-        rows += [[0] * max_blocks for _ in range(gb - B)]
+        rows += [[self._graph_dummy_block] * max_blocks for _ in range(gb - B)]
         st['bt'].copy_(torch.tensor(rows, dtype=torch.int32), non_blocking=True)
-        torch.cuda.current_stream().synchronize()     # H2D 与 replay 同流序,保守同步
+        # Copies and replay execute in order on the same CUDA stream.
         st['graph'].replay()
+        self.graph_replay_count += 1
         return st['logits'][:B]
 
     # ================= 前向 + 采样 =================

@@ -80,6 +80,19 @@ def get_pp_indices(num_layers: int, pp_rank: int, pp_size: int):
 def tp_allreduce(x: torch.Tensor) -> torch.Tensor:
     """RowParallel/MoE 的部分和聚合（tp 组内）。单卡/未初始化直通。"""
     if STATE.tp_group is not None and dist.is_available() and dist.is_initialized():
+        from layers.batch_invariant import enabled, all_reduce
+        if enabled():
+            return all_reduce(x, STATE.tp_group)
+        # Keep the numerical policy identical with/without graph capture.
+        # FP32 is an explicit diagnostic/accuracy tradeoff, not a promise of
+        # bitwise batch invariance (local BF16 GEMMs can also change with M).
+        policy = os.getenv('VLLM_LEARN_TP_REDUCTION_DTYPE', 'model')
+        if policy not in ('model', 'float32'):
+            raise ValueError('TP reduction dtype must be model or float32')
+        if policy == 'float32' and x.dtype in (torch.bfloat16, torch.float16):
+            value = x.float()
+            dist.all_reduce(value, group=STATE.tp_group)
+            return value.to(x.dtype)
         dist.all_reduce(x, group=STATE.tp_group)
     return x
 

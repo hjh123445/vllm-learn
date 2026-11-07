@@ -60,7 +60,7 @@ def _add_rmsnorm_kernel(X, RES, W, OUT, N, EPS, BLOCK: tl.constexpr):
 def fused_add_rmsnorm(x: torch.Tensor, residual: torch.Tensor,
                       weight: torch.Tensor, eps: float):
     """返回 (normed_out, new_residual)。residual 被原地更新。"""
-    if _REFERENCE_RMS:
+    if _REFERENCE_RMS and not (x.is_cuda and os.getenv('VLLM_LEARN_BATCH_INVARIANT', '0') == '1'):
         # HF materializes the residual addition in model dtype, then rounds
         # the normalized value before multiplying the model-dtype weight.
         residual.add_(x)
@@ -97,6 +97,8 @@ def silu_and_mul(x: torch.Tensor, backend: str | None = None) -> torch.Tensor:
     and PyTorch otherwise. Explicit ``triton`` rejects unsupported inputs
     instead of silently changing the measured backend.
     """
+    if os.getenv('VLLM_LEARN_BATCH_INVARIANT', '0') == '1' and x.is_cuda:
+        backend = 'triton'
     if x.ndim < 1 or x.shape[-1] % 2:
         raise ValueError("SwiGLU input must have an even final dimension")
     selected = _SILU_BACKEND if backend is None else backend.lower()
