@@ -2,7 +2,7 @@
 """v6 权重装载：Qwen3-Omni thinker（MoE）的 checkpoint 名 → 模型名映射 + 对账。
 
 与 dense loader 的差异：
-  1. checkpoint 全部带 `thinker.model.` 前缀（vision/audio tower 的权重直接跳过）；
+  1. 文本 checkpoint 带 `thinker.model.` 前缀；图像模式加载 `thinker.visual.*`，音频/Talker 跳过；
   2. 128 个专家的 gate_proj/up_proj/down_proj 融合成 w13[E, 2I, H] / w2[E, H, I]；
   3. lm_head 是独立的（untied），名字带 `thinker.`；
   4. 模型配置从 config.json 的 thinker_config.text_config 读（嵌套）。"""

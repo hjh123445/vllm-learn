@@ -2,11 +2,11 @@
 
 Semantics match the HF qwen3_omni image processor:
   - smart_resize (factor = patch*merge = 32, min/max pixel clamps)
-  - normalize with mean=std=0.5 after /255 rescale
+  - torchvision bicubic uint8 resize, fused (x-127.5)/127.5 normalization
   - temporal pad (repeat last frame) to temporal_patch=2
   - block-major (2x2 spatial-merge) patch unfolding: one row per patch with
-    layout [C, temporal, patch, patch] flattened (1176 dims)
-Returns (patches [t*h*w, 1176] fp32, grid_thw [1,3] int64).
+    layout [C, temporal, patch, patch] flattened (1536 dims for patch=16)
+Returns (patches [t*h*w, C*temporal*patch*patch] fp32, grid_thw [1,3] int64).
 Unit test compares against AutoProcessor pixel_values/image_grid_thw.
 """
 from __future__ import annotations
@@ -21,23 +21,26 @@ STD = np.array([0.5, 0.5, 0.5], dtype=np.float32)
 def smart_resize(height: int, width: int, factor: int = 32,
                  min_pixels: int = 3136, max_pixels: int = 12845056) -> tuple[int, int]:
     """Exact port of HF smart_resize (round then clamp min/max by factor)."""
+    if min(height, width) <= 0:
+        raise ValueError('image dimensions must be positive')
     if max(height, width) / min(height, width) > 200:
         raise ValueError('aspect ratio beyond 200:1 not supported')
-    h_bar = max(factor, round(height / factor) * factor)
-    w_bar = max(factor, round(width / factor) * factor)
+    h_bar = round(height / factor) * factor
+    w_bar = round(width / factor) * factor
     if h_bar * w_bar > max_pixels:
         beta = (height * width / max_pixels) ** 0.5
         h_bar = max(factor, int(np.floor(height / beta / factor) * factor))
         w_bar = max(factor, int(np.floor(width / beta / factor) * factor))
     elif h_bar * w_bar < min_pixels:
         beta = (min_pixels / (height * width)) ** 0.5
-        h_bar = max(factor, int(np.ceil(height * beta / factor) * factor))
-        w_bar = max(factor, int(np.ceil(width * beta / factor) * factor))
+        h_bar = int(np.ceil(height * beta / factor) * factor)
+        w_bar = int(np.ceil(width * beta / factor) * factor)
     return h_bar, w_bar
 
 
 def image_to_patches(img, patch: int = 16, temporal: int = 2, merge: int = 2,
-                     min_pixels: int = 3136, max_pixels: int = 12845056):
+                     min_pixels: int = 3136, max_pixels: int = 12845056,
+                     resize_backend: str = 'torchvision'):
     """img: [H,W,3] uint8 numpy or PIL image or path.
     Returns (patches [t*h*w, C*temporal*patch*patch] fp32, grid [1,3] int64)."""
     import PIL.Image
@@ -47,13 +50,21 @@ def image_to_patches(img, patch: int = 16, temporal: int = 2, merge: int = 2,
         img = np.asarray(img.convert('RGB') if hasattr(img, 'convert') else img)
     h, w = img.shape[:2]
     hr, wr = smart_resize(h, w, patch * merge, min_pixels, max_pixels)
+    x = torch.from_numpy(np.array(img, copy=True)).permute(2, 0, 1).contiguous().unsqueeze(0)
     if (hr, wr) != (h, w):
-        pil = PIL.Image.fromarray(img)
-        img = np.asarray(pil.resize((wr, hr), PIL.Image.BICUBIC))
-    x = img.astype(np.float32) / 255.0
-    x = (x - MEAN) / STD                        # [H',W',3]
-    x = torch.from_numpy(x).permute(2, 0, 1)    # [3,H',W']
-    x = x.unsqueeze(0)                          # [1,3,H',W']
+        if resize_backend == 'torchvision':
+            from torchvision.transforms.v2 import functional as tvf
+            from torchvision.transforms import InterpolationMode
+            x = tvf.resize(x, [hr, wr], interpolation=InterpolationMode.BICUBIC, antialias=True)
+        elif resize_backend == 'pil':
+            # Explicit compatibility option for older HF PIL processors.
+            image = np.array(PIL.Image.fromarray(img).resize((wr, hr), PIL.Image.BICUBIC), copy=True)
+            x = torch.from_numpy(image).permute(2, 0, 1).contiguous().unsqueeze(0)
+        else:
+            raise ValueError('resize_backend must be torchvision or pil')
+    # Transformers' torchvision backend fuses rescale into mean/std before
+    # normalization. Dividing by 255 first introduces extra rounding.
+    x = (x.float() - 127.5) / 127.5
     if x.size(0) % temporal != 0:
         pad = temporal - x.size(0) % temporal
         x = torch.cat([x, x[-1:].repeat(pad, 1, 1, 1)], dim=0)
@@ -95,3 +106,24 @@ def mrope_positions(prompt_len: int, images) -> tuple[np.ndarray, int]:
     off += tail
     delta = off - prompt_len
     return pos3.astype(np.int32), int(delta)
+
+
+def mrope_position_window(pos3, start: int, length: int, delta: int = 0):
+    """Position rows for a chunk that may include generated text tokens.
+
+    Mixed prefill batches also contain decodes of earlier image requests.
+    Their prompt pos3 table ends before this window; generated positions
+    continue as a scalar on all three axes, using the request's rope delta.
+    """
+    if start < 0 or length < 0:
+        raise ValueError('position window must be nonnegative')
+    text = np.arange(start, start + length, dtype=np.int64) + delta
+    rows = np.stack([text, text, text])
+    if pos3 is not None:
+        prompt = np.asarray(pos3)
+        if prompt.ndim != 2 or prompt.shape[0] != 3:
+            raise ValueError('pos3 must have shape [3, prompt_length]')
+        count = max(0, min(start + length, prompt.shape[1]) - start)
+        if count:
+            rows[:, :count] = prompt[:, start:start + count]
+    return rows

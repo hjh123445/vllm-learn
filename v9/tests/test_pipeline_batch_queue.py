@@ -11,7 +11,7 @@ import sys
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from engine.core import EngineCore, rebuild_specs
+from engine.core import EngineCore, rebuild_specs, _spec_msg
 from engine.scheduler import Scheduler
 from engine.sequence import Sequence
 from samplingParams import SamplingParams
@@ -72,6 +72,35 @@ def core_for_test(pp=4, depth=None, executor=None, config=None):
 def add_requests(core, prompts, max_tokens=4):
     return [core.add_request(p, SamplingParams(temperature=0., max_tokens=max_tokens))
             for p in prompts]
+
+
+def test_worker_snapshot_keeps_prompt_length_after_generation():
+    old = Sequence([7] * 20, SamplingParams(max_tokens=8))
+    old.append_token(11)
+    old.append_token(12)
+    old.num_cached_tokens = 21
+    old.num_scheduled_tokens = 1
+    new = Sequence([9] * 31, SamplingParams(max_tokens=8))
+    new.num_scheduled_tokens = 31
+    rebuilt = rebuild_specs(_spec_msg([old, new], True))
+    assert [(len(s), s.num_prompt_tokens) for s in rebuilt] == [(22, 20), (31, 31)]
+    assert rebuilt[0].num_cached_tokens >= rebuilt[0].num_prompt_tokens
+    assert rebuilt[1].num_cached_tokens < rebuilt[1].num_prompt_tokens
+    assert rebuilt[0][21:22] == [12]
+
+
+def test_mixed_worker_snapshot_does_not_repeat_decode_media():
+    old = Sequence([7] * 20, SamplingParams(max_tokens=8))
+    old.append_token(11)
+    old.num_cached_tokens = 20
+    old.num_scheduled_tokens = 1
+    old.mm = {'images': [{'pixels': b'large image'}], 'delta': -5, 'pos3': 'prompt positions'}
+    new = Sequence([9] * 31, SamplingParams(max_tokens=8))
+    new.num_scheduled_tokens = 31
+    new.mm = {'images': [{'pixels': b'another image'}], 'delta': -3, 'pos3': 'new positions'}
+    message = _spec_msg([old, new], True)
+    assert message['scheduled'][0]['mm'] == {'delta': -5}
+    assert message['scheduled'][1]['mm'] == new.mm
 
 
 def run_to_end(core):

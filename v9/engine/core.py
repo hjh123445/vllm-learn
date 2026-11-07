@@ -52,10 +52,11 @@ def _spec_msg(seqs, is_prefill, microbatch_id=0):
             "tokens": s[start:end],
             "last_token": s.last_token,
             "seq_len": len(s),
+            "num_prompt_tokens": s.num_prompt_tokens,
             "temperature": s.temperature,
             "block_size": getattr(s, "block_size", 256),
             # Decode needs only the rotary offset, not raw media arrays.
-            "mm": (getattr(s, "mm", None) if is_prefill else
+            "mm": (getattr(s, "mm", None) if is_prefill and s.num_cached_tokens < s.num_prompt_tokens else
                    ({"delta": s.mm.get("delta", 0)} if getattr(s, "mm", None) else None)),
         })
     return {"type": "schedule", "scheduled": scheduled, "is_prefill": is_prefill,
@@ -80,7 +81,9 @@ class _Spec:
         bs = self.block_size = m.get("block_size", 256)
         n = m["seq_len"]
         self.num_tokens = n
-        self.num_prompt_tokens = n          # 哑视角够用（run 只读下列字段）
+        # Prompt length stays fixed while seq_len grows during generation.
+        # Mixed batches must distinguish live decode from unfinished prefill.
+        self.num_prompt_tokens = m["num_prompt_tokens"]
         self.last_block_num_tokens = n - (len(self.block_table) - 1) * bs \
             if self.block_table else n
         self.mm = m.get("mm")

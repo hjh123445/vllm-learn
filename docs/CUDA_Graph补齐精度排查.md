@@ -1,5 +1,7 @@
 # CUDA Graph batch 补齐：根因、修复与复现
 
+> 2026-11-08 最终更新：本文保留历史排查过程。最新修正、768 组真实图像特征对拍、256 题 Graph/eager 检查及 128/256 并发在线/离线总表见 [最终验证报告](CUDA_Graph多模态最终验证报告.md) 和 [原理说明](CUDA_Graph与多模态原理.md)。
+
 2026-11-07。真实 Qwen3-Omni-30B-A3B-Instruct Thinker 文本主干，172.28.30.56，8×A800-SXM4-80GB，TP8/EP8、DP1、PP1、BF16。PyTorch 2.14.1+cu130、CUDA 13.0、NCCL 2.30.7、Triton 3.8.0、Transformers 5.19.0、driver 580.65.06。
 
 ## 1. 结论与验收口径

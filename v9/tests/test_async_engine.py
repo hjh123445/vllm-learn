@@ -22,12 +22,14 @@ class FakeCore:
         self.last_step_had_work = False
         self.owner = None
         self.closed = False
+        self.media_received = []
     def owned(self):
         current = threading.get_ident()
         self.owner = self.owner or current
         assert self.owner == current, 'scheduler mutated from another thread'
-    def add_request(self, prompt, sp):
+    def add_request(self, prompt, sp, mm=None):
         self.owned()
+        self.media_received.append(mm)
         seq = types.SimpleNamespace(seq_id=next(self.ids), completion_token_ids=[],
             max_tokens=sp.max_tokens, ignore_eos=True, is_finished=False)
         self.pending[seq.seq_id] = seq
@@ -138,5 +140,11 @@ class TestAsyncEngine(unittest.TestCase):
         e=self.engine()
         for ids in ([],[-1],[True]):
             with self.assertRaises(ValueError):e.add(ids,SamplingParams(max_tokens=1))
+    def test_multimodal_payload_reaches_owner_thread(self):
+        e=self.engine()
+        media={'images':[{'pixels':'sentinel'}], 'delta':-3}
+        _,state=e.add([1,2],SamplingParams(max_tokens=1),mm=media)
+        self.assertEqual(self.consume(state),[42])
+        self.assertIs(e.engine.media_received[0],media)
 
 if __name__=='__main__': unittest.main()

@@ -17,6 +17,7 @@ class HTTPTests(unittest.TestCase):
             'engine.core':types.SimpleNamespace(EngineCore=FakeCore)})
         self.patch.start();self.engine=AsyncEngine('fake');self.engine.start()
         Handler.engine=self.engine;Handler.tokenizer=tok;Handler.metrics_path=None
+        Handler.processor=None
         self.srv=ThreadingHTTPServer(('127.0.0.1',0),Handler)
         self.t=threading.Thread(target=self.srv.serve_forever);self.t.start()
     def tearDown(self):
@@ -44,4 +45,23 @@ class HTTPTests(unittest.TestCase):
         FakeCore.fail=True
         code,raw=self.request(body);self.assertEqual(code,500)
         self.assertIn('injected worker',raw.decode())
+    def test_inline_image_passes_through_http_and_engine(self):
+        import base64,io
+        from PIL import Image
+        buf=io.BytesIO();Image.new('RGB',(64,96),'red').save(buf,format='PNG')
+        class ImageTokenizer(Tokenizer):
+            unk_token_id=-1
+            def convert_tokens_to_ids(self,s):return 7
+        Handler.processor=types.SimpleNamespace(tokenizer=ImageTokenizer(),
+            apply_chat_template=lambda *a,**kw:'prefix<|image_pad|>suffix')
+        media=dict(type='image_url',image_url=dict(url='data:image/png;base64,'+base64.b64encode(buf.getvalue()).decode()))
+        body=dict(messages=[dict(role='user',content=[media,dict(type='text',text='what color?')])],
+                  max_tokens=3,temperature=0)
+        code,raw=self.request(body)
+        self.assertEqual(code,200,raw)
+        mm=self.engine.engine.media_received[0]
+        self.assertEqual(mm['images'][0]['grid'],[1,6,4])
+        self.assertEqual(mm['images'][0]['pixels'].shape,(24,1536))
+        self.assertEqual(mm['pos3'].shape,(3,10))
+        self.assertEqual(json.loads(raw)['usage']['prompt_tokens'],10)
 if __name__=='__main__':unittest.main()

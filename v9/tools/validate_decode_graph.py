@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 def worker(rank, args):
     import faulthandler
-    faulthandler.dump_traceback_later(120, repeat=False)
+    faulthandler.dump_traceback_later(args.traceback_timeout, repeat=False)
     import torch
     import torch.distributed as dist
     torch.set_num_threads(2)
@@ -29,8 +29,13 @@ def worker(rank, args):
     from engine.model_runner import ModelRunner
     from engine.sequence import Sequence
     from samplingParams import SamplingParams
-    config = Config(args.model, max_model_len=1024, max_num_batched_tokens=4096,
-                    max_num_seqs=8, max_kvcache_blocks=32, gpu_memory_utilization=.8)
+    stride = (args.max_model_len + 255) // 256
+    config = Config(args.model, max_model_len=args.max_model_len,
+                    max_num_batched_tokens=args.prefill_tokens,
+                    max_num_seqs=args.max_batch,
+                    max_kvcache_blocks=args.max_batch * stride,
+                    decode_graph_reserve_bytes=int(args.graph_reserve_gib * 2**30),
+                    gpu_memory_utilization=.8)
     class CheckedRunner(ModelRunner):
         def _capture_decode_graph(self, batch, blocks):
             print(f'rank{rank}: capture begin B={batch}', flush=True)
@@ -41,23 +46,37 @@ def worker(rank, args):
     rows = []
     generator = torch.Generator().manual_seed(args.seed)
     try:
-        assert sorted(runner.decode_graphs) == [1, 2, 4, 8]
+        expected_buckets = sorted({b for b in (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
+                                   if b <= args.max_batch} | {args.max_batch})
+        assert sorted(runner.decode_graphs) == expected_buckets
+        assert config.num_kvcache_blocks >= args.max_batch * stride
         # Padded/exact buckets exercise batch shrink and
         # crossing physical block boundary 255 -> 256. Fixed prefixes prevent
         # generated-token divergence from changing the comparison inputs.
-        for n, length in ((8, 17), (7, 255), (6, 256), (5, 17),
-                          (4, 255), (3, 17), (2, 256), (1, 17)):
+        for case_index, n in enumerate(args.batches):
+            length = args.lengths[case_index % len(args.lengths)]
             seqs = []
             for i in range(n):
-                row_length = (17, 255, 256, 511)[i % 4] if args.mixed_lengths else length
+                row_length = args.lengths[i % len(args.lengths)] if args.mixed_lengths else length
                 tokens = (torch.randint(100, 30000, (row_length,), generator=generator).tolist()
                           if args.random_inputs else [i + 1] * row_length)
                 seq = Sequence(tokens, SamplingParams(temperature=0.))
-                seq.block_table = [i * 4 + j for j in range(seq.num_blocks)]
+                seq.block_table = [i * stride + j for j in range(seq.num_blocks)]
                 seq.num_scheduled_tokens = row_length
                 seqs.append(seq)
             print(f'rank{rank}: prefill B={n} L={length}', flush=True)
-            runner.run(seqs, True)
+            # Prefill small groups so a 256-request correctness probe does
+            # not build one enormous sparse expert activation. Every rank
+            # uses the same deterministic groups and collective order.
+            chunk, chunk_tokens = [], 0
+            for seq in seqs:
+                if chunk and chunk_tokens + len(seq) > args.prefill_tokens:
+                    runner.run(chunk, True)
+                    chunk, chunk_tokens = [], 0
+                chunk.append(seq)
+                chunk_tokens += len(seq)
+            if chunk:
+                runner.run(chunk, True)
             for step in range(args.steps):
                 for seq in seqs:
                     seq.append_token(3 if step == 0 else generated[seq.seq_id]); seq.num_scheduled_tokens = 1
@@ -111,8 +130,9 @@ def worker(rank, args):
         print(f'rank{rank}: sentinel capture begin', flush=True)
         with torch.inference_mode():
             runner.kv_cache[:, :, :config.num_kvcache_blocks].fill_(.125)
-            runner.decode_graphs[4]['graph'].reset()
-            runner._capture_decode_graph(4, 4)
+            sentinel_bucket = min(4, args.max_batch)
+            runner.decode_graphs[sentinel_bucket]['graph'].reset()
+            runner._capture_decode_graph(sentinel_bucket, stride)
         unchanged = bool((runner.kv_cache[:, :, :config.num_kvcache_blocks] == .125).all().item())
         assert unchanged
         print(f'rank{rank}: sentinel capture passed', flush=True)
@@ -120,14 +140,14 @@ def worker(rank, args):
         if args.profile and rank == 0:
             with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU,
                                                    torch.profiler.ProfilerActivity.CUDA]) as prof:
-                runner._replay_decode_graph(runner.decode_graphs[1], seqs)
+                runner._replay_decode_graph(runner.decode_graphs[runner._pick_decode_graph(len(seqs))], seqs)
                 torch.cuda.synchronize()
             profile_file = str(Path(args.output) / 'graph_rank0.json')
             prof.export_chrome_trace(profile_file)
         # All ranks must participate in NCCL graph replay, even if only rank0
         # records CUPTI. The no-profile peers execute the same replay.
         elif args.profile:
-            runner._replay_decode_graph(runner.decode_graphs[1], seqs)
+            runner._replay_decode_graph(runner.decode_graphs[runner._pick_decode_graph(len(seqs))], seqs)
             torch.cuda.synchronize()
         result = dict(rank=rank, model=args.model, torch=torch.__version__, cuda=torch.version.cuda,
                       gpu=torch.cuda.get_device_name(), rows=rows, live_kv_unchanged=unchanged,
@@ -135,6 +155,10 @@ def worker(rank, args):
                       profile=profile_file, seed=args.seed, random_inputs=args.random_inputs, steps=args.steps, permute=args.permute, mixed_lengths=args.mixed_lengths,
                       batch_invariant=os.getenv('VLLM_LEARN_BATCH_INVARIANT', '0') == '1',
                       strict_batch_invariant=args.strict_batch_invariant,
+                      graph_capture_bytes=runner._graph_capture_bytes,
+                      graph_capture_count=runner.graph_capture_count,
+                      peak_allocated_bytes=torch.cuda.max_memory_allocated(),
+                      max_batch=args.max_batch, lengths=args.lengths,
                       source_sha256={str(p.relative_to(Path(__file__).resolve().parents[1])):
                           hashlib.sha256(p.read_bytes()).hexdigest()
                           for p in Path(__file__).resolve().parents[1].rglob('*.py')
@@ -168,8 +192,24 @@ def main():
     ap.add_argument('--steps', type=int, default=1)
     ap.add_argument('--permute', action='store_true')
     ap.add_argument('--mixed-lengths', action='store_true')
+    ap.add_argument('--max-batch', type=int, default=8)
+    ap.add_argument('--batches', type=int, nargs='+',
+                    help='ordered batch sizes; default descends from max-batch to 1')
+    ap.add_argument('--lengths', type=int, nargs='+', default=[17, 255, 256, 511])
+    ap.add_argument('--max-model-len', type=int, default=1024)
+    ap.add_argument('--prefill-tokens', type=int, default=4096)
+    ap.add_argument('--graph-reserve-gib', type=float, default=1.)
+    ap.add_argument('--traceback-timeout', type=int, default=600)
     args = ap.parse_args()
     if args.steps < 1: ap.error('--steps must be positive')
+    if args.max_batch < 1 or args.max_model_len < 1: ap.error('capacities must be positive')
+    if args.batches is None: args.batches = list(range(args.max_batch, 0, -1))
+    if not args.batches or min(args.batches) < 1 or max(args.batches) > args.max_batch:
+        ap.error('batches must be within [1, max-batch]')
+    if min(args.lengths) < 1 or max(args.lengths) + args.steps > args.max_model_len:
+        ap.error('prefix length plus decode steps must fit max-model-len')
+    if args.prefill_tokens < max(args.lengths): ap.error('prefill-tokens must fit longest prefix')
+    if args.graph_reserve_gib <= 0: ap.error('graph-reserve-gib must be positive')
     if args.batch_invariant: os.environ['VLLM_LEARN_BATCH_INVARIANT'] = '1'
     Path(args.output).mkdir(parents=True, exist_ok=True)
     os.environ.update(VLLM_LEARN_DECODE_GRAPH='1', VLLM_LEARN_EP_DENSE_DECODE='1',

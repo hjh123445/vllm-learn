@@ -71,6 +71,7 @@ class AsyncEngine:
             "max_num_batched_tokens", "max_num_seqs", "max_model_len",
             "gpu_memory_utilization", "kvcache_block_size",
             "max_kvcache_blocks", "enable_prefix_caching", "batch_execution_mode",
+            "decode_graph_reserve_bytes", "mm_feature_cache_bytes", "mm_encoder_reserve_bytes",
         }
         unknown = set(kwargs) - config_fields
         if unknown:
@@ -104,7 +105,7 @@ class AsyncEngine:
         self._accepting = False
         self._counts = dict(completed=0, aborted=0, errors=0, rejected=0)
 
-    def add(self, prompt: str | list[int], sampling_params):
+    def add(self, prompt: str | list[int], sampling_params, mm=None):
         """Return a request handle without waiting for an in-flight GPU step."""
         if isinstance(prompt, str):
             prompt = self.tokenizer.encode(prompt, add_special_tokens=False)
@@ -122,7 +123,8 @@ class AsyncEngine:
                 raise EngineOverloaded("Request admission limit reached")
             rid, state = next(self._ids), _StreamState(self.stream_buffer_tokens)
             self.states[rid] = state
-            self._commands.put(("add", rid, (prompt, sampling_params)))
+            payload = (prompt, sampling_params) if mm is None else (prompt, sampling_params, mm)
+            self._commands.put(("add", rid, payload))
         self._wake.set()
         return rid, state
 

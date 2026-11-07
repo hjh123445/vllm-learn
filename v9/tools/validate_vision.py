@@ -20,6 +20,7 @@ def main():
     ap.add_argument('--model', required=True)
     ap.add_argument('--output', required=True)
     ap.add_argument('--dtype', choices=('float32', 'bfloat16'), default='bfloat16')
+    ap.add_argument('--max-abs', type=float, default=0., help='maximum accepted component error')
     args = ap.parse_args()
     out = Path(args.output); out.mkdir(parents=True, exist_ok=True)
     torch.set_num_threads(2)
@@ -65,6 +66,8 @@ def main():
             d = (a.float() - b.float()).abs()
             comparisons.append(dict(component=name, shape=list(a.shape), max_abs=d.max().item(),
                                     mean_abs=d.mean().item(), cosine=torch.nn.functional.cosine_similarity(a.float().flatten(), b.float().flatten(), dim=0).item()))
+            if d.max().item() > args.max_abs:
+                raise AssertionError(comparisons[-1])
         rows.append(dict(height=height, width=width, grid=grid.tolist(), comparisons=comparisons))
     # Exercise production chunk assembly with this real encoder and two images.
     runner = ModelRunner.__new__(ModelRunner)

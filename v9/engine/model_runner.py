@@ -81,7 +81,11 @@ class ModelRunner:
         self.kv_cache = None
         self.decode_graphs = {}
         self._graph_pool = None
-        self._warmup_model()
+        self._warming_up = True
+        try:
+            self._warmup_model()
+        finally:
+            self._warming_up = False
         self.allocate_kv_cache()
         self._setup_decode_graphs()
 
@@ -315,7 +319,7 @@ class ModelRunner:
                     pix = torch.as_tensor(img['pixels'])
                     if pix.ndim != 2 or pix.shape[0] != t * gh * gw:
                         raise ValueError('pixel rows must match the COMPLETE image grid')
-                    grid = torch.tensor([[t, gh, gw]], dtype=torch.int64, device=self.device)
+                    grid = torch.tensor([[t, gh, gw]], dtype=torch.int64)
                     features = self.model.run_vision(pix.to(self.device, torch.float32), grid)
                     if features[0].shape[0] != llm_len or any(d.shape != features[0].shape for d in features[1]):
                         raise ValueError('vision output disagrees with image span')
@@ -357,15 +361,13 @@ class ModelRunner:
             return None
         import numpy as _np
         import torch as _t
+        from layers.mm_preprocess import mrope_position_window
         rows = []
         for s in seqs:
             win0, wlen = s.num_cached_tokens, s.num_scheduled_tokens
             mm = getattr(s, 'mm', None)
-            if mm and mm.get('pos3') is not None:
-                p3 = _np.asarray(mm['pos3'])[:, win0:win0 + wlen]
-            else:
-                p = _np.arange(win0, win0 + wlen, dtype=_np.int32)
-                p3 = _np.stack([p, p, p], 0)
+            p3 = mrope_position_window((mm or {}).get('pos3'), win0, wlen,
+                                      (mm or {}).get('delta', 0))
             rows.append(p3)
         pos3 = _t.from_numpy(_np.concatenate(rows, 1)).to(self.device, _t.float32)  # [3,T]
         T = pos3.shape[1]
@@ -531,6 +533,7 @@ class ModelRunner:
                     _ = self.model.compute_logits(h)
             torch.cuda.current_stream().wait_stream(s)
             torch.cuda.synchronize()
+            self._graph_barrier()
             g = torch.cuda.CUDAGraph()
             with torch.cuda.graph(g, pool=self._graph_pool):
                 h = self.model(ids, pos)
@@ -619,6 +622,25 @@ class ModelRunner:
             for seq in seqs:
                 result.extend(self.run([seq], is_prefill, microbatch_id))
             return result
+        # A mixed scheduler batch must not change an existing decode request
+        # into the varlen attention / sparse-EP prefill numerical path. Keep
+        # its decode kernels (and Graph replay) even when new prompts arrive.
+        # All TP peers see the same split. DP/PP/CP need a separate protocol
+        # for subdividing messages and are deliberately excluded here.
+        from layers.batch_invariant import enabled as batch_invariant
+        if (is_prefill and batch_invariant()
+                and STATE.dp_size == STATE.pp_size == STATE.cp_size == 1):
+            decode = [i for i, seq in enumerate(seqs)
+                      if seq.num_cached_tokens >= seq.num_prompt_tokens]
+            if decode and len(decode) < len(seqs):
+                decode_set = set(decode)
+                prefill = [i for i in range(len(seqs)) if i not in decode_set]
+                result = [0] * len(seqs)
+                for indices, phase in ((decode, False), (prefill, True)):
+                    values = self.run([seqs[i] for i in indices], phase, microbatch_id)
+                    for i, value in zip(indices, values):
+                        result[i] = value
+                return result
         if is_prefill:
             input_ids, positions = self.prepare_prefill(seqs)
             mm_batch = self._build_mm_batch(seqs)
@@ -631,7 +653,8 @@ class ModelRunner:
                 temperatures = torch.tensor([seq.temperature for seq in seqs],
                                             dtype=torch.float32, device=self.device)
                 return self.sampler(logits, temperatures).tolist()
-            if getattr(self, '_decode_graph_requested', False):
+            if (getattr(self, '_decode_graph_requested', False)
+                    and not getattr(self, '_warming_up', False)):
                 # A requested graph run must never silently turn into eager
                 # because a caller exceeded the captured capacity.  Eager is
                 # still available by leaving VLLM_LEARN_DECODE_GRAPH unset.

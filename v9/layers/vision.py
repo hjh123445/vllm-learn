@@ -60,15 +60,17 @@ def apply_vision_rope(x: torch.Tensor, inv: torch.Tensor, pos_ids: torch.Tensor)
 
 # ---------- 位置嵌入插值 + block-major 位置 id(对齐 hf vision_utils) ----------
 
-def vision_interp(grid_thw: torch.Tensor, merge: int, side: int):
+def vision_interp(grid_thw: torch.Tensor, merge: int, side: int, total: int | None = None):
     """per-patch 双线性 taps(允许逐 patch 尺寸不同:src 用 patch 所属图的 h/w)。"""
     device = grid_thw.device
     t_, h_, w_ = grid_thw[:, 0], grid_thw[:, 1], grid_thw[:, 2]
     counts = t_ * h_ * w_
-    heights = torch.repeat_interleave(h_, counts)
-    widths = torch.repeat_interleave(w_, counts)
-    starts = torch.repeat_interleave(F.pad(counts.cumsum(0)[:-1], (1, 0)), counts)
-    within = (torch.arange(counts.sum(), device=device) - starts) % (heights * widths)
+    if total is None:
+        total = int(counts.sum())
+    heights = torch.repeat_interleave(h_, counts, output_size=total)
+    widths = torch.repeat_interleave(w_, counts, output_size=total)
+    starts = torch.repeat_interleave(F.pad(counts.cumsum(0)[:-1], (1, 0)), counts, output_size=total)
+    within = (torch.arange(total, device=device) - starts) % (heights * widths)
     blocks_w = widths // merge
     in_col = within % merge
     in_row = (within // merge) % merge
@@ -92,10 +94,10 @@ def vision_interp(grid_thw: torch.Tensor, merge: int, side: int):
     return indices, weights
 
 
-def vision_position_ids(grid_thw: torch.Tensor, merge: int) -> torch.Tensor:
+def vision_position_ids(grid_thw: torch.Tensor, merge: int, grid_rows=None) -> torch.Tensor:
     """[total, 2] block-major 的 (h,w) 位置 id(与 HF get_vision_position_ids 一致,merge=2)。"""
     ids = []
-    for t, h, w in grid_thw.tolist():
+    for t, h, w in (grid_thw.tolist() if grid_rows is None else grid_rows):
         hp, wp = torch.meshgrid(
             torch.arange(h, device=grid_thw.device),
             torch.arange(w, device=grid_thw.device),
@@ -127,7 +129,7 @@ class Qwen3VisionAttention(nn.Module):
         q = apply_vision_rope(q.float(), inv, pos).to(x.dtype)
         k = apply_vision_rope(k.float(), inv, pos).to(x.dtype)
         out = torch.empty_like(q)
-        cu_list = cu.tolist()
+        cu_list = cu.tolist() if isinstance(cu, torch.Tensor) else cu
         for st, en in zip(cu_list[:-1], cu_list[1:]):
             if en > st:
                 out[st:en] = F.scaled_dot_product_attention(
@@ -215,20 +217,33 @@ class Qwen3VisionTower(nn.Module):
         device = pixel.device
         target_dtype = self.patch_embed.weight.dtype
         total = pixel.size(0)
+        # Grid metadata is known on the host before the pixel H2D copy.
+        # Read it once, never once per vision layer/attention invocation.
+        grid_rows = grid_thw.detach().cpu().tolist()
+        if (not grid_rows or any(min(t, h, w) <= 0 or h % self.merge or w % self.merge
+                                 for t, h, w in grid_rows)
+                or sum(t * h * w for t, h, w in grid_rows) != total):
+            raise ValueError('complete pixel rows must match positive, merge-aligned image grids')
+        grid_device = grid_thw.to(device)
         x = pixel.view(total, self.cfg['in_channels'], self.cfg['temporal_patch_size'],
                        self.cfg['patch_size'], self.cfg['patch_size'])
         x = self.patch_embed(x.to(target_dtype)).view(total, self.dim)
 
-        interp_idx, interp_w = vision_interp(grid_thw.to(device), self.merge, self.side)
+        interp_idx, interp_w = vision_interp(grid_device, self.merge, self.side, total=total)
         pos_embeds = (self.pos_embed(interp_idx) * interp_w[:, :, None]).sum(1)
         x = x + pos_embeds.to(x.dtype)
 
-        pos_ids = vision_position_ids(grid_thw.to(device), self.merge).t().contiguous()
+        pos_ids = vision_position_ids(grid_device, self.merge, grid_rows=grid_rows).t().contiguous()
         # HF vision rope:inv_freq = theta^{-arange(0,D/2,2)/(D/2)}(D=head_dim)
         head_dim = self.dim // self.cfg['num_heads']
         inv = vision_rope_cache(head_dim // 2, self.rope_base, device)
-        counts = (grid_thw[:, 0] * grid_thw[:, 1] * grid_thw[:, 2]).cpu()
-        cu = F.pad(counts.cumsum(0), (1, 0)).to(device=device, dtype=torch.int32)
+        # HF attends independently within each temporal slice of each grid.
+        # For still images t=1; retaining host offsets also avoids 27 D2H
+        # synchronizations from cu.tolist() in the block loop.
+        cu = [0]
+        for t, h, w in grid_rows:
+            for _ in range(t):
+                cu.append(cu[-1] + h * w)
 
         deep = []
         for i, blk in enumerate(self.blocks):

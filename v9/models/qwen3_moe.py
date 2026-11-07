@@ -1,9 +1,9 @@
 # v6/models/qwen3_moe.py
-"""v6 模型：Qwen3-Omni 的 thinker（文本 LLM 部分，MoE 架构）。
+"""Qwen3-Omni Thinker：文本 MoE 主干与可选图像理解分支。
 
 attention 栈沿用 v4/v5（qk_norm + rope + GQA + 平铺 context + triton flash），
 MLP 换成 MoE（router + grouped experts，layers/moe.py）。
-只做文本路径：vision/audio tower 的权重 loader 直接跳过。"""
+VLLM_LEARN_MM=1 时接入视觉 embedding/DeepStack；未接入音频或 Talker。"""
 import torch
 import torch.nn as nn
 

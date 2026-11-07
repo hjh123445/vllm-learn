@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from engine.async_engine import AsyncEngine, EngineOverloaded
 from samplingParams import SamplingParams
+from utils.chat_inputs import prepare_chat_inputs
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -35,11 +36,14 @@ class Handler(BaseHTTPRequestHandler):
     tokenizer = None
     protocol_version = "HTTP/1.1"      # keep-alive
     request_timeout = 300.0
-    max_body_bytes = 1024 * 1024
+    max_body_bytes = 16 * 1024 * 1024
     max_output_tokens = 4096
     metrics_path = None
     profiled_run = False
     metrics_lock = threading.Lock()
+    processor = None
+    mm_max_pixels = 12845056
+    preprocessing_slots = threading.BoundedSemaphore(4)
 
     def setup(self):
         super().setup()
@@ -90,29 +94,40 @@ class Handler(BaseHTTPRequestHandler):
             messages = req.get('messages')
             if not isinstance(messages, list) or not messages:
                 raise ValueError('messages required')
-            if any(not isinstance(m, dict) or not isinstance(m.get('content'), str)
-                   or m.get('role') not in ('system','user','assistant') for m in messages):
-                raise ValueError('this endpoint currently supports text messages only')
             stream = req.get('stream', False)
             stream_options = req.get('stream_options', {})
             if not isinstance(stream_options, dict) or type(stream_options.get('include_usage', False)) is not bool:
                 raise ValueError('invalid stream_options')
             limit = req.get('max_tokens', 128)
+            ignore_eos = req.get('ignore_eos', False)
             temperature = float(req.get('temperature', .7))
             if type(stream) is not bool or type(limit) is not int or not 1 <= limit <= self.max_output_tokens:
                 raise ValueError('invalid stream or max_tokens')
+            if type(ignore_eos) is not bool:
+                raise ValueError('ignore_eos must be boolean')
             if not math.isfinite(temperature) or temperature < 0:
                 raise ValueError('invalid temperature')
             if req.get('n', 1) != 1 or req.get('stop') or 'top_p' in req:
                 raise ValueError('n>1, stop strings and top_p are not implemented')
+            mm_options = req.get('mm_processor_kwargs', {})
+            if not isinstance(mm_options, dict) or set(mm_options) - {'max_pixels'}:
+                raise ValueError('mm_processor_kwargs supports max_pixels only')
+            image_pixels = mm_options.get('max_pixels', self.mm_max_pixels)
+            if type(image_pixels) is not int or not 3136 <= image_pixels <= self.mm_max_pixels:
+                raise ValueError('max_pixels must fit the configured server image limit')
             record['parsed'] = time.perf_counter()
-            prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-            record['templated'] = time.perf_counter()
-            prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)
+            with self.preprocessing_slots:
+                record['preprocessing_started'] = time.perf_counter()
+                prompt_ids, mm = prepare_chat_inputs(self.tokenizer, messages,
+                    processor=self.processor, max_pixels=image_pixels)
             record['tokenized'] = time.perf_counter()
             record['prompt_tokens'] = len(prompt_ids)
+            record['images'] = len(mm['images']) if mm else 0
+            record['mm_max_pixels'] = image_pixels
             if self.metrics_path: record['input_ids'] = prompt_ids
-            request_id, st = self.engine.add(prompt_ids, SamplingParams(temperature=temperature,max_tokens=limit))
+            request_id, st = self.engine.add(prompt_ids,
+                SamplingParams(temperature=temperature,max_tokens=limit,ignore_eos=ignore_eos),
+                **({'mm': mm} if mm is not None else {}))
             record['submitted'] = time.perf_counter()
 
             def send(obj):
@@ -208,6 +223,9 @@ def main():
     ap.add_argument("--gpu-mem-util", type=float, default=0.3)
     ap.add_argument('--max-num-batched-tokens',type=int,default=2048)
     ap.add_argument('--max-kvcache-blocks',type=int,default=None)
+    ap.add_argument('--multimodal', action='store_true', help='load Thinker vision weights and accept inline images')
+    ap.add_argument('--mm-max-pixels', type=int, default=12845056)
+    ap.add_argument('--graph-reserve-gib', type=float, default=1.)
     ap.add_argument('--disable-prefix-caching',action='store_true')
     ap.add_argument('--batch-execution-mode', choices=('batched', 'per_request'),
                     default='batched',
@@ -216,6 +234,7 @@ def main():
     ap.add_argument('--stream-buffer-tokens',type=int,default=256)
     ap.add_argument('--request-timeout',type=float,default=300.)
     ap.add_argument('--metrics-path',default=None)
+    ap.add_argument('--execution-metrics-dir', help='export worker memory and graph counts without profiling')
     ap.add_argument('--profile', action='store_true',
                     help='record worker CPU/CUDA trace until graceful shutdown; timings are diagnostic')
     ap.add_argument('--profile-dir', help='default: a new outputs/server_profile_TIMESTAMP directory')
@@ -231,7 +250,16 @@ def main():
     ap.add_argument("--gpus", default=None,
                     help="comma-separated physical GPU ids, e.g. 0,1,2,3")
     args = ap.parse_args()
+    if args.mm_max_pixels < 3136 or args.graph_reserve_gib <= 0:
+        ap.error('invalid image pixel limit or graph reserve')
+    if args.multimodal:
+        os.environ['VLLM_LEARN_MM'] = '1'
     implementations = {}
+    if args.execution_metrics_dir and not args.profile:
+        from utils.observation_config import configure_observation
+        from utils.observed_runner import ObservedModelRunner
+        configure_observation(args.execution_metrics_dir, profile=False)
+        implementations = dict(runner_cls=ObservedModelRunner)
     if args.profile:
         from utils.observation_config import configure_observation
         from utils.observed_runner import ObservedModelRunner, ObservedPipelineTransport
@@ -244,6 +272,10 @@ def main():
 
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(args.model)
+    if os.getenv('VLLM_LEARN_MM', '0') == '1':
+        from transformers import AutoProcessor
+        Handler.processor = AutoProcessor.from_pretrained(args.model)
+    Handler.mm_max_pixels = args.mm_max_pixels
     template_path = os.path.join(args.model, 'chat_template.json')
     if os.path.isfile(template_path):
         with open(template_path,encoding='utf-8') as f:
@@ -256,6 +288,7 @@ def main():
         gpu_memory_utilization=args.gpu_mem_util,
         max_num_batched_tokens=args.max_num_batched_tokens,
         max_kvcache_blocks=args.max_kvcache_blocks,enable_prefix_caching=not args.disable_prefix_caching,
+        decode_graph_reserve_bytes=int(args.graph_reserve_gib * 2**30),
         batch_execution_mode=args.batch_execution_mode,
         max_pending_requests=args.max_pending_requests,stream_buffer_tokens=args.stream_buffer_tokens,
         tensor_parallel_size=args.tensor_parallel_size,
