@@ -1,0 +1,42 @@
+{
+  "graph_batch_invariant_v3": {
+    "ranks": 8,
+    "rank_steps": 64,
+    "graph_max_abs": 0.0,
+    "unpadded_max_abs": 0.0,
+    "all_ranks_equal": true,
+    "all_argmax_equal": true
+  },
+  "graph_batch_invariant_random": {
+    "ranks": 8,
+    "rank_steps": 64,
+    "graph_max_abs": 0.0,
+    "unpadded_max_abs": 0.0,
+    "all_ranks_equal": true,
+    "all_argmax_equal": true
+  },
+  "graph_batch_invariant_multistep": {
+    "ranks": 8,
+    "rank_steps": 256,
+    "graph_max_abs": 0.0,
+    "unpadded_max_abs": 0.0,
+    "all_ranks_equal": true,
+    "all_argmax_equal": true
+  },
+  "graph_batch_invariant_final": {
+    "ranks": 8,
+    "rank_steps": 256,
+    "graph_max_abs": 0.0,
+    "unpadded_max_abs": 0.0,
+    "all_ranks_equal": true,
+    "all_argmax_equal": true
+  },
+  "graph_batch_invariant_kv_checked": {
+    "ranks": 8,
+    "rank_steps": 256,
+    "graph_max_abs": 0,
+    "unpadded_max_abs": 0,
+    "all_kv_equal": true,
+    "permutation_equal": true
+  }
+}
