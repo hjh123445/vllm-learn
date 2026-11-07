@@ -281,6 +281,10 @@ class MoEMLP(nn.Module):
         # counts exchange overlaps the packing on a side stream, and both
         # split vectors reach the host in one D2H read. Opt-in experiment.
         self.ep_packed = os.getenv('VLLM_LEARN_EP_PACKED', '0') == '1'
+        # Dense-EP decode:定形 decode 路径(CUDA graph 用)。TP 副本内 x 逐位
+        # 相同 → router 输出逐位相同 → 免 dispatch;本地专家全 token dense
+        # grouped GEMM + 权重矩阵聚合 + 一次 allreduce,全部静态形状。
+        self.ep_dense_decode = os.getenv('VLLM_LEARN_EP_DENSE_DECODE', '0') == '1'
         self._ep_comm_stream = None
         self.router = MoERouter(config.hidden_size, config.num_experts,
                                 config.num_experts_per_tok,
@@ -293,10 +297,50 @@ class MoEMLP(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         from layers.parallel import STATE, tp_allreduce
         if STATE.enable_expert_parallel and STATE.ep_size > 1:
+            if self.ep_dense_decode and STATE.dp_size == 1:
+                from utils.context import get_context as _gc
+                if not _gc().is_prefill:
+                    return self._dense_ep_decode(x)
             return self._forward_tp_replicated_input(x)
         idx, w = self.router(x)
         # Cast only AFTER summing expert-TP partials in oracle mode.
         return tp_allreduce(self.experts(x, idx, w)).to(x.dtype)
+
+    def _dense_ep_decode(self, x: torch.Tensor) -> torch.Tensor:
+        """定形 EP decode(大部分配在 CUDA graph 内,也可 eager 消融)。
+
+        TP 副本内 x 逐位相同 → 各 rank 的 router 输出逐位相同 → 无需
+        dispatch/counts 交换:本地 E_per 个专家对全部 T 个 token 做 dense
+        grouped GEMM(静态 offs = [T, 2T, ...]),路由权重用 [E_per, T] 矩阵
+        散射聚合,最后 EP 组一次 allreduce。与 dispatch 版语义等价,求和
+        顺序不同 → bf16 数值微差;GEMM 行数 ×E_per(decode launch-bound,
+        FLOPs 非瓶颈)。要求:非量化专家、dp=1、backend=torch_grouped。"""
+        from layers.parallel import STATE
+        import torch.distributed as dist
+        exp = self.experts
+        assert not exp.quantized and exp.precision != 'float32'
+        T, H = x.shape
+        E_per = exp.num_experts                  # EP 构造已切成本地专家数
+        r0 = STATE.ep_rank * E_per
+        idx, w = self.router(x)                  # [T,k];TP 组内逐位一致
+        el = (idx - r0).reshape(-1)
+        valid = (el >= 0) & (el < E_per)
+        flat_t = torch.arange(T, device=x.device).repeat_interleave(idx.shape[1])
+        wm = torch.zeros((E_per, T), device=x.device, dtype=torch.float32)
+        wm.index_put_((el[valid], flat_t[valid]), w.reshape(-1)[valid].float(),
+                      accumulate=True)
+        xs = x.repeat(E_per, 1)                  # [E_per*T, H] 定形展开
+        offs = torch.arange(1, E_per + 1, device=x.device, dtype=torch.int32) * T
+        gmm = getattr(F, 'grouped_mm', None) or getattr(torch, '_grouped_mm', None)
+        if gmm is None:
+            raise RuntimeError('dense EP decode requires native grouped_mm')
+        h13 = gmm(xs, exp.w13.transpose(-2, -1), offs=offs)
+        act = silu_and_mul(h13)
+        out = gmm(act, exp.w2.transpose(-2, -1), offs=offs)   # [E_per*T, H]
+        y = out.view(E_per, T, H) * wm.to(out.dtype).unsqueeze(-1)
+        y = y.sum(0)
+        dist.all_reduce(y, group=STATE.ep_group)
+        return y
 
     def _forward_tp_replicated_input(self, x):
         """TP token ownership -> DP x TP all-to-allv -> TP output restore.

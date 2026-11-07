@@ -65,8 +65,11 @@ class ModelRunner:
         # "全量加载再切分"的阶段）——warmup 可以在任何配置下直接跑。
         # launcher 责任：构造 ModelRunner 之前 configure_parallel()
         self.kv_cache = None
+        self.decode_graphs = {}
+        self._graph_pool = None
         self._warmup_model()
         self.allocate_kv_cache()
+        self._setup_decode_graphs()
 
     def shutdown(self):
         """Lifecycle boundary for runner implementations owning resources."""
@@ -353,6 +356,110 @@ class ModelRunner:
                     block_tables=block_tables)
         return input_ids, positions
 
+    # ================= decode CUDA graph(可选,env VLLM_LEARN_DECODE_GRAPH=1) =================
+
+    def _decode_graph_supported(self):
+        """Phase A 边界:定形 decode(TP-only,triton kernel)才进图——
+        EP alltoallv 的 split 形状逐步动态(需 padded-capacity 变体,Phase B),
+        reference qk 的布尔索引同理。pp/dcp/per_request 排除。"""
+        import os as _os
+        if _os.getenv('VLLM_LEARN_DECODE_GRAPH', '0') != '1':
+            return False, 'unset'
+        from layers.parallel import STATE
+        if getattr(STATE, 'pp_size', 1) > 1:
+            return False, 'pp>1'
+        if getattr(STATE, 'cp_size', 1) > 1:
+            return False, 'dcp'
+        if STATE.enable_expert_parallel and getattr(STATE, 'ep_size', 1) > 1:
+            # EP 常规 dispatch(a2a split 逐值动态)不能进图;dense-EP decode
+            # 变体(免 dispatch 定形 GEMM)可以,但要求 dp=1
+            if _os.getenv('VLLM_LEARN_EP_DENSE_DECODE', '0') != '1' or \
+                    getattr(STATE, 'dp_size', 1) != 1:
+                return False, 'ep alltoallv dynamic shapes'
+        if self.config.batch_execution_mode == 'per_request':
+            return False, 'per_request'
+        from layers import kernels as _k
+        if _k._REFERENCE_QK:
+            return False, 'reference qk (data-dependent shapes); set VLLM_LEARN_REFERENCE_QK=0'
+        for m in self.model.modules():
+            if hasattr(m, 'backend') and getattr(m, 'backend', 'triton') != 'triton':
+                return False, 'attention backend != triton'
+        return True, ''
+
+    def _setup_decode_graphs(self):
+        ok, why = self._decode_graph_supported()
+        if not ok:
+            self._graph_disabled_reason = why
+            return
+        cap = self.config.max_num_seqs
+        buckets = sorted({b for b in (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
+                          if b <= cap} | {cap})
+        max_blocks = (self.config.max_model_len + self.block_size - 1) // self.block_size
+        for b in buckets:
+            self._capture_decode_graph(b, max_blocks)
+        ranks = getattr(__import__('layers.parallel', fromlist=['STATE']), 'STATE')
+        if getattr(ranks, 'tp_rank', 0) == 0:
+            print(f'[decode-graph] captured buckets {sorted(self.decode_graphs)}')
+
+    def _capture_decode_graph(self, B, max_blocks):
+        """静态输入缓冲(id/pos/slot/lens/bt)+ 一次模型前向 + logits 入图。
+        slot=-1:fused kernel 的 keep mask 跳过 KV 写,capture/warmup 不污染池;
+        decode_attn 对 len=1 只读 block 0,无害读。"""
+        dev = self.device
+        ids = torch.zeros(B, dtype=torch.int64, device=dev)
+        pos = torch.zeros(B, dtype=torch.int64, device=dev)
+        slots = torch.full((B,), -1, dtype=torch.int32, device=dev)
+        lens = torch.ones(B, dtype=torch.int32, device=dev)
+        bt = torch.zeros(B, max_blocks, dtype=torch.int32, device=dev)
+        set_context(False, slot_mapping=slots, context_lens=lens, block_tables=bt)
+        s = torch.cuda.Stream()
+        s.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(s):
+            for _ in range(3):                      # 触发 kernel 加载/autotune 再捕获
+                h = self.model(ids, pos)
+                _ = self.model.compute_logits(h)
+        torch.cuda.current_stream().wait_stream(s)
+        torch.cuda.synchronize()
+        g = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(g, pool=self._graph_pool):
+            h = self.model(ids, pos)
+            logits = self.model.compute_logits(h)
+        self._graph_pool = g.pool()
+        self.decode_graphs[B] = dict(graph=g, ids=ids, pos=pos, slots=slots,
+                                     lens=lens, bt=bt, logits=logits)
+
+    def _pick_decode_graph(self, n):
+        best = None
+        for b in self.decode_graphs:
+            if b >= n and (best is None or b < best):
+                best = b
+        return best
+
+    def _replay_decode_graph(self, st, seqs):
+        """把本步 decode 元数据填进静态缓冲 → replay → 返回 logits[:B](视图)。"""
+        B, bs = len(seqs), self.block_size
+        ids_l, pos_l, slot_l, len_l = [], [], [], []
+        for seq in seqs:
+            ids_l.append(seq.last_token)
+            pos_l.append(len(seq) - 1 + ((getattr(seq, 'mm', None) or {}).get('delta', 0)))
+            len_l.append(min(len(seq), st['bt'].shape[1] * bs))
+            slot_l.append(seq.block_table[-1] * bs + seq.last_block_num_tokens - 1)
+        gb = st['ids'].shape[0]
+        ids_l += [0] * (gb - B); pos_l += [0] * (gb - B)
+        slot_l += [-1] * (gb - B); len_l += [1] * (gb - B)
+        st['ids'].copy_(torch.tensor(ids_l, dtype=torch.int64), non_blocking=True)
+        st['pos'].copy_(torch.tensor(pos_l, dtype=torch.int64), non_blocking=True)
+        st['slots'].copy_(torch.tensor(slot_l, dtype=torch.int32), non_blocking=True)
+        st['lens'].copy_(torch.tensor(len_l, dtype=torch.int32), non_blocking=True)
+        max_blocks = st['bt'].shape[1]
+        rows = [list(seq.block_table) + [-1] * (max_blocks - len(seq.block_table))
+                for seq in seqs]
+        rows += [[0] * max_blocks for _ in range(gb - B)]
+        st['bt'].copy_(torch.tensor(rows, dtype=torch.int32), non_blocking=True)
+        torch.cuda.current_stream().synchronize()     # H2D 与 replay 同流序,保守同步
+        st['graph'].replay()
+        return st['logits'][:B]
+
     # ================= 前向 + 采样 =================
 
     @torch.inference_mode()
@@ -384,8 +491,15 @@ class ModelRunner:
             input_ids, positions = self.prepare_prefill(seqs)
             mm_batch = self._build_mm_batch(seqs)
         else:
-            input_ids, positions = self.prepare_decode(seqs)
             mm_batch = None
+            b = self._pick_decode_graph(len(seqs)) if getattr(self, 'decode_graphs', None) else None
+            if b is not None:
+                st = self.decode_graphs[b]
+                logits = self._replay_decode_graph(st, seqs)
+                temperatures = torch.tensor([seq.temperature for seq in seqs],
+                                            dtype=torch.float32, device=self.device)
+                return self.sampler(logits, temperatures).tolist()
+            input_ids, positions = self.prepare_decode(seqs)
         intermediate = None
         transport = STATE.pipeline_transport
         if STATE.pp_size > 1 and not STATE.pipeline_warmup and STATE.pp_rank > 0:
