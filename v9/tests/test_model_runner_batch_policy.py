@@ -12,7 +12,7 @@ class _FakeModel:
     def __init__(self):
         self.batch_sizes = []
 
-    def __call__(self, input_ids, positions, intermediate_tensors=None):
+    def __call__(self, input_ids, positions, intermediate_tensors=None, mm_batch=None):
         self.batch_sizes.append(input_ids.shape[0])
         return input_ids.float().unsqueeze(-1)
 

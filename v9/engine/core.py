@@ -54,6 +54,7 @@ def _spec_msg(seqs, is_prefill, microbatch_id=0):
             "seq_len": len(s),
             "temperature": s.temperature,
             "block_size": getattr(s, "block_size", 256),
+            "mm": getattr(s, "mm", None),
         })
     return {"type": "schedule", "scheduled": scheduled, "is_prefill": is_prefill,
             "microbatch_id": microbatch_id}
@@ -80,6 +81,7 @@ class _Spec:
         self.num_prompt_tokens = n          # 哑视角够用（run 只读下列字段）
         self.last_block_num_tokens = n - (len(self.block_table) - 1) * bs \
             if self.block_table else n
+        self.mm = m.get("mm")
 
     def __len__(self):
         return self.num_tokens
@@ -328,9 +330,10 @@ class EngineCore:
             self._abort_workers()
             raise
 
-    def add_request(self, prompt_ids, sampling_params=None):
+    def add_request(self, prompt_ids, sampling_params=None, mm=None):
         sp = sampling_params or SamplingParams(temperature=0.0)
         seq = Sequence(list(prompt_ids), sp)
+        seq.mm = mm
         seq.block_size = self.config.kvcache_block_size
         self.scheduler.add(seq)
         return seq

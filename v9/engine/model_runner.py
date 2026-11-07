@@ -26,6 +26,28 @@ class ModelRunner:
         hf = SimpleNamespace(**t)
         hf.dtype = getattr(hf, "dtype", None) or torch.bfloat16
         config.hf_config = hf
+        # ---- 多模态(可选,env VLLM_LEARN_MM=1):thinker vision_config ----
+        import os as _os
+        if _os.getenv('VLLM_LEARN_MM') == '1':
+            import json as _json
+            raw = _json.load(open(f'{config.model}/config.json', encoding='utf-8'))['thinker_config']
+            vcfg = dict(raw['vision_config'])
+            # num_position_embeddings  config 缺省:从 checkpoint header 读 pos_embed 行数
+            if 'num_position_embeddings' not in vcfg:
+                from safetensors import safe_open as _so
+                idx = _json.load(open(f'{config.model}/model.safetensors.index.json', encoding='utf-8'))
+                fn = f"{config.model}/{idx['weight_map']['thinker.visual.pos_embed.weight']}"
+                with _so(fn, framework='pt') as _f:
+                    vcfg['num_position_embeddings'] = _f.get_slice('thinker.visual.pos_embed.weight').get_shape()[0]
+            vcfg.setdefault('in_channels', 3)
+            vcfg.setdefault('hidden_act', 'gelu_pytorch_tanh')
+            hf.vision_cfg = vcfg
+            hf.image_token_id = raw.get('image_token_id')
+            hf.video_token_id = raw.get('video_token_id')
+            self.image_token_id = hf.image_token_id
+        else:
+            hf.vision_cfg = None
+            self.image_token_id = None
         self.block_size = config.kvcache_block_size
         self.device = "cuda"
         self.dtype = dtype or hf.dtype
@@ -210,12 +232,116 @@ class ModelRunner:
                     slot_mapping, None, block_tables)
         return input_ids, positions
 
+    @torch.inference_mode()
+    def _build_mm_batch(self, seqs):
+        """prefill 批的多模态载荷:滑窗内的图像 patch 过 vision tower,
+        返回 (merged, ds_list, spos) 或 None。
+
+        窗口对齐:图 i 占 prompt 中 llm_len = t*(h/2)*(w/2) 个 image_pad token,
+        与之对应的 raw patch 行数为 4*llm_len(block-major 顺序天然对齐)。
+        滑窗 [win0, win0+wlen) 与图的 token 区间 [p0, p0+llm_len) 求交,
+        相交部分做到 patch 行级切片。"""
+        if getattr(self.model.model, 'vision_tower', None) is None:
+            return None
+        seg_pix, seg_grid, seg_llm, seg_pos = [], [], [], []
+        flat_off = 0
+        for seq in seqs:
+            win0 = seq.num_cached_tokens
+            wlen = seq.num_scheduled_tokens
+            mm = getattr(seq, 'mm', None)
+            for img in (mm or {}).get('images', []):
+                t, gh, gw = img['grid']
+                llm_len = t * (gh // 2) * (gw // 2)
+                p0 = int(img['pos'])
+                lo, hi = max(p0, win0), min(p0 + llm_len, win0 + wlen)
+                if hi <= lo:
+                    continue
+                pr0 = (lo - p0) * 4
+                pr1 = pr0 + (hi - lo) * 4
+                pix = img['pixels']
+                if not torch.is_tensor(pix):
+                    pix = torch.from_numpy(pix)
+                seg_pix.append(pix[pr0:pr1])
+                seg_grid.append(torch.tensor([[t, gh, gw]], dtype=torch.int64))
+                # tower 内部以 raw 网格运行;输出再切片回窗口(llm 行区间)
+                seg_llm.append((len(seg_pix) - 1, lo - p0, hi - p0))
+                base = flat_off + (lo - win0)
+                seg_pos.extend(range(base, base + (hi - lo)))
+            flat_off += wlen
+        cs = self._mrope_rows(seqs)
+        if not seg_pix:
+            return (None, [], None, cs) if cs is not None else None
+        import torch as _t
+        pixels = _t.cat([p.to(_t.float32) for p in seg_pix]).to(self.device)
+        grids = _t.cat(seg_grid).to(self.device)
+        merged_full, ds_full = self.model.run_vision(pixels, grids)
+        # 按 (seg_idx, llm_lo, llm_hi) 切片:merged_full 行序 = seg_pix 顺序的
+        # 每图 t*(gh/2)*(gw/2) 行
+        merged_rows, ds_rows_list, pos_list = [], [[] for _ in ds_full], []
+        rows_off = 0
+        tot_off = 0
+        for (i, a, b) in seg_llm:
+            t_, gh_, gw_ = seg_grid[i][0].tolist()
+            n = t_ * (gh_ // 2) * (gw_ // 2)
+            merged_rows.append(merged_full[rows_off + a: rows_off + b])
+            for j, d in enumerate(ds_full):
+                ds_rows_list[j].append(d[rows_off + a: rows_off + b])
+            rows_off += n
+            tot_off += (b - a)
+        merged = _t.cat(merged_rows)
+        ds_list = [_t.cat(r) for r in ds_rows_list]
+        spos = _t.tensor(seg_pos, dtype=_t.int64, device=self.device)
+        assert merged.size(0) == spos.numel(), (merged.shape, spos.shape)
+        return merged, ds_list, spos, cs
+
+    def _mrope_rows(self, seqs):
+        """prefill 批的 mrope table [T, 2*(hd/2)]([cos64|sin64] 半布局)。
+
+        HF recomposition_frequencies 语义:freqs 从 T 轴铺满 64 个频率,
+        H 轴占 idx 1,4,...,3*sec1-2(步长 3),W 轴占 idx 2,5,...,3*sec2-1,
+        其余保持 T;最终 cos=cat(freqs,freqs)(两半全等)→ 与现有
+        table-kernel 的 [cos|sin] 半布局完全兼容:此处构造等价的
+        [T, hd] 行,positions 用 arange(T) 查它(由 Attention 负责)。
+        无非 mm 批返回 None(走原 kernel)。attention_scaling=1.0。"""
+        if not any(getattr(s, 'mm', None) for s in seqs):
+            return None
+        import numpy as _np
+        import torch as _t
+        rows = []
+        for s in seqs:
+            win0, wlen = s.num_cached_tokens, s.num_scheduled_tokens
+            mm = getattr(s, 'mm', None)
+            if mm and mm.get('pos3') is not None:
+                p3 = _np.asarray(mm['pos3'])[:, win0:win0 + wlen]
+            else:
+                p = _np.arange(win0, win0 + wlen, dtype=_np.int32)
+                p3 = _np.stack([p, p, p], 0)
+            rows.append(p3)
+        pos3 = _t.from_numpy(_np.concatenate(rows, 1)).to(self.device, _t.float32)  # [3,T]
+        T = pos3.shape[1]
+        hd = self.model.model.layers[self.model.model.pp_start].self_attn.head_dim
+        theta = getattr(self.config.hf_config, 'rope_theta', 10000.0)
+        sec = (getattr(self.config.hf_config, 'rope_parameters', None) or {}).get(
+            'mrope_section', [24, 20, 20])
+        inv = 1.0 / (theta ** (_t.arange(0, hd, 2, dtype=_t.float32, device=self.device) / hd))
+        fr = pos3[:, :, None] * inv[None, None, :]      # [3,T,hd/2]
+        hidx = _t.arange(1, sec[1] * 3, 3, device=self.device)
+        widx = _t.arange(2, sec[2] * 3, 3, device=self.device)
+        freqs = fr[0].clone()                            # 先铺 T 轴
+        freqs[:, hidx] = fr[1][:, hidx]                  # H 轴交错
+        freqs[:, widx] = fr[2][:, widx]                  # W 轴交错
+        table = _t.cat([_t.cos(freqs), _t.sin(freqs)], dim=-1)   # [T, hd] fp32
+        # HF rotary 返回 cos/sin.to(x.dtype=bf16),q*cos 的乘子是 bf16 舍入值;
+        # 这里同步舍入,尽力对齐 HF 的乘积舍入(差一二次舍入在近平局步仍会翻,
+        # 属 bf16 数值噪声范围)
+        return table.to(_t.bfloat16).contiguous()
+
     def prepare_decode(self, seqs: list[Sequence]):
         input_ids, positions, slot_mapping, context_lens = [], [], [], []
         bs = self.block_size
         for seq in seqs:
             input_ids.append(seq.last_token)
-            positions.append(len(seq) - 1)
+            positions.append(len(seq) - 1 + ((getattr(seq, 'mm', None) or {}).get('delta', 0)))
             context_lens.append(len(seq))
             slot_mapping.append(seq.block_table[-1] * bs + seq.last_block_num_tokens - 1)
         input_ids = torch.tensor(input_ids, dtype=torch.int64).to(self.device)
@@ -256,8 +382,10 @@ class ModelRunner:
             return result
         if is_prefill:
             input_ids, positions = self.prepare_prefill(seqs)
+            mm_batch = self._build_mm_batch(seqs)
         else:
             input_ids, positions = self.prepare_decode(seqs)
+            mm_batch = None
         intermediate = None
         transport = STATE.pipeline_transport
         if STATE.pp_size > 1 and not STATE.pipeline_warmup and STATE.pp_rank > 0:
@@ -268,7 +396,8 @@ class ModelRunner:
                 shape=(input_ids.numel(), self.config.hf_config.hidden_size),
                 dtype=self.dtype)
             intermediate = IntermediateTensors(hidden, residual)
-        hidden = self.model(input_ids, positions, intermediate_tensors=intermediate)
+        hidden = self.model(input_ids, positions, intermediate_tensors=intermediate,
+                            mm_batch=mm_batch)
         # Only the execution layer sends activations. Model forward has no
         # process-group/transport side effects and returns an explicit boundary.
         if getattr(STATE, "pp_size", 1) > 1 and STATE.pp_rank < STATE.pp_size - 1:

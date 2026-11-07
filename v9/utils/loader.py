@@ -28,6 +28,12 @@ def _ckpt_name(name: str):
     # thinker.lm_head → lm_head（在 thinker 下但不在 thinker.model 下）
     if name == "thinker.lm_head.weight":
         return "lm_head.weight", None
+    # 多模态:vision tower(VLLM_LEARN_MM=1 时模型挂载 model.vision_tower)
+    if name.startswith("thinker.visual."):
+        n = "model.vision_tower." + name[len("thinker.visual."):]
+        n = n.replace("patch_embed.proj.", "patch_embed.") \
+             .replace("merger_list.", "mergers_ds.")
+        return n, None
     if not name.startswith("thinker.model."):
         return None, None
     # thinker.model.X → model.X（我们的 Qwen3MoeModel 挂在 .model 下）

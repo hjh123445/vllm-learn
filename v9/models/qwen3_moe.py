@@ -55,6 +55,7 @@ class Qwen3MoeAttention(nn.Module):
         self.q_norm = RmsNorm(self.head_dim, eps=config.rms_norm_eps)
         self.k_norm = RmsNorm(self.head_dim, eps=config.rms_norm_eps)
         self.rope = None
+        self._mrope_cs = None   # 每步由 Qwen3MoeModel.forward 下发(mm 批)
         self.attn = Attention(self.num_kv_head, self.head_dim,
                               self.head_dim ** -0.5)
 
@@ -64,7 +65,8 @@ class Qwen3MoeAttention(nn.Module):
         k = self.k_proj(x).view(T, self.num_kv_head, self.head_dim)
         v = self.v_proj(x).view(T, self.num_kv_head, self.head_dim)
         o = self.attn(q, k, v, positions, self.q_norm.weight, self.k_norm.weight,
-                      self.rope.cos_sin_cache, self.q_norm.eps)
+                      self.rope.cos_sin_cache, self.q_norm.eps,
+                      mrope_cs=self._mrope_cs)
         return self.o_proj(o.reshape(T, self.q_size))    # allreduce 在组件内
 
 
@@ -98,6 +100,7 @@ class PPMissingLayer(nn.Module):
 
 
 class Qwen3MoeModel(nn.Module):
+    """文本 MoE 主干 + 可选多模态(vision tower,env VLLM_LEARN_MM=1 挂载)。"""
     def __init__(self, config, max_position: int):
         super().__init__()
         self.embed_tokens = Embedding(config.vocab_size, config.hidden_size)
@@ -119,9 +122,15 @@ class Qwen3MoeModel(nn.Module):
             if isinstance(layer, Qwen3MoeDecoderLayer):
                 layer.self_attn.rope = rope
 
-    def forward(self, input_ids, positions, intermediate_tensors=None):
-        """Compute local layers; worker/runner owns PP communication."""
+    def forward(self, input_ids, positions, intermediate_tensors=None, mm_batch=None):
+        """Compute local layers; worker/runner owns PP communication.
+
+        mm_batch = (merged_embeds [n_mm,H], ds_embeds list[3 × [n_mm,H]], spos [n_mm]):
+        prefill 批内的视觉行——embed 替换 + deepstack(前 3 层逐行加,对齐 HF
+        _deepstack_process)。仅 pp_size==1 支持。"""
         from layers.parallel import STATE
+        if mm_batch is not None and STATE.pp_size != 1:
+            raise RuntimeError('multimodal prefill requires pp_size == 1')
         if STATE.pp_size > 1 and not STATE.pipeline_warmup:
             if STATE.pp_rank > 0:
                 if intermediate_tensors is None:
@@ -142,8 +151,22 @@ class Qwen3MoeModel(nn.Module):
         else:
             x = self.embed_tokens(input_ids)
             residual = torch.zeros_like(x)
+        if mm_batch is not None:
+            merged, ds_list, spos, mrope_cs = mm_batch
+            if merged is not None:
+                x[spos] = merged.to(x.dtype)
+        else:
+            merged, ds_list, spos, mrope_cs = None, [], None, None
+        # mrope cos/sin 下发到各 attention(本步有效;每步先重置再按批下发)
+        for layer_id in range(self.pp_start, self.pp_end):
+            layer = self.layers[layer_id]
+            if hasattr(layer, 'self_attn'):
+                layer.self_attn._mrope_cs = mrope_cs
         for layer_id in range(self.pp_start, self.pp_end):
             x, residual = self.layers[layer_id](x, residual, positions)
+            if mm_batch is not None and layer_id < len(ds_list):
+                # deepstack:第 j 层后把第 j 路视觉特征逐行加回(ds_list[j])
+                x[spos] = x[spos] + ds_list[layer_id].to(x.dtype)
         if STATE.pp_size > 1 and STATE.pp_rank < STATE.pp_size - 1:
             return IntermediateTensors(x, residual)
         out, _ = fused_add_rmsnorm(x, residual, self.norm.weight, self.norm.eps)
@@ -156,12 +179,39 @@ class Qwen3MoeForCausalLM(nn.Module):
         self.config = config
         self.model = Qwen3MoeModel(config, max_position)
         self.lm_head = LmHead(config.hidden_size, config.vocab_size)
+        # 多模态(env VLLM_LEARN_MM=1 且提供了 vision_cfg):每 rank 复制构建
+        # vision tower(确定性前向,TP 各 rank 输入相同 → 输出逐位一致)。
+        vision_cfg = getattr(config, 'vision_cfg', None)
+        if vision_cfg is not None:
+            from layers.vision import Qwen3VisionTower
+            self.model.vision_tower = Qwen3VisionTower(vision_cfg)
+        else:
+            self.model.vision_tower = None
 
-    def forward(self, input_ids, positions, intermediate_tensors=None):
-        return self.model(input_ids, positions, intermediate_tensors)
+    @torch.no_grad()
+    def run_vision(self, pixels: torch.Tensor, grid_thw: torch.Tensor):
+        """vision tower 前向,返回 (merged [N,H], deepstack list[3])。"""
+        if self.model.vision_tower is None:
+            raise RuntimeError('vision tower not attached (set VLLM_LEARN_MM=1 and vision_cfg)')
+        return self.model.vision_tower(pixels, grid_thw)
+
+    def forward(self, input_ids, positions, intermediate_tensors=None, mm_batch=None):
+        return self.model(input_ids, positions, intermediate_tensors, mm_batch=mm_batch)
 
     def compute_logits(self, x):
-        return self.lm_head(x)
+        logits = self.lm_head(x)
+        # 调试:VLLM_LOGIT_DUMP=<dir> 时逐步落盘 last-token logits(仅 tp_rank0)
+        import os as _os
+        dump = _os.environ.get('VLLM_LOGIT_DUMP')
+        if dump:
+            from layers.parallel import STATE as _ST
+            if _ST.tp_rank == 0:
+                n = getattr(self, '_dump_n', 0)
+                import torch as _t
+                _os.makedirs(dump, exist_ok=True)
+                _t.save(logits[-1].detach().float().cpu(), f'{dump}/step{n:03d}.pt')
+                self._dump_n = n + 1
+        return logits
 
     def quantize_int4(self, group: int = 128, skip_dense: bool = False):
         """就地量化（装载后调用）：

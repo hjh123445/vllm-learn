@@ -32,15 +32,26 @@ class Attention(nn.Module):
             raise ValueError('attention backend must be triton or sdpa_reference')
         self.k_cache = self.v_cache = torch.tensor([])   # ModelRunner 分配后指过来
 
-    def forward(self, q, k, v, positions, q_norm_w, k_norm_w, cos_sin_cache, eps):
+    def forward(self, q, k, v, positions, q_norm_w, k_norm_w, cos_sin_cache, eps,
+                mrope_cs=None):
         """q/k/v: [total_q, heads, head_dim]（投影输出，未 norm 未 rope）。
         完成 norm + rope + 写 cache，再调用配置指定的注意力后端。"""
         ctx = get_context()
         dcp = get_dcp()
         slot_mapping = self._dcp_slots(ctx) if dcp.active else ctx.slot_mapping
-        q = fused_qk_norm_rope_store(q, k, v, q_norm_w, k_norm_w, cos_sin_cache,
-                                     positions, slot_mapping,
-                                     self.k_cache, self.v_cache, eps)
+        if mrope_cs is not None:
+            if dcp.active:
+                raise NotImplementedError('mrope + DCP unsupported')
+            # mrope table [T, HD]([cos|sin] 半布局,行=本步 token) --
+            # 用 arange 作下标查它,走与文本完全相同的 kernel 路径
+            pos_eff = torch.arange(q.shape[0], dtype=positions.dtype, device=q.device)
+            q = fused_qk_norm_rope_store(q, k, v, q_norm_w, k_norm_w, mrope_cs,
+                                         pos_eff, slot_mapping,
+                                         self.k_cache, self.v_cache, eps)
+        else:
+            q = fused_qk_norm_rope_store(q, k, v, q_norm_w, k_norm_w, cos_sin_cache,
+                                         positions, slot_mapping,
+                                         self.k_cache, self.v_cache, eps)
         if dcp.active:
             if self.backend == 'sdpa_reference':
                 raise ValueError('SDPA numerical oracle does not support DCP')

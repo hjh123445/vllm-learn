@@ -31,6 +31,9 @@ class Sequence:
         self.temperature = sampling_params.temperature
         self.max_tokens = sampling_params.max_tokens
         self.ignore_eos = sampling_params.ignore_eos
+        # 多模态载荷(可选):{'images': [{'pixels': fp32 [rows, C*t*p*p],
+        #   'grid': [t,h,w], 'pos': int(首个 image_pad token 在 prompt 中的位置)}]}
+        self.mm = None
 
     def __len__(self):
         return self.num_tokens

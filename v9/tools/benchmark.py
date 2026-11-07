@@ -60,9 +60,49 @@ def build_workloads(model):
                    for i, (length, output) in enumerate(rows)] for name, rows in specs.items()}
 
 
+def build_mm_workload(model, mm_jsonl, mm_pixels_out):
+    """多模态负载:jsonl 行 {"text": str, "image": path, "max_tokens": int}。
+    展开 <image> 为 N 个 image_pad token(N=t*(h/2)*(w/2)),像素存 npz 供引擎侧按需取。"""
+    import numpy as np
+    from transformers import AutoProcessor
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from layers.mm_preprocess import image_to_patches, mrope_positions
+    proc = AutoProcessor.from_pretrained(model)
+    rows, pixels, pos3s = [], [], []
+    for line in Path(mm_jsonl).read_text(encoding='utf-8').splitlines():
+        if not line.strip():
+            continue
+        r = json.loads(line)
+        conv = [{'role': 'user', 'content': [{'type': 'image'}, {'type': 'text', 'text': r['text']}]}]
+        text = proc.apply_chat_template(conv, tokenize=False, add_generation_prompt=True)
+        pat, grid = image_to_patches(r['image'])
+        t, gh, gw = grid[0].tolist()
+        llm_len = t * (gh // 2) * (gw // 2)
+        pad = '<|image_pad|>'
+        assert pad in text, 'chat template must contain <|image_pad|>'
+        a, b = text.split(pad, 1)
+        enc = proc.tokenizer
+        ids = (enc.encode(a, add_special_tokens=False)
+               + [151655] * llm_len
+               + enc.encode(b, add_special_tokens=False))
+        pos = len(enc.encode(a, add_special_tokens=False))
+        pos3, delta = mrope_positions(len(ids), [(pos, t, gh // 2, gw // 2)])
+        pixels.append(pat.numpy())
+        pos3s.append(pos3)
+        rows.append(dict(input_ids=ids, max_tokens=int(r.get('max_tokens', 16)),
+                         mm={'pos': pos, 'grid': [t, gh, gw], 'pixel_idx': len(pixels) - 1,
+                             'delta': delta, 'pos3_idx': len(pixels) - 1}))
+    save = {f'p{i}': p for i, p in enumerate(pixels)}
+    save.update({f'pos3_{i}': p for i, p in enumerate(pos3s)})
+    np.savez_compressed(mm_pixels_out, **save)
+    return rows
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--model', required=True)
+    ap.add_argument('--mm-jsonl', help='multimodal workload jsonl (enables VLLM_LEARN_MM path)')
     ap.add_argument('--output', required=True)
     ap.add_argument('--inputs')
     ap.add_argument('--generate-only', action='store_true')
@@ -89,6 +129,10 @@ def main():
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     inputs = json.loads(Path(args.inputs).read_text()) if args.inputs else build_workloads(args.model)
+    if args.mm_jsonl:
+        mm_rows = build_mm_workload(args.model, args.mm_jsonl, out / 'mm_pixels.npz')
+        inputs = dict(inputs)
+        inputs['mm'] = mm_rows
     selected = args.workloads.split(',')
     if any(name not in inputs for name in selected):
         ap.error('every selected workload must exist in the inputs')
@@ -104,7 +148,8 @@ def main():
                           messages=args.profile_messages, record_shapes=args.record_shapes)
     config = dict(max_num_seqs=args.max_num_seqs, max_model_len=args.max_model_len, max_num_batched_tokens=args.budget,
                   max_kvcache_blocks=args.max_kv_blocks,
-                  gpu_memory_utilization=.70, enable_prefix_caching=False)
+                  gpu_memory_utilization=float(__import__("os").getenv("VLLM_BENCH_UTIL", ".70")),
+                  enable_prefix_caching=False)
     kw = dict(tp_size=args.tp, enable_expert_parallel=args.enable_expert_parallel, pp_size=args.pp, master_port=31030,
               runner_cls=ObservedModelRunner, transport_cls=ObservedPipelineTransport,
               pipeline_microbatch_tokens=args.microbatch_tokens,
@@ -146,7 +191,15 @@ def main():
             while pending and pending[0][1].get('arrival_step', 0) <= nstep:
                 index, row = pending.pop(0)
                 sp = SamplingParams(temperature=0., max_tokens=row['max_tokens'], ignore_eos=True)
-                seq = core.add_request(row['input_ids'], sp)
+                mm = None
+                if row.get('mm') is not None:
+                    import numpy as _np
+                    npz = _np.load(out / 'mm_pixels.npz')
+                    m = row['mm']
+                    mm = {'images': [{'pixels': npz[f"p{m['pixel_idx']}"], 'grid': m['grid'],
+                                      'pos': m['pos']}],
+                          'delta': m['delta'], 'pos3': npz[f"pos3_{m['pos3_idx']}"]}
+                seq = core.add_request(row['input_ids'], sp, mm=mm)
                 if args.dp > 1:
                     seq = seq[0]
                 handles[seq.seq_id] = (index, seq)
@@ -167,7 +220,8 @@ def main():
         for seq_id, (index, seq) in handles.items():
             ids = outputs[seq_id]
             times = arrivals[seq_id]
-            if len(ids) != rows[index]['max_tokens'] or len(times) != len(ids):
+            expect = min(rows[index]['max_tokens'], seq.max_tokens)
+            if len(ids) != expect or len(times) != len(ids):
                 raise AssertionError((index, len(ids), len(times), rows[index]['max_tokens']))
             request_rows.append(dict(index=index, seq_id=seq_id,
                 prompt_tokens=len(rows[index]['input_ids']), output_tokens=len(ids), output_ids=ids,
