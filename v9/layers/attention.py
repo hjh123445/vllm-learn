@@ -34,6 +34,26 @@ class Attention(nn.Module):
 
     def forward(self, q, k, v, positions, q_norm_w, k_norm_w, cos_sin_cache, eps,
                 mrope_cs=None):
+        from utils.piecewise_graph import execute
+        ctx = get_context()
+        if not ctx.is_prefill and not get_dcp().active and mrope_cs is None:
+            def compute(q, k, v, positions, slots, lens, bt):
+                from utils.context import set_context
+                previous = get_context()
+                set_context(False, slot_mapping=slots, context_lens=lens, block_tables=bt)
+                try:
+                    return self._forward(q, k, v, positions, q_norm_w, k_norm_w,
+                                         cos_sin_cache, eps)
+                finally:
+                    set_context(**{name: getattr(previous, name) for name in previous.__dataclass_fields__})
+            # SDPA reads host lengths: leave it outside graph segments.
+            if self.backend == 'triton':
+                return execute(('attention', id(self), self.k_cache.data_ptr()), compute,
+                    (q, k, v, positions, ctx.slot_mapping, ctx.context_lens, ctx.block_tables))
+        return self._forward(q, k, v, positions, q_norm_w, k_norm_w, cos_sin_cache, eps, mrope_cs)
+
+    def _forward(self, q, k, v, positions, q_norm_w, k_norm_w, cos_sin_cache, eps,
+                 mrope_cs=None):
         """q/k/v: [total_q, heads, head_dim]（投影输出，未 norm 未 rope）。
         完成 norm + rope + 写 cache，再调用配置指定的注意力后端。"""
         ctx = get_context()
@@ -139,15 +159,19 @@ class Attention(nn.Module):
             rep = H // HK
             k_loc = k_loc.repeat_interleave(rep, dim=1)       # GQA → [L_loc, H, D]
             v_loc = v_loc.repeat_interleave(rep, dim=1)
-            sc = torch.einsum("qhd,lhd->hql", q.float(), k_loc.float()) * self.scale
             vis = (torch.tensor(row_seq, device=dev)[None, :] == qseq[:, None]) & \
                   (torch.tensor(row_pos, device=dev)[None, :] <= qpos[:, None])
-            sc = sc.masked_fill(~vis[None], float("-inf"))    # [H, T, L_loc]
-            m = sc.max(-1).values                             # [H, T]
-            m_safe = torch.where(m.isneginf(), torch.zeros_like(m), m)  # 防 NaN
-            p = torch.exp(sc - m_safe[..., None])
-            l = p.sum(-1)                                     # [H, T]
-            part = torch.einsum("hql,lhd->qhd", p, v_loc.float())       # [T, H, D]
+            def partial(query, keys, values, visible):
+                sc = torch.einsum('qhd,lhd->hql', query.float(), keys.float()) * self.scale
+                sc = sc.masked_fill(~visible[None], float('-inf'))
+                maximum = sc.max(-1).values
+                safe = torch.where(maximum.isneginf(), torch.zeros_like(maximum), maximum)
+                probabilities = torch.exp(sc - safe[..., None])
+                denominator = probabilities.sum(-1)
+                numerator = torch.einsum('hql,lhd->qhd', probabilities, values.float())
+                return numerator, maximum, denominator
+            from utils.piecewise_graph import execute
+            part, m, l = execute(('dcp_partial', id(self)), partial, (q, k_loc, v_loc, vis))
         else:
             part = torch.zeros(T, H, D, device=dev)
             m = torch.full((H, T), float("-inf"), device=dev)

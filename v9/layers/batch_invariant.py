@@ -42,6 +42,12 @@ def _fixed_matmul(X, W, Y, BIAS, M, N: tl.constexpr, K: tl.constexpr,
 
 def linear(x, weight, bias=None):
     """[M,K] @ [N,K].T, or [E,M,K] @ [E,N,K].T."""
+    from utils.piecewise_graph import execute
+    return execute(('linear', weight.data_ptr(), bias.data_ptr() if bias is not None else 0),
+                   lambda value: _linear(value, weight, bias), (x,), signature=(enabled(),))
+
+
+def _linear(x, weight, bias=None):
     if not enabled() or not x.is_cuda:
         if x.ndim == 2:
             return F.linear(x, weight, bias)

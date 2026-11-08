@@ -98,6 +98,11 @@ class MoERouter(nn.Module):
 
     def forward(self, x: torch.Tensor):
         """x: [T, H] → (topk_idx [T,k], topk_w [T,k])。"""
+        from utils.piecewise_graph import execute
+        return execute(('router', self.weight.data_ptr()), self._forward, (x,),
+                       signature=(batch_invariant(), self.logits_dtype))
+
+    def _forward(self, x):
         logits = (forward_linear(x, self.weight) if self.logits_dtype == "model"
                   else forward_linear(x.float(), self.weight.float()))
         probs = logits.softmax(dim=-1, dtype=torch.float32)
@@ -268,9 +273,12 @@ class GroupedExperts(nn.Module):
         for e, end in enumerate(offsets.tolist()):
             if end == start:                           # 本批没 token 命中该专家
                 continue
-            h13 = forward_linear(xs[start:end], w13[e])           # [n_e, 2I]
-            act = silu_and_mul(h13)                    # [n_e, I]
-            out = forward_linear(act, w2[e])                      # [n_e, H]
+            from utils.piecewise_graph import execute
+            a, b = w13[e], w2[e]
+            def expert(value, a=a, b=b):
+                return forward_linear(silu_and_mul(forward_linear(value, a)), b)
+            out = execute(('expert', a.data_ptr(), b.data_ptr()), expert,
+                          (xs[start:end],), signature=(batch_invariant(),))
             output[start:end] = out
             start = end
         return output
@@ -302,6 +310,17 @@ class MoEMLP(nn.Module):
         # 相同 → router 输出逐位相同 → 免 dispatch;本地专家全 token dense
         # grouped GEMM + 权重矩阵聚合 + 一次 allreduce,全部静态形状。
         self.ep_dense_decode = os.getenv('VLLM_LEARN_EP_DENSE_DECODE', '0') == '1'
+        # Graphs use GPU-compacted sparse experts by default. Dense remains an
+        # explicit ablation; never enable both compute policies simultaneously.
+        from layers.parallel import STATE
+        sparse_default = '1' if (os.getenv('VLLM_LEARN_DECODE_GRAPH', '0') == '1'
+                                  and os.getenv('VLLM_LEARN_DECODE_GRAPH_MODE', 'auto') != 'piecewise'
+                                  and STATE.dp_size == STATE.pp_size == STATE.cp_size == 1
+                                  and STATE.enable_expert_parallel and STATE.ep_size > 1
+                                  and not self.ep_dense_decode) else '0'
+        self.ep_sparse_decode = os.getenv('VLLM_LEARN_EP_SPARSE_DECODE', sparse_default) == '1'
+        if self.ep_sparse_decode and self.ep_dense_decode:
+            raise ValueError('choose sparse OR dense EP decode, not both')
         self.dense_backend = os.getenv('VLLM_LEARN_DENSE_EXPERT_BACKEND', 'bmm')
         if self.dense_backend not in ('bmm', 'torch_grouped'):
             raise ValueError('dense expert backend must be bmm or torch_grouped')
@@ -311,12 +330,22 @@ class MoEMLP(nn.Module):
                                 getattr(config, "norm_topk_prob", True))
         self.experts = GroupedExperts(config.num_experts, config.hidden_size,
                                       config.moe_intermediate_size)
+        if self.ep_sparse_decode:
+            from layers.parallel import STATE
+            if not STATE.enable_expert_parallel or STATE.ep_size <= 1 or STATE.dp_size != 1:
+                raise ValueError('replicated-input sparse decode requires DP=1 and EP>1')
+            if self.experts.precision != 'model':
+                raise ValueError('sparse decode requires model-precision experts')
         # v9.3: 并行状态在 GroupedExperts 内部（构造时从 ParallelState 读）,
         # MoEMLP 只负责 router + 本地计算 + 部分和聚合
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         from layers.parallel import STATE, tp_allreduce
         if STATE.enable_expert_parallel and STATE.ep_size > 1:
+            if self.ep_sparse_decode:
+                from utils.context import get_context as _gc
+                if not _gc().is_prefill:
+                    return self._sparse_ep_decode(x)
             if self.ep_dense_decode and STATE.dp_size == 1:
                 from utils.context import get_context as _gc
                 if not _gc().is_prefill:
@@ -325,6 +354,28 @@ class MoEMLP(nn.Module):
         idx, w = self.router(x)
         # Cast only AFTER summing expert-TP partials in oracle mode.
         return tp_allreduce(self.experts(x, idx, w)).to(x.dtype)
+
+    def _sparse_ep_decode(self, x):
+        """DP1: reuse existing TP input replicas, compute selected routes only.
+
+        Static workspace/launch capacity, dynamic GPU route counts. Fixed local
+        expert order and the same rank reduction as dense decode preserve its
+        strict numerical policy. This is separate from dynamic all-to-allv.
+        """
+        from layers.parallel import STATE
+        from layers.sparse_decode import sparse_expert_routes
+        import torch.distributed as dist
+        exp = self.experts
+        if STATE.dp_size != 1 or exp.quantized or exp.precision != 'model':
+            raise ValueError('sparse decode requires DP1 and non-quantized model-precision experts')
+        idx, w = self.router(x)
+        weighted = sparse_expert_routes(x, idx, w, exp.w13, exp.w2, exp.e_start)
+        y = expert_sum(weighted)
+        if batch_invariant():
+            y = fixed_all_reduce(y, STATE.ep_group)
+        else:
+            dist.all_reduce(y, group=STATE.ep_group)
+        return y.to(x.dtype)
 
     def _dense_ep_decode(self, x: torch.Tensor) -> torch.Tensor:
         """定形 EP decode(大部分配在 CUDA graph 内,也可 eager 消融)。

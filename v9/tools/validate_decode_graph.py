@@ -87,6 +87,22 @@ def worker(rank, args):
                     ids, pos = runner.prepare_decode(seqs)
                     eager = runner.model.compute_logits(runner.model(ids, pos)).clone()
                     kv_eager = runner.kv_cache.clone()
+                    dense_equal = True
+                    dense_kv_equal = True
+                    if args.compare_dense:
+                        from layers.moe import MoEMLP
+                        moes = [m for m in runner.model.modules() if isinstance(m, MoEMLP)]
+                        policies = [(m.ep_sparse_decode, m.ep_dense_decode) for m in moes]
+                        try:
+                            for m in moes:
+                                m.ep_sparse_decode, m.ep_dense_decode = False, True
+                            runner.kv_cache.copy_(kv_before)
+                            dense = runner.model.compute_logits(runner.model(ids, pos)).clone()
+                            dense_equal = torch.equal(eager, dense)
+                            dense_kv_equal = torch.equal(kv_eager, runner.kv_cache)
+                        finally:
+                            for m, policy in zip(moes, policies):
+                                m.ep_sparse_decode, m.ep_dense_decode = policy
                     runner.kv_cache.copy_(kv_before)
                     state = runner.decode_graphs[runner._pick_decode_graph(n)]
                     graph = runner._replay_decode_graph(state, seqs).clone()
@@ -115,10 +131,12 @@ def worker(rank, args):
                                  tp_ranks_equal=ranks_equal,
                                  kv_graph_equal=kv_graph_equal, kv_padded_equal=kv_padded_equal,
                                  permutation_equal=permutation_equal,
+                                 dense_logits_equal=dense_equal, dense_kv_equal=dense_kv_equal,
                                  unpadded_max_abs=(eager.float()-graph.float()).abs().max().item(),
                                  unpadded_argmax_equal=torch.equal(eager.argmax(-1), graph.argmax(-1))))
                 (Path(args.output) / f'progress_rank{rank}.json').write_text(json.dumps(rows, indent=2))
-                if not (equal and ranks_equal and kv_graph_equal and kv_padded_equal and permutation_equal):
+                if not (equal and ranks_equal and kv_graph_equal and kv_padded_equal and permutation_equal
+                        and dense_equal and dense_kv_equal):
                     raise AssertionError(rows[-1])
                 # Batch invariance is a separate, stronger property than graph
                 # equivalence. Preserve its measurements even when it fails.
@@ -155,6 +173,7 @@ def worker(rank, args):
                       profile=profile_file, seed=args.seed, random_inputs=args.random_inputs, steps=args.steps, permute=args.permute, mixed_lengths=args.mixed_lengths,
                       batch_invariant=os.getenv('VLLM_LEARN_BATCH_INVARIANT', '0') == '1',
                       strict_batch_invariant=args.strict_batch_invariant,
+                      expert_decode=args.expert_decode, compare_dense=args.compare_dense,
                       graph_capture_bytes=runner._graph_capture_bytes,
                       graph_capture_count=runner.graph_capture_count,
                       peak_allocated_bytes=torch.cuda.max_memory_allocated(),
@@ -186,6 +205,8 @@ def main():
     ap.add_argument('--strict-batch-invariant', action='store_true',
                     help='also require unpadded eager to be bitwise equal; BF16 may fail')
     ap.add_argument('--batch-invariant', action='store_true')
+    ap.add_argument('--expert-decode', choices=['sparse', 'dense'], default='sparse')
+    ap.add_argument('--compare-dense', action='store_true', help='require exact whole-model logits/KV vs strict dense eager')
     ap.add_argument('--random-inputs', action='store_true',
                     help='use reproducible non-repeating token prefixes instead of repeated IDs')
     ap.add_argument('--seed', type=int, default=17)
@@ -212,7 +233,9 @@ def main():
     if args.graph_reserve_gib <= 0: ap.error('graph-reserve-gib must be positive')
     if args.batch_invariant: os.environ['VLLM_LEARN_BATCH_INVARIANT'] = '1'
     Path(args.output).mkdir(parents=True, exist_ok=True)
-    os.environ.update(VLLM_LEARN_DECODE_GRAPH='1', VLLM_LEARN_EP_DENSE_DECODE='1',
+    os.environ.update(VLLM_LEARN_DECODE_GRAPH='1',
+                      VLLM_LEARN_EP_DENSE_DECODE=str(int(args.expert_decode == 'dense')),
+                      VLLM_LEARN_EP_SPARSE_DECODE=str(int(args.expert_decode == 'sparse')),
                       VLLM_LEARN_REFERENCE_QK='0', VLLM_LEARN_ATTENTION_BACKEND='triton',
                       VLLM_LEARN_EXPERT_BACKEND='torch_grouped', VLLM_LEARN_MM='0')
     import torch.multiprocessing as mp

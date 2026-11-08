@@ -102,6 +102,10 @@ class ModelRunner:
         a partially populated graph pool must not survive into shutdown or a
         retry and make the next capture account for stale device allocations.
         """
+        segments = getattr(self, '_piecewise_graphs', None)
+        if segments is not None:
+            torch.cuda.synchronize()
+            segments.close()
         graphs = getattr(self, 'decode_graphs', None)
         if not graphs:
             self._graph_pool = None
@@ -418,12 +422,11 @@ class ModelRunner:
         if getattr(STATE, 'cp_size', 1) > 1:
             return False, 'dcp'
         if not STATE.enable_expert_parallel or STATE.ep_size <= 1:
-            return False, 'requires dense EP decode; sparse expert offsets are dynamic'
+            return False, 'requires EP>1 replicated-input decode'
         if STATE.enable_expert_parallel and getattr(STATE, 'ep_size', 1) > 1:
-            # EP 常规 dispatch(a2a split 逐值动态)不能进图;dense-EP decode
-            # 变体(免 dispatch 定形 GEMM)可以,但要求 dp=1
-            if _os.getenv('VLLM_LEARN_EP_DENSE_DECODE', '0') != '1' or \
-                    getattr(STATE, 'dp_size', 1) != 1:
+            # The default all-to-allv uses CPU split vectors. Replicated-input
+            # sparse (GPU counts) and dense ablation require DP=1 instead.
+            if getattr(STATE, 'dp_size', 1) != 1:
                 return False, 'ep alltoallv dynamic shapes'
         if self.config.batch_execution_mode == 'per_request':
             return False, 'per_request'
@@ -435,9 +438,9 @@ class ModelRunner:
         for m in self.model.modules():
             if isinstance(m, Attention) and m.backend != 'triton':
                 return False, 'requires VLLM_LEARN_ATTENTION_BACKEND=triton'
-            if isinstance(m, MoEMLP) and not m.ep_dense_decode:
-                return False, 'requires VLLM_LEARN_EP_DENSE_DECODE=1'
-            if isinstance(m, MoEMLP) and m.dense_backend != 'bmm':
+            if isinstance(m, MoEMLP) and not (m.ep_dense_decode or m.ep_sparse_decode):
+                return False, 'requires sparse or dense replicated-input EP decode'
+            if isinstance(m, MoEMLP) and m.ep_dense_decode and m.dense_backend != 'bmm':
                 return False, 'dense decode graph requires DENSE_EXPERT_BACKEND=bmm'
             if isinstance(m, GroupedExperts):
                 if m.quantized or m.precision != 'model':
@@ -445,6 +448,24 @@ class ModelRunner:
         return True, ''
 
     def _setup_decode_graphs(self):
+        import os
+        from layers.parallel import STATE
+        mode = os.getenv('VLLM_LEARN_DECODE_GRAPH_MODE', 'auto')
+        if mode not in ('auto', 'full', 'piecewise'):
+            raise ValueError('DECODE_GRAPH_MODE must be auto, full, or piecewise')
+        requested = os.getenv('VLLM_LEARN_DECODE_GRAPH', '0') == '1'
+        needs_segments = (STATE.dp_size > 1 or STATE.pp_size > 1 or STATE.cp_size > 1
+                          or not STATE.enable_expert_parallel or STATE.ep_size <= 1)
+        if requested and (mode == 'piecewise' or (mode == 'auto' and needs_segments)):
+            from utils.piecewise_graph import PiecewiseGraphs
+            if self.config.batch_execution_mode == 'per_request':
+                raise ValueError('piecewise decode Graph requires batched execution')
+            self._piecewise_graphs = PiecewiseGraphs(self.config.decode_graph_reserve_bytes)
+            self.graph_execution_mode = 'piecewise'
+            self.graph_replay_count = self.graph_capture_count = 0
+            self._graph_capture_bytes = 0
+            print('[decode-graph] piecewise compute; dynamic EP/PP/CP communication outside graphs')
+            return
         ok, why = self._decode_graph_supported()
         if not ok:
             self._graph_disabled_reason = why
@@ -453,6 +474,7 @@ class ModelRunner:
             return
         self.graph_replay_count = 0
         self.graph_capture_count = 0
+        self.graph_execution_mode = 'full'
         self._graph_dummy_block = self.config.num_kvcache_blocks
         if self._graph_dummy_block != self.kv_cache.shape[2] - 1:
             raise RuntimeError('decode graph dummy KV block is outside the allocated cache')
@@ -600,6 +622,20 @@ class ModelRunner:
     @torch.inference_mode()
     def run(self, seqs: list[Sequence], is_prefill: bool,
             microbatch_id: int = 0) -> list[int]:
+        segments = getattr(self, '_piecewise_graphs', None)
+        if segments is None or is_prefill:
+            return self._run(seqs, is_prefill, microbatch_id)
+        try:
+            with segments.active():
+                return self._run(seqs, is_prefill, microbatch_id)
+        finally:
+            self.graph_segment_capture_count = segments.captures
+            self.graph_segment_replay_count = segments.replays
+            self._graph_capture_bytes = segments.bytes
+
+    @torch.inference_mode()
+    def _run(self, seqs: list[Sequence], is_prefill: bool,
+             microbatch_id: int = 0) -> list[int]:
         # Numerical reproducibility mode: keep each request's GEMM M shape
         # equal to its single-request path. Every PP worker receives the same
         # ordered sequence list and applies the same split. This intentionally
@@ -654,6 +690,7 @@ class ModelRunner:
                                             dtype=torch.float32, device=self.device)
                 return self.sampler(logits, temperatures).tolist()
             if (getattr(self, '_decode_graph_requested', False)
+                    and getattr(self, '_piecewise_graphs', None) is None
                     and not getattr(self, '_warming_up', False)):
                 # A requested graph run must never silently turn into eager
                 # because a caller exceeded the captured capacity.  Eager is

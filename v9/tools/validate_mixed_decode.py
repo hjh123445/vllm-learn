@@ -100,7 +100,7 @@ def main():
     Path(args.output).mkdir(parents=True, exist_ok=True)
     os.environ.update(VLLM_LEARN_MM='0', VLLM_LEARN_BATCH_INVARIANT='1',
         VLLM_LEARN_REFERENCE_QK='0', VLLM_LEARN_ATTENTION_BACKEND='triton',
-        VLLM_LEARN_EP_DENSE_DECODE='1', VLLM_LEARN_DENSE_EXPERT_BACKEND='bmm',
+        VLLM_LEARN_EP_DENSE_DECODE='0', VLLM_LEARN_EP_SPARSE_DECODE='1', VLLM_LEARN_DENSE_EXPERT_BACKEND='bmm',
         VLLM_LEARN_DECODE_GRAPH='1' if args.graph else '0')
     import torch.multiprocessing as mp
     mp.spawn(worker, args=(args,), nprocs=8, join=True)

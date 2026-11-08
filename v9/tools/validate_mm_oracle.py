@@ -81,7 +81,7 @@ def main():
     ap.add_argument('--port',type=int,default=31939)
     args=ap.parse_args();Path(args.output).mkdir(parents=True,exist_ok=True)
     os.environ.update(VLLM_LEARN_MM='1',VLLM_LEARN_BATCH_INVARIANT='1',VLLM_LEARN_REFERENCE_QK='0',
-        VLLM_LEARN_ATTENTION_BACKEND='triton',VLLM_LEARN_EP_DENSE_DECODE='1',
+        VLLM_LEARN_ATTENTION_BACKEND='triton',VLLM_LEARN_EP_DENSE_DECODE='0',VLLM_LEARN_EP_SPARSE_DECODE='1',
         VLLM_LEARN_DENSE_EXPERT_BACKEND='bmm',VLLM_LEARN_EXPERT_BACKEND='torch_grouped',VLLM_LEARN_DECODE_GRAPH='1')
     import torch.multiprocessing as mp
     mp.spawn(worker,args=(args,),nprocs=args.tp,join=True)

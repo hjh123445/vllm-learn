@@ -130,3 +130,35 @@ def test_graph_predicate_distinguishes_attention_and_expert_backends(monkeypatch
         assert r._pick_decode_graph(5) is None
     finally:
         configure_parallel()
+
+
+def test_sparse_graph_admission_and_invalid_parallelism(monkeypatch):
+    from layers.parallel import configure_parallel
+    from layers.moe import MoEMLP
+    from layers import kernels
+    monkeypatch.setenv('VLLM_LEARN_DECODE_GRAPH', '1')
+    monkeypatch.setenv('VLLM_LEARN_EP_DENSE_DECODE', '0')
+    monkeypatch.delenv('VLLM_LEARN_EP_SPARSE_DECODE', raising=False)
+    monkeypatch.setattr(kernels, '_REFERENCE_QK', False)
+    cfg = SimpleNamespace(hidden_size=16, num_experts=8,
+                          num_experts_per_tok=2, moe_intermediate_size=16)
+    configure_parallel(tp_size=2, enable_expert_parallel=True)
+    try:
+        m = MoEMLP(cfg)
+        assert m.ep_sparse_decode and not m.ep_dense_decode
+        r = ModelRunner.__new__(ModelRunner)
+        r.config = SimpleNamespace(batch_execution_mode='batched')
+        r.model = nn.ModuleList([m])
+        assert r._decode_graph_supported() == (True, '')
+        m.ep_sparse_decode = False
+        assert not r._decode_graph_supported()[0]
+        monkeypatch.setenv('VLLM_LEARN_EP_SPARSE_DECODE', '1')
+        monkeypatch.setenv('VLLM_LEARN_EP_DENSE_DECODE', '1')
+        with pytest.raises(ValueError, match='not both'):
+            MoEMLP(cfg)
+        monkeypatch.setenv('VLLM_LEARN_EP_DENSE_DECODE', '0')
+        configure_parallel(tp_size=2, dp_size=2, enable_expert_parallel=True)
+        with pytest.raises(ValueError, match='DP=1'):
+            MoEMLP(cfg)
+    finally:
+        configure_parallel()

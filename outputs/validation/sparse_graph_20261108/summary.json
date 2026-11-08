@@ -1,0 +1,929 @@
+{
+  "suite": {
+    "status": "passed",
+    "started": 1794144187.7692592,
+    "jobs": [
+      {
+        "name": "tests",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "v9/tests"
+        ],
+        "started": 1794144187.7694004,
+        "status": "passed",
+        "ended": 1794144241.220789,
+        "returncode": 0
+      },
+      {
+        "name": "large",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_decode_graph.py",
+          "--model",
+          "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/large",
+          "--max-batch",
+          "256",
+          "--max-model-len",
+          "1024",
+          "--prefill-tokens",
+          "2048",
+          "--graph-reserve-gib",
+          "4",
+          "--batches",
+          "1",
+          "8",
+          "9",
+          "16",
+          "17",
+          "32",
+          "33",
+          "64",
+          "65",
+          "127",
+          "128",
+          "129",
+          "255",
+          "256",
+          "--lengths",
+          "17",
+          "255",
+          "256",
+          "511",
+          "--steps",
+          "2",
+          "--permute",
+          "--mixed-lengths",
+          "--random-inputs",
+          "--batch-invariant",
+          "--strict-batch-invariant",
+          "--compare-dense"
+        ],
+        "started": 1794144241.2210445,
+        "status": "passed",
+        "ended": 1794144348.5654492,
+        "returncode": 0
+      },
+      {
+        "name": "mixed",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_mixed_decode.py",
+          "--model",
+          "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/mixed",
+          "--graph"
+        ],
+        "started": 1794144348.565754,
+        "status": "passed",
+        "ended": 1794144380.176319,
+        "returncode": 0
+      }
+    ],
+    "ended": 1794144380.176678
+  },
+  "parallel_suite": {
+    "status": "passed",
+    "started": 1794145013.0856042,
+    "jobs": [
+      {
+        "name": "single",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_parallel_graphs.py",
+          "--model",
+          "/data/ifly_jyhe23/sparse_graph_20261108/tiny_model_hd16",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/parallel/single",
+          "--tp",
+          "1",
+          "--dp",
+          "1",
+          "--pp",
+          "1",
+          "--cp",
+          "1",
+          "--port",
+          "31983"
+        ],
+        "started": 1794145013.085821,
+        "status": "passed",
+        "ended": 1794145023.7496378,
+        "returncode": 0
+      },
+      {
+        "name": "tp2",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_parallel_graphs.py",
+          "--model",
+          "/data/ifly_jyhe23/sparse_graph_20261108/tiny_model_hd16",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/parallel/tp2",
+          "--tp",
+          "2",
+          "--dp",
+          "1",
+          "--pp",
+          "1",
+          "--cp",
+          "1",
+          "--port",
+          "31984"
+        ],
+        "started": 1794145023.749949,
+        "status": "passed",
+        "ended": 1794145036.0326328,
+        "returncode": 0
+      },
+      {
+        "name": "ep2",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_parallel_graphs.py",
+          "--model",
+          "/data/ifly_jyhe23/sparse_graph_20261108/tiny_model_hd16",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/parallel/ep2",
+          "--tp",
+          "2",
+          "--dp",
+          "1",
+          "--pp",
+          "1",
+          "--cp",
+          "1",
+          "--port",
+          "31985",
+          "--ep"
+        ],
+        "started": 1794145036.0331078,
+        "status": "passed",
+        "ended": 1794145048.8264914,
+        "returncode": 0
+      },
+      {
+        "name": "dp2ep2",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_parallel_graphs.py",
+          "--model",
+          "/data/ifly_jyhe23/sparse_graph_20261108/tiny_model_hd16",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/parallel/dp2ep2",
+          "--tp",
+          "1",
+          "--dp",
+          "2",
+          "--pp",
+          "1",
+          "--cp",
+          "1",
+          "--port",
+          "31986",
+          "--ep"
+        ],
+        "started": 1794145048.8269703,
+        "status": "passed",
+        "ended": 1794145061.683435,
+        "returncode": 0
+      },
+      {
+        "name": "dp2tp2ep4",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_parallel_graphs.py",
+          "--model",
+          "/data/ifly_jyhe23/sparse_graph_20261108/tiny_model_hd16",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/parallel/dp2tp2ep4",
+          "--tp",
+          "2",
+          "--dp",
+          "2",
+          "--pp",
+          "1",
+          "--cp",
+          "1",
+          "--port",
+          "31987",
+          "--ep"
+        ],
+        "started": 1794145061.684131,
+        "status": "passed",
+        "ended": 1794145077.081498,
+        "returncode": 0
+      },
+      {
+        "name": "pp2tp2ep2",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_parallel_graphs.py",
+          "--model",
+          "/data/ifly_jyhe23/sparse_graph_20261108/tiny_model_hd16",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/parallel/pp2tp2ep2",
+          "--tp",
+          "2",
+          "--dp",
+          "1",
+          "--pp",
+          "2",
+          "--cp",
+          "1",
+          "--port",
+          "31988",
+          "--ep"
+        ],
+        "started": 1794145077.0820565,
+        "status": "passed",
+        "ended": 1794145092.0072563,
+        "returncode": 0
+      },
+      {
+        "name": "dp2pp2ep2",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_parallel_graphs.py",
+          "--model",
+          "/data/ifly_jyhe23/sparse_graph_20261108/tiny_model_hd16",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/parallel/dp2pp2ep2",
+          "--tp",
+          "1",
+          "--dp",
+          "2",
+          "--pp",
+          "2",
+          "--cp",
+          "1",
+          "--port",
+          "31989",
+          "--ep"
+        ],
+        "started": 1794145092.008179,
+        "status": "passed",
+        "ended": 1794145106.2929509,
+        "returncode": 0
+      },
+      {
+        "name": "tp2cp2",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_parallel_graphs.py",
+          "--model",
+          "/data/ifly_jyhe23/sparse_graph_20261108/tiny_model_hd16",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/parallel/tp2cp2",
+          "--tp",
+          "2",
+          "--dp",
+          "1",
+          "--pp",
+          "1",
+          "--cp",
+          "2",
+          "--port",
+          "31990"
+        ],
+        "started": 1794145106.2939038,
+        "status": "passed",
+        "ended": 1794145121.8473368,
+        "returncode": 0
+      },
+      {
+        "name": "tp2cp2ep2",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_parallel_graphs.py",
+          "--model",
+          "/data/ifly_jyhe23/sparse_graph_20261108/tiny_model_hd16",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/parallel/tp2cp2ep2",
+          "--tp",
+          "2",
+          "--dp",
+          "1",
+          "--pp",
+          "1",
+          "--cp",
+          "2",
+          "--port",
+          "31991",
+          "--ep"
+        ],
+        "started": 1794145121.8484354,
+        "status": "passed",
+        "ended": 1794145138.3744504,
+        "returncode": 0
+      },
+      {
+        "name": "dp2tp2cp2ep4",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_parallel_graphs.py",
+          "--model",
+          "/data/ifly_jyhe23/sparse_graph_20261108/tiny_model_hd16",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/parallel/dp2tp2cp2ep4",
+          "--tp",
+          "2",
+          "--dp",
+          "2",
+          "--pp",
+          "1",
+          "--cp",
+          "2",
+          "--port",
+          "31992",
+          "--ep"
+        ],
+        "started": 1794145138.3769002,
+        "status": "passed",
+        "ended": 1794145158.996306,
+        "returncode": 0
+      },
+      {
+        "name": "dp2tp2pp2ep4",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_parallel_graphs.py",
+          "--model",
+          "/data/ifly_jyhe23/sparse_graph_20261108/tiny_model_hd16",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/parallel/dp2tp2pp2ep4",
+          "--tp",
+          "2",
+          "--dp",
+          "2",
+          "--pp",
+          "2",
+          "--cp",
+          "1",
+          "--port",
+          "31993",
+          "--ep"
+        ],
+        "started": 1794145158.9974298,
+        "status": "passed",
+        "ended": 1794145178.1522021,
+        "returncode": 0
+      },
+      {
+        "name": "pp2cp2ep1",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_parallel_graphs.py",
+          "--model",
+          "/data/ifly_jyhe23/sparse_graph_20261108/tiny_model_hd16",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/parallel/pp2cp2ep1",
+          "--tp",
+          "1",
+          "--dp",
+          "1",
+          "--pp",
+          "2",
+          "--cp",
+          "2",
+          "--port",
+          "31994",
+          "--ep"
+        ],
+        "started": 1794145178.1533413,
+        "status": "passed",
+        "ended": 1794145192.4012344,
+        "returncode": 0
+      }
+    ],
+    "ended": 1794145192.4023595
+  },
+  "final_checks": {
+    "status": "passed",
+    "jobs": [
+      {
+        "name": "cpu_final",
+        "status": "passed",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "v9/tests"
+        ],
+        "started": 1794145193.8826232,
+        "ended": 1794145247.0175283,
+        "returncode": 0
+      },
+      {
+        "name": "gpu_segments",
+        "status": "passed",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "v9/tests/test_piecewise_graph.py"
+        ],
+        "started": 1794145247.0181587,
+        "ended": 1794145250.943093,
+        "returncode": 0
+      },
+      {
+        "name": "full_final",
+        "status": "passed",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_decode_graph.py",
+          "--model",
+          "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/full_final",
+          "--max-batch",
+          "8",
+          "--max-model-len",
+          "512",
+          "--prefill-tokens",
+          "1024",
+          "--batches",
+          "1",
+          "3",
+          "7",
+          "8",
+          "--lengths",
+          "17",
+          "255",
+          "256",
+          "--steps",
+          "2",
+          "--permute",
+          "--mixed-lengths",
+          "--random-inputs",
+          "--batch-invariant",
+          "--strict-batch-invariant",
+          "--compare-dense"
+        ],
+        "started": 1794145250.9435859,
+        "ended": 1794145287.3457403,
+        "returncode": 0
+      },
+      {
+        "name": "real_dp2tp4",
+        "status": "passed",
+        "command": [
+          "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+          "v9/tools/validate_parallel_graphs.py",
+          "--model",
+          "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+          "--output",
+          "/data/ifly_jyhe23/sparse_graph_20261108/real_dp2tp4",
+          "--tp",
+          "4",
+          "--dp",
+          "2",
+          "--ep",
+          "--port",
+          "32007"
+        ],
+        "started": 1794145287.3475664,
+        "ended": 1794145466.324776,
+        "returncode": 0
+      }
+    ],
+    "started": 1794145193.882264,
+    "ended": 1794145466.32505
+  },
+  "checks": {
+    "full": {
+      "rank_steps": 120,
+      "ranks": 8,
+      "captures": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "replays": [
+        30,
+        30,
+        30,
+        30,
+        30,
+        30,
+        30,
+        30
+      ]
+    },
+    "large": {
+      "rank_steps": 224,
+      "ranks": 8,
+      "captures": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "replays": [
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56
+      ]
+    },
+    "full_final": {
+      "rank_steps": 64,
+      "ranks": 8,
+      "captures": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "replays": [
+        16,
+        16,
+        16,
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "mixed": {
+      "rank_steps": 32,
+      "ranks": 8,
+      "captures": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "replays": [
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8
+      ]
+    },
+    "real_dp2tp4": {
+      "rank_steps": 48,
+      "ranks": 8,
+      "captures": [
+        1219,
+        1240,
+        1184,
+        1265,
+        2116,
+        2188,
+        2064,
+        2028
+      ],
+      "replays": [
+        1344,
+        1349,
+        1278,
+        1366,
+        2116,
+        2188,
+        2064,
+        2028
+      ]
+    }
+  },
+  "parallel": {
+    "dp2ep2": {
+      "ranks": 2,
+      "rank_steps": 12,
+      "captures": [
+        85,
+        148
+      ],
+      "replays": [
+        221,
+        370
+      ]
+    },
+    "dp2pp2ep2": {
+      "ranks": 4,
+      "rank_steps": 24,
+      "captures": [
+        41,
+        78,
+        44,
+        70
+      ],
+      "replays": [
+        110,
+        191,
+        111,
+        179
+      ]
+    },
+    "dp2tp2cp2ep4": {
+      "ranks": 8,
+      "rank_steps": 48,
+      "captures": [
+        81,
+        86,
+        116,
+        81,
+        122,
+        150,
+        154,
+        86
+      ],
+      "replays": [
+        179,
+        189,
+        298,
+        179,
+        302,
+        330,
+        334,
+        189
+      ]
+    },
+    "dp2tp2ep4": {
+      "ranks": 4,
+      "rank_steps": 24,
+      "captures": [
+        65,
+        124,
+        69,
+        130
+      ],
+      "replays": [
+        179,
+        330,
+        189,
+        334
+      ]
+    },
+    "dp2tp2pp2ep4": {
+      "ranks": 8,
+      "rank_steps": 48,
+      "captures": [
+        31,
+        35,
+        66,
+        34,
+        58,
+        66,
+        64,
+        34
+      ],
+      "replays": [
+        90,
+        97,
+        171,
+        92,
+        159,
+        170,
+        164,
+        89
+      ]
+    },
+    "ep2": {
+      "ranks": 2,
+      "rank_steps": 12,
+      "captures": [
+        135,
+        139
+      ],
+      "replays": [
+        359,
+        366
+      ]
+    },
+    "pp2cp2ep1": {
+      "ranks": 4,
+      "rank_steps": 24,
+      "captures": [
+        94,
+        94,
+        90,
+        98
+      ],
+      "replays": [
+        208,
+        219,
+        204,
+        223
+      ]
+    },
+    "pp2tp2ep2": {
+      "ranks": 4,
+      "rank_steps": 24,
+      "captures": [
+        66,
+        71,
+        68,
+        69
+      ],
+      "replays": [
+        176,
+        190,
+        176,
+        183
+      ]
+    },
+    "single": {
+      "ranks": 1,
+      "rank_steps": 6,
+      "captures": [
+        168
+      ],
+      "replays": [
+        431
+      ]
+    },
+    "tp2": {
+      "ranks": 2,
+      "rank_steps": 12,
+      "captures": [
+        168,
+        168
+      ],
+      "replays": [
+        431,
+        431
+      ]
+    },
+    "tp2cp2": {
+      "ranks": 4,
+      "rank_steps": 24,
+      "captures": [
+        213,
+        197,
+        197,
+        213
+      ],
+      "replays": [
+        431,
+        423,
+        423,
+        431
+      ]
+    },
+    "tp2cp2ep2": {
+      "ranks": 4,
+      "rank_steps": 24,
+      "captures": [
+        168,
+        160,
+        156,
+        173
+      ],
+      "replays": [
+        359,
+        358,
+        351,
+        366
+      ]
+    }
+  },
+  "final_source_sha256": {
+    "v9/example.py": "cc7a0cae4ca939bfa771ef861d0f800d0ed18c099239ebcf6f43096f1154cbac",
+    "v9/server.py": "f4b8eb6c1aafec9e918ffc638ebbe57ce643fa29b812093620969920bf004a9e",
+    "v9/config.py": "860e0745c16167d0971b149a0fc06f91170d21a0e33d3fc8174586e48e87506b",
+    "v9/bench.py": "4e3821adc5d5af9393970149c32eff03463331db38235852d2f16a5a35833a7c",
+    "v9/samplingParams.py": "d267aa19631c2b691ff0ae829de18085fb42681204287d4cd46b95261d78424b",
+    "v9/models/qwen3_moe.py": "642efa61440b444c7f15e8abab0c4fa056c419d7d1db197c68e38eff4e844e10",
+    "v9/tests/test_pipeline_links.py": "7c8d874c49ea0c81b04a1342317fbdb94f0b1312621070004918a4659b439b37",
+    "v9/tests/test_bench_cli.py": "9a984b28cc8262b22ba0ba32b4d06b66bda27cce3de1b1bc52c7c88ba9c4e70f",
+    "v9/tests/test_mq_overflow.py": "0b025a4516b2d05d696d82d267b98341d173914b2ed2eb854a8f890fa1a81c8f",
+    "v9/tests/test_pipeline_worker_runtime.py": "3cd5fe739cfd7acaa58fdf61845b0e3e28035b35c2d9d975027d7b3b911f7e84",
+    "v9/tests/test_ep_packed_dispatch.py": "3ba348d2347248dcaa4badd1e332bf0b0e6d5e094ffbdb80a26e789d25137fa1",
+    "v9/tests/test_coupled_moe.py": "84de72dbe25ef8ac755954ebbad85f2bd523ea8e75df9bcda1de5c9b9586f8a3",
+    "v9/tests/test_parallel_components.py": "ea08e031f0231f50287a191ba613120eb38c50236ac04dd9e6ac575517f4d768",
+    "v9/tests/test_mm_graph_contracts.py": "d7f205ae635d0c5f6313a1b1f7c7907b53079a8b59d36cc994082561fb752d7d",
+    "v9/tests/test_auto_grouped_backend.py": "97f76f38b75632ee63c97603d4edd18483a9b2a844e97d2395b8af55864756ce",
+    "v9/tests/test_observed_runner.py": "61169e352eed3bde6442ac73e8c327fea9fdfff5da2071647fb904da0c9d51a5",
+    "v9/tests/test_cuda_profile_runtime.py": "d063a547c5a3c79f79cdbe3da24c0ad9a1538f49464124c21e2ba49d6cfd135c",
+    "v9/tests/test_prefix_cache_switch.py": "69e287fb360db1885fcc5a0178e21aa3c93704d73824a44e9219601a1c15e019",
+    "v9/tests/test_model_runner_batch_policy.py": "52dc4298bb512c5062e1bebaa8c08c6befb210add60345292444f9e559a72875",
+    "v9/tests/test_scheduler_preemption.py": "20fc792a801b29b4ce75d66d57294c82a5d5171c623f283be6f52625f33800dd",
+    "v9/tests/test_mm_mixed_positions.py": "e604238a2e1ad809d8a29bf5f87bbdbb1d587093113b1b189e4737ecf2c2839f",
+    "v9/tests/test_mrope_positions.py": "6f418c5f4f815e303da0449f93c83fb8d02476733d2f7fbe8788ed13b5595e93",
+    "v9/tests/test_trace_merge.py": "c687e202a82dc23cb17ea599a40288c5b43c0b45bed3643a2b27fe6af2fdb225",
+    "v9/tests/test_quantized_fallback.py": "eb18c6351af169dc8dbdcbcd887beed6cd69c97a1aa754f10daef9214b141fe6",
+    "v9/tests/test_rotary_reference.py": "7d772458c173ac3f6d43d71a04c940372aab86bb0cd0ad990e1fbc9c9a205664",
+    "v9/tests/test_profile_tools.py": "2e94d61e4c4acdcfdc26b946d87d268e4aac245f5d8f527a2d9c0c73ad96b9b1",
+    "v9/tests/test_pipeline_batch_queue.py": "609f6e47471c719f2e5837d7f4aa9bdd4dbef7595b5e2f2545999ff59b259168",
+    "v9/tests/test_decode_graph_lifecycle.py": "06632807d440c052b0d5cf173567493f4fdbf355b032c8125f6fef73655ce716",
+    "v9/tests/test_silu_and_mul.py": "16470bcfe494ef4c6d359e5fc1273da6f779c385da774df14f038b161c6a6d77",
+    "v9/tests/test_async_engine.py": "e34ca1aeda70feed9dc74965936f87a59cb5c96cde223903731cb879b80a4e45",
+    "v9/tests/test_route_reduction.py": "810f8b2e26537dab6291f436f4c7b4e7a6ac459e0a70a29e187b64443f7441dd",
+    "v9/tests/test_chat_inputs.py": "999b27df3d29a70b26fba231725914db02a09efc9edd28602816468490cf1594",
+    "v9/tests/test_distributed_moe.py": "4a9566cec71da72e4047758f23efae746cd4245ea38f1a7e32ba2f466d2a291e",
+    "v9/tests/test_module_profiling.py": "3f76cd89b2f204fc6b7b1b4d492c9c8b045165a195e6f91828ff77fb82502bf8",
+    "v9/tests/test_pipeline_model_runtime.py": "5573b6cd81b08592aaff444ed940b794854c355f5dae0e41cb009b145f980458",
+    "v9/tests/test_activation_capture.py": "b1d42b27495cc7963638348eb33531a77903fda4f7d5530e74eb084414216cdd",
+    "v9/tests/test_http_server.py": "2fa7421c649a119a015de6a67f17e244771ab44dced54b40bac81c3a12c6bf49",
+    "v9/tests/test_ep_topology.py": "cfd01832598c9aca2dad1331cdd97f12d54bb2f387585b96110ab15fd51f3dcb",
+    "v9/tests/test_cached_logits.py": "a3cea0e2ee42076004c8c63eaa8d3bb6ab535ef7a43aa623a2e92f7790d25d79",
+    "v9/tests/test_attention_reference.py": "1883b1efe034ea12eb7c124e846fb737d05aec9138dab606c4148163cdd890e1",
+    "v9/tests/test_pipeline_executor.py": "a923bb534c4f6df316036347dcad03f247e9482939c78a937af9980dd44fafb3",
+    "v9/tests/test_dp_frontend.py": "c03ccef211fc90a1dace33ad6cf0a0eec398e447e7b9d7c0dfbf404f95f445cf",
+    "v9/tests/test_piecewise_graph.py": "9d65810357c5fba2374ee9e2a4414a2011e8198a1acda53209ce6acd0a49d9d9",
+    "v9/tests/test_ep_token_ownership.py": "667fd090591919e71b455bcbf0c43906af30ee79aa0cdfae3c4093c5afa2af4a",
+    "v9/tests/test_batch_invariant.py": "d147a308a8bed830a43c94698e8c29048f319121011208c3ab7091cc78d6d28e",
+    "v9/tests/test_worker_health.py": "0d198b66582e9de981eb3fba64743649b6d34119dfd1a52c7e11e814acce9731",
+    "v9/tests/test_moe_bucket_order.py": "95fe371e8fa190acd08df7cfc6a9719de9a315e6a0f9e6d1899c5d12d52f44b1",
+    "v9/tools/check_generation.py": "1041370f8e13fc0d751db12151fed5b45f1b06723e589739395fcb2936ad9ae6",
+    "v9/tools/summarize_mm_matrix.py": "68c205b385a10884392a5b60563f1d998bff43c3412c9faca23cd38cb5216251",
+    "v9/tools/check_logits.py": "870dd14d8ae568c866f34aca8e021e4af0e203de138eced948489b219cf2360d",
+    "v9/tools/diagnose_graph_padding.py": "8f0030a40e27b9585c1b92e52672ec659a0f7f530222b0734daf711853927fd0",
+    "v9/tools/benchmark.py": "fff9590dcaa1560b3b81d8bd4c9e231d70603c2a26a8f8a3ca83b429f95b2a2d",
+    "v9/tools/evaluate_multimodal.py": "b6ca566d8892c02e6aeba0bcee9f57ac5c97c2cb904d12dc83a5bc0a92f7ead0",
+    "v9/tools/validate_mm_oracle.py": "08144633f340ad26643a11150ea495cf94a204a1c9be06163a2d8558e20ab46e",
+    "v9/tools/validate_decode_graph.py": "a2cb9091aa6ca31c41e612122418790df2bc51b52e068299449a97b5d34dc8a3",
+    "v9/tools/profile_analyze.py": "d2fc712114360b76ad9815bc61c5dbd5f581ab8125393d3a2245b2863f86076a",
+    "v9/tools/profile_capture.py": "a348c01ab27af9a7ea0d384740ec1746849fc68124f810916e72e4d02c1999b7",
+    "v9/tools/validate_mixed_decode.py": "a0855aec7e39a5cbd121bab9b5437041bd4e24c9ff1eedfa63a6fae7dbbc605a",
+    "v9/tools/validate_sparse_decode.py": "8232cc5f60090f03224ed03264fa6686f3724d1e3ff2174cb5dac36cc39b3858",
+    "v9/tools/validate_vision.py": "e9d6d96fc3bf46dfadcc6f8003ed81d77b5126507ce521487aeb0ce05a7d019e",
+    "v9/tools/validate_parallel_graphs.py": "30bccc058bbfb9ba50e7a22cbd2a113d10a241710ac042939391689cbdc0fb5c",
+    "v9/tools/compare_logits.py": "2f80e08a9a9f0d509f01e6d8935eb3bec5e7adab7faf50207105a9ee5c35ad6c",
+    "v9/tools/kernel_bench.py": "40d46a76b0b6c22fe8869072fc3fb77440f3adb1c058ae990f66cd7bd358afe2",
+    "v9/tools/profile_merge.py": "47f05347d6b148271bd136ab122834042acc8d4b6f9b6fa2b4599c2a86bceec0",
+    "v9/tools/validate_mm_inputs.py": "1fd8782bdd9d6defa40cc23d05fb45c83a062dc6636bc5d9068f4177752b9a7e",
+    "v9/tools/trace_io.py": "06a3438acff0d714e4d04f6926c0865496a4b6b7d926115f75d207c18bbd5792",
+    "v9/tools/diagnose_ep.py": "b4b6f091654830a9b7e344f484e5e4183b867e2b487dcf6f7f036185d306a440",
+    "v9/engine/process_groups.py": "360fec96d85bb4401af924d93300cc8111ee4a54ec895c371c359cbce4927f6c",
+    "v9/engine/scheduler.py": "1d3d5c22210534c20524f8a46a863b72b4f16f4db754a69ce67e1108b450ceed",
+    "v9/engine/pipeline_transport.py": "c1668cf1607d0088b1c7e349ba46cbf6918e859e157f1565cd4382e205cea099",
+    "v9/engine/mq.py": "d340f585f9680fc6d33b3d4283331a035a55c8f685c75b85b277b280470670d9",
+    "v9/engine/block_manager.py": "f1c484c802f0a6ac7af02674a03f2b873dda464c5cedffc8d4befbee2590a6c6",
+    "v9/engine/sampler.py": "140fcfee2db53d59f9ca10c55e1f8c0f4243ed82f122445a4d57c5c5fdca3ea1",
+    "v9/engine/worker_health.py": "28286135cdd1761705780a4e6876d90e914102b71ebb2f76558ed7f392c99685",
+    "v9/engine/vision_cache.py": "6da07c14d10855bd8dcbcdf30c10f26fbbf36d852eadd98504251017af8ffae4",
+    "v9/engine/core.py": "895d8cef9f705e8e2de1805d58ecb44dfa43fcbf6b1f59b6da962a1dc7f2eb79",
+    "v9/engine/frontend.py": "197a162fba062d595edabc35b30a664cab00a3c4c16b7e40927b0318b5efd00c",
+    "v9/engine/model_runner.py": "84ea0f452ae8f22a0506c124fe0cde9ea02c3401307a31b668e96b6de0420e3b",
+    "v9/engine/async_engine.py": "4cb1c3dcd2db7a6aff498a023f80fb3449685b2c7982c497c50d3625736a7e64",
+    "v9/engine/executor.py": "6a6852a580f0ff50a3d6752d905e4d9b19402cd6f99dbfa13a296f341930157e",
+    "v9/engine/sequence.py": "46f5fabffae6f7a20346a098e7cdc436ad9f0534dbf0b98c0bab45439da6cbe3",
+    "v9/engine/intermediate_tensors.py": "2322b68d5ae13464087e8293eeb9a28480f23c28dbe810c43b7ab5de468d6d6d",
+    "v9/engine/worker.py": "9ebff00538d05ff15c81405f5d6284bd587f544b8ed5ad44a24381df896bec70",
+    "v9/utils/http_benchmark.py": "c7ec51fe1d5319a71cf1f6affaba65672327f5c0888212f3a9958a185313e988",
+    "v9/utils/observation_config.py": "4e1675d090b3b61058df99179cb75fb01e130954cbc2e0726c8366b727df842d",
+    "v9/utils/activation_capture.py": "94cb74892fe6aae08afeb2c0098502b58b05944c552a3fcfce614a83f09cd669",
+    "v9/utils/chat_inputs.py": "246ce5a8ef8489a397e1786f47075ea60d4b682a5aba9334d44fb3be5ae92a4f",
+    "v9/utils/observed_runner.py": "5319b7b22a759fa8419df0ecb0e75fc179d29b3dca48bd1d1341dcae8c6573b7",
+    "v9/utils/piecewise_graph.py": "e5357aad620eabcadf02fa39d8bd0fab0a983d401bd8cf604a890f5c380a1012",
+    "v9/utils/trace_check.py": "978bc6a4b1757945b3dc74af2dfe896d6bd28c6ae2dae9ae1db529fe346a3e9f",
+    "v9/utils/loader.py": "608a328b1c3a209d41c0302df3ab2a608c48c6efaa8ff28e8fa840b20d034821",
+    "v9/utils/module_profiling.py": "d7c1d6f93ec31a7c46a4ad6707dfca38301a4cf39aac083b49a656c6e567a675",
+    "v9/utils/cupti_flush.py": "6719c048c0b73b535e42bcf287a72dfed59c7dca1ac9660acb146f4b008f1e06",
+    "v9/utils/trace_audit.py": "26b6434e6b84fb96f7277f781f595a02390b30a33ae77d60eacff4b4a3742ec5",
+    "v9/utils/context.py": "6d222023cd91ac6f5a0376485a58074a8e597f7dff61fedc54d360d509c1a365",
+    "v9/layers/flash_attn.py": "5debe1d1d0653254f4b029c9f733b3a785b59991acbcc4faf553b033c055a137",
+    "v9/layers/norm.py": "9aeafceea7d8af0a89f383c964a3bf59ea3d90017ccaab532e4f9fa233690d7f",
+    "v9/layers/parallel.py": "ffa8e77cf896810b902a94c3b734273c3f5bc4f16c21f4e7e967fc5a9237b5eb",
+    "v9/layers/dequant_gemm.py": "6d6b26112a6c8da1c0f8691a65ec72a84fe1db5674fab2942eb6e659009f43f2",
+    "v9/layers/attention_reference.py": "d0eb56e9d2a98eb36d97430d0a6efebd9bb43d3864862c41d9155002195b3532",
+    "v9/layers/sparse_decode.py": "855671ea7328fe7bf231636302878c3b3742314e201a2363ad1d42bc1e947f79",
+    "v9/layers/batch_invariant.py": "f41cf5c4e35830a1e11389985aec7d8ede3e907364b158fd9f33a031d7f79e87",
+    "v9/layers/kernels.py": "2e2151afb61989991a0287858ea9f78027d7eec4917b6eef61421a0a75748f76",
+    "v9/layers/mm_preprocess.py": "2fbd6b27f8e106b3812c9192cb8401244951f19b054a917905d5d12146433ca0",
+    "v9/layers/rotary_embedding.py": "6b30e75bcfb81b4051af0a4c254c42123daa811fd042cdf648cac58d9a42c2c1",
+    "v9/layers/attention.py": "5edea255295ed7aaa3923ad5e3db464176076ead00be9be082618d85ba7a8ef9",
+    "v9/layers/dcp.py": "c885f5af24c32872ab8ec427ad8c45c84dbb352d1bdd67c8b6f0adf29cf6ac77",
+    "v9/layers/moe.py": "52f7ea078b4e60ef2547d50d7f5208d45e7b6e95581ceb55bc60537dcca4ccff",
+    "v9/layers/quantized.py": "8f45fd6424873a069d2247a60e1a396f01eaf52c320462c0df9b8977fa012296",
+    "v9/layers/embedding.py": "46f139b21ed5d3b9a1d7527450a4799d413f0f6ad1e90fa7de95bdaae4a4e258",
+    "v9/layers/linear.py": "9bae7094db15b26ff50f78e9b14dcc60e73720a3238010da14675f7e678bb9c6",
+    "v9/layers/vision.py": "a163d094e70b22797885a75c9f375d856f11a96b111435038b55dfdb642d3e93"
+  }
+}
