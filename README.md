@@ -4,6 +4,8 @@
 
 2026-11-08 已完成 TP8+EP 下 128/256 并发、在线/离线、文本/图像三档负载，共 26 档、78 轮、29,952 请求，零错误。正常 EOS 的 ChartQA 256 题 Graph/eager 完整输出 256/256 相同；HF 对照为 250/256 相同。详见 [最终验证与负载总表](docs/CUDA_Graph多模态最终验证报告.md)、[CUDA Graph 与多模态原理](docs/CUDA_Graph与多模态原理.md)。
 
+发布前的 [版本与服务器副本核对](docs/最终版本与服务器副本核对.md)、[完整证据与归档](outputs/releases/mm_graph_20261108/README.md)、[实验复现说明](experiments/mm_graph_20261108/README.md) 已集中保存。
+
 先看 [Profile 操作手册](docs/PROFILE.md)，再看 [真实轨迹分析与优化依据](docs/性能分析.md)。文件太多的问题已整理：实验工具归入 `v9/tools`，自动回归归入 `v9/tests`，可打开的轨迹统一放在 `outputs/profiles`，历史报告不再充当当前使用说明。
 
 | 你想做什么 | 入口 |

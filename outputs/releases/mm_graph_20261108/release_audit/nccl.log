@@ -1,0 +1,111 @@
+.F....                                                                   [100%]
+=================================== FAILURES ===================================
+________ test_production_dp_ep_unequal_batches_and_idle_replicas[2-2-1] ________
+
+tmp_path = PosixPath('/tmp/pytest-of-ifly_jyhe23/pytest-80/test_production_dp_ep_unequal_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fc0b397bd40>, dp = 2
+tp = 2, pp = 1
+
+    @pytest.mark.parametrize("dp,tp,pp", [(2, 2, 1), (2, 1, 2), (4, 1, 1)])
+    def test_production_dp_ep_unequal_batches_and_idle_replicas(tmp_path, monkeypatch, dp, tp, pp):
+        from engine.frontend import DPFrontend
+        monkeypatch.setenv("VLLM_LEARN_REFERENCE_MATH", "1")
+        monkeypatch.setenv("VLLM_LEARN_ATTENTION_BACKEND", "sdpa_reference")
+        monkeypatch.setenv("VLLM_LEARN_EXPERT_BACKEND", "loop")
+        monkeypatch.setenv("VLLM_LEARN_WORKER_TIMEOUT_S", "90")
+        path = tmp_path / "tiny-omni"
+        checkpoint(path)
+        config = dict(max_model_len=128, max_num_batched_tokens=8, max_num_seqs=16,
+                      gpu_memory_utilization=.98, max_kvcache_blocks=16)
+        prompts = [[1, 2], list(range(2, 12)), list(range(3, 28)), [5, 6, 7], [1, 2]]
+        sampling = SamplingParams(temperature=0., max_tokens=4, ignore_eos=True)
+        serial = EngineCore(str(path), config_kwargs=config)
+        try:
+            reference = [tokens for _, tokens in serial.generate(prompts, sampling)]
+        finally:
+            serial.shutdown()
+        del serial
+        gc.collect()
+        torch.cuda.empty_cache()
+        # Match attention TP and per-DP scheduler/GEMM shapes in the oracle.
+        # Serial BF16 greedy parity is retained as a diagnostic, not assumed:
+        # TP changes attention reduction shapes even with EP disabled.
+        baseline = DPFrontend(str(path), dp_size=dp, tp_size=tp, pp_size=pp,
+            master_port=free_port(), gpus=list(range(dp * tp * pp)),
+            pipeline_microbatch_tokens=8, config_kwargs=config)
+        try:
+            baseline_handles = [baseline.add_request(prompt, sampling)[0] for prompt in prompts]
+            baseline_output = baseline.run()
+            matched_reference = [baseline_output[h.seq_id] for h in baseline_handles]
+            single_handle, _ = baseline.add_request(prompts[0], sampling, dp_rank=dp - 1)
+            matched_single = baseline.run()[single_handle.seq_id]
+        finally:
+            baseline.shutdown()
+        frontend = DPFrontend(str(path), dp_size=dp, tp_size=tp, pp_size=pp,
+            enable_expert_parallel=True, master_port=free_port(),
+            gpus=list(range(dp * tp * pp)), pipeline_microbatch_tokens=8,
+            config_kwargs=config)
+        processes = list(frontend.cores)
+        try:
+            handles = [frontend.add_request(prompt, sampling)[0] for prompt in prompts]
+            outputs = frontend.run()
+            actual = [outputs[h.seq_id] for h in handles]
+            print(dict(scope="BF16 production, matched DP/TP/PP baseline with EP disabled",
+                       serial=reference, matched_tp=matched_reference, coupled_ep=actual), flush=True)
+>           assert actual == matched_reference
+E           assert [[57, 60, 57,..., 60, 57, 60]] == [[57, 60, 57,..., 60, 57, 60]]
+E             
+E             At index 1 diff: [54, 60, 54, 60] != [54, 60, 57, 60]
+E             Use -v to get more diff
+
+v9/tests/test_pipeline_worker_runtime.py:155: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.07 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+{'scope': 'BF16 production, matched DP/TP/PP baseline with EP disabled', 'serial': [[57, 60, 57, 60], [54, 60, 57, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]], 'matched_tp': [[57, 60, 57, 60], [54, 60, 57, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]], 'coupled_ep': [[57, 60, 57, 60], [54, 60, 54, 60], [43, 43, 43, 43], [8, 12, 53, 53], [57, 60, 57, 60]]}
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+[loader] 装载 91 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 0 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.98
+  → KV 池 16 blocks × 256 tok (0.00 GB, 每 block 0.03 MB, 激活预算 实测 0.00 GB)
+----------------------------- Captured stderr call -----------------------------
+/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+  return func(*args, **kwargs)
+/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+  return func(*args, **kwargs)
+/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+  return func(*args, **kwargs)
+/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+  return func(*args, **kwargs)
+=============================== warnings summary ===============================
+v9/tests/test_pipeline_worker_runtime.py::test_production_worker_initialization_and_cached_generation
+  <frozen importlib._bootstrap>:488: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute
+
+v9/tests/test_pipeline_worker_runtime.py::test_production_worker_initialization_and_cached_generation
+  <frozen importlib._bootstrap>:488: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED v9/tests/test_pipeline_worker_runtime.py::test_production_dp_ep_unequal_batches_and_idle_replicas[2-2-1]
+1 failed, 5 passed, 2 warnings in 191.10s (0:03:11)
+sys:1: DeprecationWarning: builtin type swigvarlink has no __module__ attribute

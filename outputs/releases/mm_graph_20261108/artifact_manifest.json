@@ -1,0 +1,10 @@
+{
+  "v9_final_verified_source.zip": {
+    "bytes": 279292,
+    "sha256": "fc8dce2a348cb35169114ed98b51c153559207daaaafbc25b33215e4abd1b933"
+  },
+  "final_benchmark_evidence.tar.gz": {
+    "bytes": 20158503,
+    "sha256": "ce990e5788d69ad2ee34bf863ac28b94ff8c02bf47d251d3b3b489296bc5230b"
+  }
+}

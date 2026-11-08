@@ -63,7 +63,7 @@ git diff --check
 
 它不是“把整个模型改成 FP32”，也不是“关闭 CUDA Graph”。它是一组在显式启用此策略的引擎中使用的固定数值原语，目标是让 M=3 和 M=4 对同一有效行采用同一套计算顺序。该环境开关也会影响该进程内的 eager 线性层和 prefill，不能把开启 Graph 加严格策略、与关闭 Graph 且关闭严格策略的差别都算成 Graph 本身的影响。
 
-当前实现位于 [batch_invariant.py](C:/Users/27363/AppData/Local/Temp/opencode/vllm-learn/v9/layers/batch_invariant.py)：
+当前实现位于 [batch_invariant.py](../v9/layers/batch_invariant.py)：
 
 ### 固定 GEMM
 
@@ -188,7 +188,7 @@ lm_head 生成文本 token
 - 图片必须先完整编码，再按语言侧 chunk 切视觉特征，不能把原始 patch 直接截断后当成独立图片编码；
 - 视觉特征按请求和图片编号进入有界缓存，最后一个 chunk 消费后释放。
 
-相关代码见 [model_runner.py](C:/Users/27363/AppData/Local/Temp/opencode/vllm-learn/v9/engine/model_runner.py:284)、[qwen3_moe.py](C:/Users/27363/AppData/Local/Temp/opencode/vllm-learn/v9/models/qwen3_moe.py:125)、[vision.py](C:/Users/27363/AppData/Local/Temp/opencode/vllm-learn/v9/layers/vision.py:188) 和 [mm_preprocess.py](C:/Users/27363/AppData/Local/Temp/opencode/vllm-learn/v9/layers/mm_preprocess.py:39)。
+相关代码见 [model_runner.py](../v9/engine/model_runner.py#L284)、[qwen3_moe.py](../v9/models/qwen3_moe.py#L125)、[vision.py](../v9/layers/vision.py#L188) 和 [mm_preprocess.py](../v9/layers/mm_preprocess.py#L39)。
 
 ## 7. 当前到底加载了哪些权重
 
@@ -462,8 +462,8 @@ HF 的完整 Omni 类、HF 的 standalone Thinker 类、官方 vLLM 的 Thinker 
 
 - [最终总报告](CUDA_Graph多模态最终验证报告.md)：24 档 Graph 总表、首轮、两档 eager 对照、质量差异和计量边界。
 - [详细 CSV](cuda_graph_mm_load_matrix.csv)：52 行阶段数据，包含 p50/p95/p99、prompt token 范围及显存。
-- [Graph 执行汇总](C:/Users/27363/Documents/Codex/2026-11-07/xian/outputs/graph_execution_summary.json)：每个进程组的 8 个 rank 捕获和回放计数已核对一致。
-- [最终验证源码](C:/Users/27363/Documents/Codex/2026-11-07/xian/outputs/v9_final_verified_source.zip)：107 个 v9 Python 文件与实验脚本，内含逐文件 SHA256。
-- [最终原始证据](C:/Users/27363/Documents/Codex/2026-11-07/xian/outputs/final_benchmark_evidence.tar.gz)：26 档负载、质量、真实视觉特征、两档严格 Graph 回归、环境、参考代码及历史失败/最终通过的 CPU 日志。
+- [Graph 执行汇总](../outputs/releases/mm_graph_20261108/graph_execution_summary.json)：每个进程组的 8 个 rank 捕获和回放计数已核对一致。
+- [最终验证源码](../outputs/releases/mm_graph_20261108/v9_final_verified_source.zip)：107 个 v9 Python 文件与实验脚本，内含逐文件 SHA256。
+- [最终原始证据](../outputs/releases/mm_graph_20261108/final_benchmark_evidence.tar.gz)：26 档负载、质量、真实视觉特征、两档严格 Graph 回归、环境、参考代码及历史失败/最终通过的 CPU 日志。
 
 本次与 vLLM 的对齐依据实际安装版本的接入、视觉元数据、缓存和 DeepStack 源码；本轮没有测官方 vLLM 的同负载吞吐，因此表中的性能变化仅指本引擎的 Graph/eager 对照。

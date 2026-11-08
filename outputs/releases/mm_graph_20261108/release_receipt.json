@@ -1,0 +1,36 @@
+{
+  "commit": "b3bed861c04f99c759feafd31cad1bd8292ac3ce",
+  "branch": "fix/mm-graph-validation",
+  "local_repository": "C:\\Users\\27363\\AppData\\Local\\Temp\\opencode\\vllm-learn",
+  "remote_snapshot": "/data/ifly_jyhe23/vllm-learn-mm-benchmark-v2-20261108",
+  "python_source_files_verified": 107,
+  "archives_sha256_verified": true,
+  "final_acceptance": {
+    "passed": true,
+    "cases": 26,
+    "rounds": 78,
+    "requests": 29952,
+    "cross_case_compared": 25344,
+    "cross_case_differences": 0,
+    "quality": {
+      "samples": 256,
+      "exact_token_matches": 256,
+      "differences": [],
+      "graph_accuracy": 0.84375,
+      "eager_accuracy": 0.84375,
+      "same_numerical_policy": true,
+      "measurement": "EOS-stopped ChartQA outputs; separate processes, TP8+EP, same fixed numerical policy"
+    }
+  },
+  "artifacts": {
+    "v9_final_verified_source.zip": {
+      "bytes": 279292,
+      "sha256": "fc8dce2a348cb35169114ed98b51c153559207daaaafbc25b33215e4abd1b933"
+    },
+    "final_benchmark_evidence.tar.gz": {
+      "bytes": 20158503,
+      "sha256": "ce990e5788d69ad2ee34bf863ac28b94ff8c02bf47d251d3b3b489296bc5230b"
+    }
+  },
+  "gpu_jobs_finished": true
+}

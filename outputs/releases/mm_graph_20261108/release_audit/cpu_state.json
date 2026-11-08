@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+    "-m",
+    "pytest",
+    "v9/tests",
+    "-q"
+  ],
+  "started": 1794114160.9397337,
+  "status": "passed",
+  "pid": 1897423,
+  "returncode": 0,
+  "ended": 1794114217.6753442
+}

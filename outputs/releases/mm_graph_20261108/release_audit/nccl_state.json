@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+    "-m",
+    "pytest",
+    "v9/tests/test_pipeline_worker_runtime.py",
+    "-q"
+  ],
+  "started": 1794114235.4906516,
+  "status": "failed",
+  "pid": 1901157,
+  "returncode": 1,
+  "ended": 1794114428.173311
+}

@@ -1,0 +1,3248 @@
+[
+  {
+    "case": "offline_multimodal_large_c128_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 89.91120982100256,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 182.22421912259517,
+    "request_s": 2.8472534237905496,
+    "ttft_s": {
+      "p50": 10.885092300013639,
+      "p95": 41.666154321981594,
+      "p99": 44.52807999600191
+    },
+    "e2e_s": {
+      "p50": 41.13694651192054,
+      "p95": 72.02025937894359,
+      "p99": 75.40094324701931
+    },
+    "itl_s": {
+      "p50": 0.37071274302434176,
+      "p95": 0.8038818370550871,
+      "p99": 0.8550307570258155
+    },
+    "repeat": 0,
+    "initialization_s": 26.981506071984768,
+    "peak_active": 128,
+    "preprocessing_wall_s": 3.5076279719360173,
+    "pipeline_wall_s": 93.4188427629415,
+    "pipeline_output_tok_s": 175.3821768224622,
+    "pipeline_ttft_s": {
+      "p50": 49.588783957995474,
+      "p95": 86.90545036492404,
+      "p99": 90.31331776792649
+    },
+    "pipeline_e2e_s": {
+      "p50": 80.22800269001164,
+      "p95": 93.17285433993675,
+      "p99": 93.3666164309252
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_large_c128_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 84.77765688998625,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 193.25846692438185,
+    "request_s": 3.0196635456934664,
+    "ttft_s": {
+      "p50": 10.758844117983244,
+      "p95": 37.44152832997497,
+      "p99": 40.12250312801916
+    },
+    "e2e_s": {
+      "p50": 39.69567455898505,
+      "p95": 67.2712547009578,
+      "p99": 70.59849144995678
+    },
+    "itl_s": {
+      "p50": 0.344969887053594,
+      "p95": 0.8006513799773529,
+      "p99": 0.8231396520277485
+    },
+    "repeat": 1,
+    "initialization_s": 26.981506071984768,
+    "peak_active": 128,
+    "preprocessing_wall_s": 3.258620996028185,
+    "pipeline_wall_s": 88.03628434694838,
+    "pipeline_output_tok_s": 186.10508293865678,
+    "pipeline_ttft_s": {
+      "p50": 44.86100777401589,
+      "p95": 81.5986530459486,
+      "p99": 84.93205287202727
+    },
+    "pipeline_e2e_s": {
+      "p50": 75.16898601292633,
+      "p95": 87.78912530199159,
+      "p99": 87.98396972101182
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_large_c128_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 85.11170038301498,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 192.49997269787383,
+    "request_s": 3.0078120734042786,
+    "ttft_s": {
+      "p50": 10.91132033301983,
+      "p95": 37.1541916889837,
+      "p99": 39.801711248001084
+    },
+    "e2e_s": {
+      "p50": 39.86359954008367,
+      "p95": 67.3596733569866,
+      "p99": 70.76306462101638
+    },
+    "itl_s": {
+      "p50": 0.3448907770216465,
+      "p95": 0.8164466849993914,
+      "p99": 0.8242822519969195
+    },
+    "repeat": 2,
+    "initialization_s": 26.981506071984768,
+    "peak_active": 128,
+    "preprocessing_wall_s": 3.265252745943144,
+    "pipeline_wall_s": 88.3769597869832,
+    "pipeline_output_tok_s": 185.38768520087916,
+    "pipeline_ttft_s": {
+      "p50": 44.5099238359835,
+      "p95": 81.87587351596449,
+      "p99": 85.26308078900911
+    },
+    "pipeline_e2e_s": {
+      "p50": 75.3425505378982,
+      "p95": 88.13004929292947,
+      "p99": 88.32445746997837
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_large_c256_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 175.15858494699933,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 187.07618590270732,
+    "request_s": 2.923065404729802,
+    "ttft_s": {
+      "p50": 53.059791060048155,
+      "p95": 79.5176645090105,
+      "p99": 86.39462853304576
+    },
+    "e2e_s": {
+      "p50": 84.59459832997527,
+      "p95": 112.42133319203276,
+      "p99": 119.01680134702474
+    },
+    "itl_s": {
+      "p50": 0.3685107099590823,
+      "p95": 0.8295047240098938,
+      "p99": 0.84194594505243
+    },
+    "repeat": 0,
+    "initialization_s": 27.634482376044616,
+    "peak_active": 256,
+    "preprocessing_wall_s": 6.9851923970272765,
+    "pipeline_wall_s": 182.14378549996763,
+    "pipeline_output_tok_s": 179.90182816314544,
+    "pipeline_ttft_s": {
+      "p50": 95.74308989197016,
+      "p95": 170.9126524309395,
+      "p99": 177.97900205198675
+    },
+    "pipeline_e2e_s": {
+      "p50": 127.86682661704253,
+      "p95": 181.62721114093438,
+      "p99": 182.0385551060317
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_large_c256_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 166.41562824405264,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 196.90458369657998,
+    "request_s": 3.076634120259062,
+    "ttft_s": {
+      "p50": 51.38217098894529,
+      "p95": 73.08633347193245,
+      "p99": 79.55792838695925
+    },
+    "e2e_s": {
+      "p50": 81.52107679191977,
+      "p95": 104.8522918819217,
+      "p99": 111.29223477293272
+    },
+    "itl_s": {
+      "p50": 0.3426484999945387,
+      "p95": 0.7836296719033271,
+      "p99": 0.8091754390625283
+    },
+    "repeat": 1,
+    "initialization_s": 27.634482376044616,
+    "peak_active": 256,
+    "preprocessing_wall_s": 6.549748779973015,
+    "pipeline_wall_s": 172.96538797195535,
+    "pipeline_output_tok_s": 189.44830745740305,
+    "pipeline_ttft_s": {
+      "p50": 88.34737868397497,
+      "p95": 161.82473289896734,
+      "p99": 168.80467377789319
+    },
+    "pipeline_e2e_s": {
+      "p50": 119.66632837895304,
+      "p95": 172.44477404595818,
+      "p99": 172.86004992795642
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_large_c256_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 165.8590879329713,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 197.56529719518622,
+    "request_s": 3.0869577686747847,
+    "ttft_s": {
+      "p50": 50.92120206193067,
+      "p95": 72.42150895099621,
+      "p99": 78.89678685797844
+    },
+    "e2e_s": {
+      "p50": 80.70708159799688,
+      "p95": 104.02872079797089,
+      "p99": 110.30083527800161
+    },
+    "itl_s": {
+      "p50": 0.3442148470785469,
+      "p95": 0.7964379050536081,
+      "p99": 0.8218485160032287
+    },
+    "repeat": 2,
+    "initialization_s": 27.634482376044616,
+    "peak_active": 256,
+    "preprocessing_wall_s": 6.551073789945804,
+    "pipeline_wall_s": 172.41017215594184,
+    "pipeline_output_tok_s": 190.05839151046115,
+    "pipeline_ttft_s": {
+      "p50": 87.69047252589371,
+      "p95": 160.95199315692298,
+      "p99": 168.17013452097308
+    },
+    "pipeline_e2e_s": {
+      "p50": 118.61771925189532,
+      "p95": 171.88239529298153,
+      "p99": 172.30410366598517
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_medium_c128_eager",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": false,
+    "wall_s": 30.605737625039183,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 535.3244610773868,
+    "request_s": 8.364444704334169,
+    "ttft_s": {
+      "p50": 1.5210037229117006,
+      "p95": 12.065712771029212,
+      "p99": 12.53577505494468
+    },
+    "e2e_s": {
+      "p50": 15.567976802936755,
+      "p95": 24.84166517201811,
+      "p99": 25.28818653896451
+    },
+    "itl_s": {
+      "p50": 0.06624322093557566,
+      "p95": 0.4910358410561457,
+      "p99": 0.5238380209775642
+    },
+    "repeat": 0,
+    "initialization_s": 25.97086716501508,
+    "peak_active": 128,
+    "preprocessing_wall_s": 2.8080904959933832,
+    "pipeline_wall_s": 33.413832394988276,
+    "pipeline_output_tok_s": 490.33585271881077,
+    "pipeline_ttft_s": {
+      "p50": 18.831940365955234,
+      "p95": 28.09735215397086,
+      "p99": 29.003207628964446
+    },
+    "pipeline_e2e_s": {
+      "p50": 31.937764761969447,
+      "p95": 33.23335712798871,
+      "p99": 33.35495382791851
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_medium_c128_eager",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": false,
+    "wall_s": 26.14915211510379,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 626.5595124415746,
+    "request_s": 9.789992381899603,
+    "ttft_s": {
+      "p50": 0.8380766129121184,
+      "p95": 8.740409940015525,
+      "p99": 9.144214810919948
+    },
+    "e2e_s": {
+      "p50": 12.519333494012244,
+      "p95": 20.51734827400651,
+      "p99": 20.921958292019553
+    },
+    "itl_s": {
+      "p50": 0.06607370905112475,
+      "p95": 0.4271511120023206,
+      "p99": 0.43293088395148516
+    },
+    "repeat": 1,
+    "initialization_s": 25.97086716501508,
+    "peak_active": 128,
+    "preprocessing_wall_s": 2.682971080997959,
+    "pipeline_wall_s": 28.83212914399337,
+    "pipeline_output_tok_s": 568.254946354293,
+    "pipeline_ttft_s": {
+      "p50": 15.259051167988218,
+      "p95": 23.60574942198582,
+      "p99": 24.441723095951602
+    },
+    "pipeline_e2e_s": {
+      "p50": 27.37474261294119,
+      "p95": 28.649468849995174,
+      "p99": 28.772277176962234
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_medium_c128_eager",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": false,
+    "wall_s": 26.41205917892512,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 620.3227052085824,
+    "request_s": 9.6925422688841,
+    "ttft_s": {
+      "p50": 0.8524665069999173,
+      "p95": 8.845023296074942,
+      "p99": 9.253544877050444
+    },
+    "e2e_s": {
+      "p50": 12.679544360027649,
+      "p95": 20.764789110980928,
+      "p99": 21.178681168006733
+    },
+    "itl_s": {
+      "p50": 0.06582988798618317,
+      "p95": 0.4345338139683008,
+      "p99": 0.4390804130816832
+    },
+    "repeat": 2,
+    "initialization_s": 25.97086716501508,
+    "peak_active": 128,
+    "preprocessing_wall_s": 2.663658799021505,
+    "pipeline_wall_s": 29.075724042020738,
+    "pipeline_output_tok_s": 563.4941360814114,
+    "pipeline_ttft_s": {
+      "p50": 15.34332649409771,
+      "p95": 23.843140403041616,
+      "p99": 24.689632393070497
+    },
+    "pipeline_e2e_s": {
+      "p50": 27.623916740063578,
+      "p95": 28.89305462804623,
+      "p99": 29.014091477030888
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_medium_c128_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 28.063011803897098,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 583.8289957788764,
+    "request_s": 9.122328059044944,
+    "ttft_s": {
+      "p50": 1.538643155945465,
+      "p95": 11.795532670104876,
+      "p99": 12.252847958938219
+    },
+    "e2e_s": {
+      "p50": 14.592423816910014,
+      "p95": 23.57030157605186,
+      "p99": 24.002319164923392
+    },
+    "itl_s": {
+      "p50": 0.049530526041053236,
+      "p95": 0.47585300891660154,
+      "p99": 0.5407318460056558
+    },
+    "repeat": 0,
+    "initialization_s": 27.090096724103205,
+    "peak_active": 128,
+    "preprocessing_wall_s": 2.779069707961753,
+    "pipeline_wall_s": 30.842085587908514,
+    "pipeline_output_tok_s": 531.2221818884799,
+    "pipeline_ttft_s": {
+      "p50": 17.8059065080015,
+      "p95": 26.782502895919606,
+      "p99": 27.66426001500804
+    },
+    "pipeline_e2e_s": {
+      "p50": 29.931928302976303,
+      "p95": 30.766772144008428,
+      "p99": 30.817509350948967
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_medium_c128_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 23.682124297018163,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 691.8298288833373,
+    "request_s": 10.809841076302146,
+    "ttft_s": {
+      "p50": 0.8195157540030777,
+      "p95": 8.39593140699435,
+      "p99": 8.79063214501366
+    },
+    "e2e_s": {
+      "p50": 11.50759960594587,
+      "p95": 19.295657910988666,
+      "p99": 19.692149949027225
+    },
+    "itl_s": {
+      "p50": 0.04942217899952084,
+      "p95": 0.41976632608566433,
+      "p99": 0.4220708829816431
+    },
+    "repeat": 1,
+    "initialization_s": 27.090096724103205,
+    "peak_active": 128,
+    "preprocessing_wall_s": 2.6658894029678777,
+    "pipeline_wall_s": 26.34802044206299,
+    "pipeline_output_tok_s": 621.8303965577602,
+    "pipeline_ttft_s": {
+      "p50": 14.173620759975165,
+      "p95": 22.35885862505529,
+      "p99": 23.176170142018236
+    },
+    "pipeline_e2e_s": {
+      "p50": 25.44459431001451,
+      "p95": 26.27288862306159,
+      "p99": 26.323560319026
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_medium_c128_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 23.70492478494998,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 691.1643951050221,
+    "request_s": 10.79944367351597,
+    "ttft_s": {
+      "p50": 0.8206621549325064,
+      "p95": 8.401836208999157,
+      "p99": 8.79676976299379
+    },
+    "e2e_s": {
+      "p50": 11.512792362016626,
+      "p95": 19.30724244902376,
+      "p99": 19.706388102960773
+    },
+    "itl_s": {
+      "p50": 0.04951279691886157,
+      "p95": 0.4188798910472542,
+      "p99": 0.4225573029834777
+    },
+    "repeat": 2,
+    "initialization_s": 27.090096724103205,
+    "peak_active": 128,
+    "preprocessing_wall_s": 2.641034369939007,
+    "pipeline_wall_s": 26.345965101965703,
+    "pipeline_output_tok_s": 621.8789077033117,
+    "pipeline_ttft_s": {
+      "p50": 14.15395530196838,
+      "p95": 22.348222069907933,
+      "p99": 23.16664112592116
+    },
+    "pipeline_e2e_s": {
+      "p50": 25.434989023953676,
+      "p95": 26.27123028994538,
+      "p99": 26.32189548597671
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_medium_c256_eager",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": false,
+    "wall_s": 54.03321451798547,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 606.4418023675578,
+    "request_s": 9.47565316199309,
+    "ttft_s": {
+      "p50": 1.9168512240285054,
+      "p95": 22.054818819044158,
+      "p99": 24.05177184101194
+    },
+    "e2e_s": {
+      "p50": 25.82985719793942,
+      "p95": 45.1219072350068,
+      "p99": 46.97448614996392
+    },
+    "itl_s": {
+      "p50": 0.43762800202239305,
+      "p95": 0.5336496019735932,
+      "p99": 0.5531568700680509
+    },
+    "repeat": 0,
+    "initialization_s": 25.22388446808327,
+    "peak_active": 256,
+    "preprocessing_wall_s": 5.572414346970618,
+    "pipeline_wall_s": 59.60563565103803,
+    "pipeline_output_tok_s": 549.7466748251908,
+    "pipeline_ttft_s": {
+      "p50": 31.935882506077178,
+      "p95": 52.548764609964564,
+      "p99": 54.32936652400531
+    },
+    "pipeline_e2e_s": {
+      "p50": 55.91415804007556,
+      "p95": 59.29707591305487,
+      "p99": 59.544663697015494
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_medium_c256_eager",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": false,
+    "wall_s": 47.63530340697616,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 687.8931728437599,
+    "request_s": 10.748330825683748,
+    "ttft_s": {
+      "p50": 1.708672733977437,
+      "p95": 17.934143777005374,
+      "p99": 19.712147491052747
+    },
+    "e2e_s": {
+      "p50": 22.35426171903964,
+      "p95": 39.42707566393074,
+      "p99": 41.1304118570406
+    },
+    "itl_s": {
+      "p50": 0.41467119299340993,
+      "p95": 0.44621657102834433,
+      "p99": 0.5692908839555457
+    },
+    "repeat": 1,
+    "initialization_s": 25.22388446808327,
+    "peak_active": 256,
+    "preprocessing_wall_s": 5.299052312038839,
+    "pipeline_wall_s": 52.934365527005866,
+    "pipeline_output_tok_s": 619.0307501330594,
+    "pipeline_ttft_s": {
+      "p50": 27.335697154980153,
+      "p95": 46.43140741402749,
+      "p99": 48.142241375055164
+    },
+    "pipeline_e2e_s": {
+      "p50": 49.61060609202832,
+      "p95": 52.63057054602541,
+      "p99": 52.874162729945965
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_medium_c256_eager",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": false,
+    "wall_s": 47.01161583897192,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 697.0192241900314,
+    "request_s": 10.890925377969241,
+    "ttft_s": {
+      "p50": 1.7068443120224401,
+      "p95": 17.768524499959312,
+      "p99": 19.48780943104066
+    },
+    "e2e_s": {
+      "p50": 22.072008642950095,
+      "p95": 38.75057874806225,
+      "p99": 40.45229920500424
+    },
+    "itl_s": {
+      "p50": 0.4142998330062255,
+      "p95": 0.44286998896859586,
+      "p99": 0.44728661596309394
+    },
+    "repeat": 2,
+    "initialization_s": 25.22388446808327,
+    "peak_active": 256,
+    "preprocessing_wall_s": 5.327266811043955,
+    "pipeline_wall_s": 52.33889308501966,
+    "pipeline_output_tok_s": 626.0736150222251,
+    "pipeline_ttft_s": {
+      "p50": 26.952236131066456,
+      "p95": 45.781511530978605,
+      "p99": 47.48722162202466
+    },
+    "pipeline_e2e_s": {
+      "p50": 48.947273096069694,
+      "p95": 52.03792167606298,
+      "p99": 52.27856204099953
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_medium_c256_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 51.344597209012136,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 638.1976250901132,
+    "request_s": 9.971837892033019,
+    "ttft_s": {
+      "p50": 1.9155919899931177,
+      "p95": 21.471763289999217,
+      "p99": 23.303811787976883
+    },
+    "e2e_s": {
+      "p50": 24.919627244002186,
+      "p95": 43.35677855601534,
+      "p99": 45.127315417979844
+    },
+    "itl_s": {
+      "p50": 0.4351248659659177,
+      "p95": 0.48036011902149767,
+      "p99": 0.5381295209517702
+    },
+    "repeat": 0,
+    "initialization_s": 27.297615371993743,
+    "peak_active": 256,
+    "preprocessing_wall_s": 6.211623821058311,
+    "pipeline_wall_s": 57.556227269000374,
+    "pipeline_output_tok_s": 569.3215409490322,
+    "pipeline_ttft_s": {
+      "p50": 31.591848801006563,
+      "p95": 51.34079887601547,
+      "p99": 53.13470595295075
+    },
+    "pipeline_e2e_s": {
+      "p50": 54.71826444705948,
+      "p95": 57.422296573990025,
+      "p99": 57.531297262059525
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_medium_c256_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 46.49705409503076,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 704.7328188368386,
+    "request_s": 11.011450294325604,
+    "ttft_s": {
+      "p50": 1.7150995170231909,
+      "p95": 17.30254869000055,
+      "p99": 19.00636290491093
+    },
+    "e2e_s": {
+      "p50": 22.019121443969198,
+      "p95": 38.69947906397283,
+      "p99": 40.40121901396196
+    },
+    "itl_s": {
+      "p50": 0.414778342936188,
+      "p95": 0.4450517889345065,
+      "p99": 0.5597730230074376
+    },
+    "repeat": 1,
+    "initialization_s": 27.297615371993743,
+    "peak_active": 256,
+    "preprocessing_wall_s": 5.33420398097951,
+    "pipeline_wall_s": 51.83126857900061,
+    "pipeline_output_tok_s": 632.2052478815061,
+    "pipeline_ttft_s": {
+      "p50": 26.582389745046385,
+      "p95": 45.7373800619971,
+      "p99": 47.45446154999081
+    },
+    "pipeline_e2e_s": {
+      "p50": 48.88455812702887,
+      "p95": 51.70188417704776,
+      "p99": 51.8079030480003
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_medium_c256_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 46.125152191962115,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 710.4150001202648,
+    "request_s": 11.100234376879138,
+    "ttft_s": {
+      "p50": 1.7142378569114953,
+      "p95": 17.515457203960977,
+      "p99": 19.23962186591234
+    },
+    "e2e_s": {
+      "p50": 21.78378741897177,
+      "p95": 38.473992179031484,
+      "p99": 40.18175751797389
+    },
+    "itl_s": {
+      "p50": 0.4176681760000065,
+      "p95": 0.44614983594510704,
+      "p99": 0.447618126985617
+    },
+    "repeat": 2,
+    "initialization_s": 27.297615371993743,
+    "peak_active": 256,
+    "preprocessing_wall_s": 5.244183894945309,
+    "pipeline_wall_s": 51.36934544891119,
+    "pipeline_output_tok_s": 637.8901602433118,
+    "pipeline_ttft_s": {
+      "p50": 26.581988348974846,
+      "p95": 45.42787148896605,
+      "p99": 47.1316711489344
+    },
+    "pipeline_e2e_s": {
+      "p50": 48.55855837895069,
+      "p95": 51.23798125889152,
+      "p99": 51.3450844649924
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_small_c128_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 9.871147257974371,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 4096,
+    "output_tok_s": 414.94670203517234,
+    "request_s": 25.93416887719827,
+    "ttft_s": {
+      "p50": 2.2742437859997153,
+      "p95": 4.765492746955715,
+      "p99": 4.765603394014761
+    },
+    "e2e_s": {
+      "p50": 5.369940626900643,
+      "p95": 7.764580225921236,
+      "p99": 7.764690872980282
+    },
+    "itl_s": {
+      "p50": 0.04621507599949837,
+      "p95": 1.1986274369992316,
+      "p99": 1.2860730530228466
+    },
+    "repeat": 0,
+    "initialization_s": 27.486149578006007,
+    "peak_active": 128,
+    "preprocessing_wall_s": 2.5068633630871773,
+    "pipeline_wall_s": 12.378014520043507,
+    "pipeline_output_tok_s": 330.90929028782585,
+    "pipeline_ttft_s": {
+      "p50": 9.075679956004024,
+      "p95": 11.4621602720581,
+      "p99": 11.4621602720581
+    },
+    "pipeline_e2e_s": {
+      "p50": 12.276140623027459,
+      "p95": 12.354737117071636,
+      "p99": 12.354737117071636
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_small_c128_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 7.757451941957697,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 4096,
+    "output_tok_s": 528.0084273350096,
+    "request_s": 33.0005267084381,
+    "ttft_s": {
+      "p50": 1.0655422520358115,
+      "p95": 3.104359417920932,
+      "p99": 3.1044017679523677
+    },
+    "e2e_s": {
+      "p50": 3.9535313160158694,
+      "p95": 5.774610421969555,
+      "p99": 5.774652772000991
+    },
+    "itl_s": {
+      "p50": 0.045914935995824635,
+      "p95": 1.0469611609587446,
+      "p99": 1.066387903993018
+    },
+    "repeat": 1,
+    "initialization_s": 27.486149578006007,
+    "peak_active": 128,
+    "preprocessing_wall_s": 2.4371946019819006,
+    "pipeline_wall_s": 10.1946535439929,
+    "pipeline_output_tok_s": 401.77922499519644,
+    "pipeline_ttft_s": {
+      "p50": 7.165316994069144,
+      "p95": 9.278666059020907,
+      "p99": 9.278666059020907
+    },
+    "pipeline_e2e_s": {
+      "p50": 10.094126533018425,
+      "p95": 10.171942022047006,
+      "p99": 10.171942022047006
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_small_c128_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 7.772956432076171,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 4096,
+    "output_tok_s": 526.9552242821399,
+    "request_s": 32.93470151763374,
+    "ttft_s": {
+      "p50": 1.0584836129564792,
+      "p95": 3.122852586908266,
+      "p99": 3.122892290004529
+    },
+    "e2e_s": {
+      "p50": 3.9519144269870594,
+      "p95": 5.809713837923482,
+      "p99": 5.809753541019745
+    },
+    "itl_s": {
+      "p50": 0.04555087396875024,
+      "p95": 1.0474043599097058,
+      "p99": 1.0593329280382022
+    },
+    "repeat": 2,
+    "initialization_s": 27.486149578006007,
+    "peak_active": 128,
+    "preprocessing_wall_s": 2.4035967939998955,
+    "pipeline_wall_s": 10.17655873496551,
+    "pipeline_output_tok_s": 402.4936235003101,
+    "pipeline_ttft_s": {
+      "p50": 7.166371639003046,
+      "p95": 9.273108926950954,
+      "p99": 9.273108926950954
+    },
+    "pipeline_e2e_s": {
+      "p50": 10.076762515935116,
+      "p95": 10.153769215918146,
+      "p99": 10.153769215918146
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_small_c256_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 17.787826122017577,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 8192,
+    "output_tok_s": 460.53969404726934,
+    "request_s": 28.783730877954333,
+    "ttft_s": {
+      "p50": 2.259821633109823,
+      "p95": 8.300666671944782,
+      "p99": 8.6837343480438
+    },
+    "e2e_s": {
+      "p50": 9.378097265958786,
+      "p95": 15.006712867994793,
+      "p99": 16.130021554999985
+    },
+    "itl_s": {
+      "p50": 0.07634796702768654,
+      "p95": 1.1750677439849824,
+      "p99": 1.2185774879762903
+    },
+    "repeat": 0,
+    "initialization_s": 26.541711133089848,
+    "peak_active": 256,
+    "preprocessing_wall_s": 4.980781859951094,
+    "pipeline_wall_s": 22.768613623920828,
+    "pipeline_output_tok_s": 359.7935357554419,
+    "pipeline_ttft_s": {
+      "p50": 15.483732322929427,
+      "p95": 21.112056355923414,
+      "p99": 21.75282456795685
+    },
+    "pipeline_e2e_s": {
+      "p50": 22.434561265981756,
+      "p95": 22.73852255998645,
+      "p99": 22.767807449912652
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_small_c256_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 16.046089727897197,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 8192,
+    "output_tok_s": 510.5293650301395,
+    "request_s": 31.90808531438372,
+    "ttft_s": {
+      "p50": 2.1205170899629593,
+      "p95": 6.461910568992607,
+      "p99": 6.844826273038052
+    },
+    "e2e_s": {
+      "p50": 8.1799449629616,
+      "p95": 13.223343127057888,
+      "p99": 14.390810622018762
+    },
+    "itl_s": {
+      "p50": 0.07662118296138942,
+      "p95": 1.1811509419931099,
+      "p99": 1.199644003994763
+    },
+    "repeat": 1,
+    "initialization_s": 26.541711133089848,
+    "peak_active": 256,
+    "preprocessing_wall_s": 4.846344885067083,
+    "pipeline_wall_s": 20.892444501980208,
+    "pipeline_output_tok_s": 392.10347066967455,
+    "pipeline_ttft_s": {
+      "p50": 13.527607860974967,
+      "p95": 19.238403750001453,
+      "p99": 19.869029097026214
+    },
+    "pipeline_e2e_s": {
+      "p50": 20.556316395988688,
+      "p95": 20.863040375057608,
+      "p99": 20.891624921001494
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_multimodal_small_c256_graph",
+    "scope": "multimodal",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 16.04958405101206,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 8192,
+    "output_tok_s": 510.41821233263835,
+    "request_s": 31.901138270789897,
+    "ttft_s": {
+      "p50": 2.11952268704772,
+      "p95": 6.4697736740345135,
+      "p99": 6.851629443001002
+    },
+    "e2e_s": {
+      "p50": 8.175174058997072,
+      "p95": 13.243924056063406,
+      "p99": 14.40572628902737
+    },
+    "itl_s": {
+      "p50": 0.07608434988651425,
+      "p95": 1.1860364739550278,
+      "p99": 1.2088357950560749
+    },
+    "repeat": 2,
+    "initialization_s": 26.541711133089848,
+    "peak_active": 256,
+    "preprocessing_wall_s": 4.841804435942322,
+    "pipeline_wall_s": 20.891397278988734,
+    "pipeline_output_tok_s": 392.12312563884865,
+    "pipeline_ttft_s": {
+      "p50": 13.530316974036396,
+      "p95": 19.248763820971362,
+      "p99": 19.876905473996885
+    },
+    "pipeline_e2e_s": {
+      "p50": 20.55828440201003,
+      "p95": 20.862178587936796,
+      "p99": 20.890599495032802
+    },
+    "measurement": "engine window includes vision + Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_large_c128_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 47.42203083704226,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 345.4934280714554,
+    "request_s": 5.398334813616491,
+    "ttft_s": {
+      "p50": 2.171646678005345,
+      "p95": 21.823415301041678,
+      "p99": 23.52142162702512
+    },
+    "e2e_s": {
+      "p50": 22.44278371206019,
+      "p95": 40.899036132963374,
+      "p99": 42.32207509095315
+    },
+    "itl_s": {
+      "p50": 0.290704787010327,
+      "p95": 0.3362048529088497,
+      "p99": 0.4535678339889273
+    },
+    "repeat": 0,
+    "initialization_s": 24.303918800898828,
+    "peak_active": 128,
+    "preprocessing_wall_s": 0.5058227850822732,
+    "pipeline_wall_s": 47.92786024406087,
+    "pipeline_output_tok_s": 341.847099298164,
+    "pipeline_ttft_s": {
+      "p50": 24.653924509999342,
+      "p95": 43.40568548499141,
+      "p99": 44.83626803802326
+    },
+    "pipeline_e2e_s": {
+      "p50": 43.40568548499141,
+      "p95": 47.74187144602183,
+      "p99": 47.87670912698377
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_large_c128_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 40.31518182903528,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 406.3977701869157,
+    "request_s": 6.349965159170558,
+    "ttft_s": {
+      "p50": 1.9364767249207944,
+      "p95": 16.4948977510212,
+      "p99": 17.882327658007853
+    },
+    "e2e_s": {
+      "p50": 18.78877113200724,
+      "p95": 33.916854262002744,
+      "p99": 35.29603517893702
+    },
+    "itl_s": {
+      "p50": 0.27435755101032555,
+      "p95": 0.2806941580493003,
+      "p99": 0.282023619976826
+    },
+    "repeat": 1,
+    "initialization_s": 24.303918800898828,
+    "peak_active": 128,
+    "preprocessing_wall_s": 0.46484852489084005,
+    "pipeline_wall_s": 40.780050568981096,
+    "pipeline_output_tok_s": 401.765073152271,
+    "pipeline_ttft_s": {
+      "p50": 18.907060837955214,
+      "p95": 36.31178829597775,
+      "p99": 37.69666634500027
+    },
+    "pipeline_e2e_s": {
+      "p50": 36.31178829597775,
+      "p95": 40.5945718359435,
+      "p99": 40.72866174089722
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_large_c128_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 40.1754413068993,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 407.8113261990824,
+    "request_s": 6.372051971860662,
+    "ttft_s": {
+      "p50": 1.933368809055537,
+      "p95": 16.400077113998123,
+      "p99": 17.77564014401287
+    },
+    "e2e_s": {
+      "p50": 18.7546688769944,
+      "p95": 33.78033221606165,
+      "p99": 35.152756082010455
+    },
+    "itl_s": {
+      "p50": 0.2738341148942709,
+      "p95": 0.2793330609565601,
+      "p99": 0.2816854129778221
+    },
+    "repeat": 2,
+    "initialization_s": 24.303918800898828,
+    "peak_active": 128,
+    "preprocessing_wall_s": 0.4445901910075918,
+    "pipeline_wall_s": 40.620041096932255,
+    "pipeline_output_tok_s": 403.3476962985487,
+    "pipeline_ttft_s": {
+      "p50": 18.775053328019567,
+      "p95": 36.14963384193834,
+      "p99": 37.5330402610125
+    },
+    "pipeline_e2e_s": {
+      "p50": 36.14963384193834,
+      "p95": 40.433962946990505,
+      "p99": 40.569050772930495
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_large_c256_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 86.31867654400412,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 379.61657096648497,
+    "request_s": 5.931508921351328,
+    "ttft_s": {
+      "p50": 21.61536477203481,
+      "p95": 40.52130804292392,
+      "p99": 43.90697575500235
+    },
+    "e2e_s": {
+      "p50": 39.10859584098216,
+      "p95": 58.24214315100107,
+      "p99": 61.58621071500238
+    },
+    "itl_s": {
+      "p50": 0.2804589900188148,
+      "p95": 0.330447432002984,
+      "p99": 0.4410153409698978
+    },
+    "repeat": 0,
+    "initialization_s": 24.402081290027127,
+    "peak_active": 256,
+    "preprocessing_wall_s": 0.9371089990017936,
+    "pipeline_wall_s": 87.25579474202823,
+    "pipeline_output_tok_s": 375.5395283130318,
+    "pipeline_ttft_s": {
+      "p50": 45.6908226480009,
+      "p95": 80.57114401401486,
+      "p99": 83.9030849209521
+    },
+    "pipeline_e2e_s": {
+      "p50": 63.377932028030045,
+      "p95": 86.83048606396187,
+      "p99": 87.17848286102526
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_large_c256_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 78.49691568303388,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 417.44315321018905,
+    "request_s": 6.522549268909204,
+    "ttft_s": {
+      "p50": 21.118201631004922,
+      "p95": 33.41777691198513,
+      "p99": 36.7168840180384
+    },
+    "e2e_s": {
+      "p50": 37.8977722650161,
+      "p95": 50.714163901051506,
+      "p99": 53.99649256502744
+    },
+    "itl_s": {
+      "p50": 0.2739351619966328,
+      "p95": 0.2783218240365386,
+      "p99": 0.27996569604147226
+    },
+    "repeat": 1,
+    "initialization_s": 24.402081290027127,
+    "peak_active": 256,
+    "preprocessing_wall_s": 0.8776542780688033,
+    "pipeline_wall_s": 79.3745818050811,
+    "pipeline_output_tok_s": 412.8273718716132,
+    "pipeline_ttft_s": {
+      "p50": 38.42225053708535,
+      "p95": 72.73167427408043,
+      "p99": 76.02728743711486
+    },
+    "pipeline_e2e_s": {
+      "p50": 55.70292875310406,
+      "p95": 78.94637363310903,
+      "p99": 79.297104446101
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_large_c256_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 78.46360789902974,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 417.6203577353623,
+    "request_s": 6.525318089615036,
+    "ttft_s": {
+      "p50": 21.074354519951157,
+      "p95": 33.3841551769292,
+      "p99": 36.66879551298916
+    },
+    "e2e_s": {
+      "p50": 37.79460522404406,
+      "p95": 50.62332786701154,
+      "p99": 53.9101735240547
+    },
+    "itl_s": {
+      "p50": 0.2733804649906233,
+      "p95": 0.2784881889820099,
+      "p99": 0.28118618798907846
+    },
+    "repeat": 2,
+    "initialization_s": 24.402081290027127,
+    "peak_active": 256,
+    "preprocessing_wall_s": 0.8713545360369608,
+    "pipeline_wall_s": 79.33497499709483,
+    "pipeline_output_tok_s": 413.0334698057185,
+    "pipeline_ttft_s": {
+      "p50": 38.369344519102015,
+      "p95": 72.66073699505068,
+      "p99": 75.96426172601059
+    },
+    "pipeline_e2e_s": {
+      "p50": 55.61205432808492,
+      "p95": 78.90332417201716,
+      "p99": 79.25660507509019
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_medium_c128_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 19.817263253964484,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 826.7539160192741,
+    "request_s": 12.918029937801158,
+    "ttft_s": {
+      "p50": 1.3162541000638157,
+      "p95": 7.555092517985031,
+      "p99": 8.228525317041203
+    },
+    "e2e_s": {
+      "p50": 10.388234571088105,
+      "p95": 15.736904761986807,
+      "p99": 16.377418040996417
+    },
+    "itl_s": {
+      "p50": 0.04821208899375051,
+      "p95": 0.3554345259908587,
+      "p99": 0.37925649096723646
+    },
+    "repeat": 0,
+    "initialization_s": 23.91471957799513,
+    "peak_active": 128,
+    "preprocessing_wall_s": 0.20685009600128978,
+    "pipeline_wall_s": 20.024120346992277,
+    "pipeline_output_tok_s": 818.2132206602004,
+    "pipeline_ttft_s": {
+      "p50": 10.944940285058692,
+      "p95": 16.584773618960753,
+      "p99": 16.90213954797946
+    },
+    "pipeline_e2e_s": {
+      "p50": 19.284223768045194,
+      "p95": 19.973659668001346,
+      "p99": 19.999410853954032
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_medium_c128_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 15.396637398051098,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 1064.1284571703873,
+    "request_s": 16.6270071432873,
+    "ttft_s": {
+      "p50": 0.5455632249359041,
+      "p95": 4.421799644944258,
+      "p99": 4.960973927984014
+    },
+    "e2e_s": {
+      "p50": 7.404173205955885,
+      "p95": 11.476195837021805,
+      "p99": 12.021136702038348
+    },
+    "itl_s": {
+      "p50": 0.048194602015428245,
+      "p95": 0.2727992560248822,
+      "p99": 0.27510825102217495
+    },
+    "repeat": 1,
+    "initialization_s": 23.91471957799513,
+    "peak_active": 128,
+    "preprocessing_wall_s": 0.1443147090030834,
+    "pipeline_wall_s": 15.540961596998386,
+    "pipeline_output_tok_s": 1054.246218790248,
+    "pipeline_ttft_s": {
+      "p50": 7.548565850011073,
+      "p95": 12.16590282204561,
+      "p99": 12.440234411042184
+    },
+    "pipeline_e2e_s": {
+      "p50": 14.800524048041552,
+      "p95": 15.490591504960321,
+      "p99": 15.515917890006676
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_medium_c128_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 15.362227699020877,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 1066.5119877792363,
+    "request_s": 16.664249809050567,
+    "ttft_s": {
+      "p50": 0.5447362130507827,
+      "p95": 4.39947281498462,
+      "p99": 4.926939836004749
+    },
+    "e2e_s": {
+      "p50": 7.364593174075708,
+      "p95": 11.435618233983405,
+      "p99": 11.97382372803986
+    },
+    "itl_s": {
+      "p50": 0.04829296504613012,
+      "p95": 0.2716894350014627,
+      "p99": 0.2767041639890522
+    },
+    "repeat": 2,
+    "initialization_s": 23.91471957799513,
+    "peak_active": 128,
+    "preprocessing_wall_s": 0.1413634589407593,
+    "pipeline_wall_s": 15.50359961797949,
+    "pipeline_output_tok_s": 1056.7868368452648,
+    "pipeline_ttft_s": {
+      "p50": 7.506032867007889,
+      "p95": 12.115641045966186,
+      "p99": 12.393435010919347
+    },
+    "pipeline_e2e_s": {
+      "p50": 14.766313198953867,
+      "p95": 15.453781021991745,
+      "p99": 15.479273658944294
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_medium_c256_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 35.36688118800521,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 926.5165290037894,
+    "request_s": 14.47682076568421,
+    "ttft_s": {
+      "p50": 1.4179313270142302,
+      "p95": 13.932300467975438,
+      "p99": 15.2950922800228
+    },
+    "e2e_s": {
+      "p50": 17.229661902063526,
+      "p95": 28.680473868967965,
+      "p99": 29.94311148498673
+    },
+    "itl_s": {
+      "p50": 0.07837956596631557,
+      "p95": 0.3675609660567716,
+      "p99": 0.4568771329941228
+    },
+    "repeat": 0,
+    "initialization_s": 24.04252156300936,
+    "peak_active": 256,
+    "preprocessing_wall_s": 0.26771105197258294,
+    "pipeline_wall_s": 35.63459829299245,
+    "pipeline_output_tok_s": 919.5557567557548,
+    "pipeline_ttft_s": {
+      "p50": 17.858218042063527,
+      "p95": 30.212486007018015,
+      "p99": 31.31480917497538
+    },
+    "pipeline_e2e_s": {
+      "p50": 33.30988308403175,
+      "p95": 35.531080155982636,
+      "p99": 35.61002600798383
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_medium_c256_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 29.649991092970595,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 1105.1605343574158,
+    "request_s": 17.268133349334622,
+    "ttft_s": {
+      "p50": 1.1974240450654179,
+      "p95": 9.801105219055898,
+      "p99": 10.998686578008346
+    },
+    "e2e_s": {
+      "p50": 13.864552241982892,
+      "p95": 23.214950043009594,
+      "p99": 24.413958479068242
+    },
+    "itl_s": {
+      "p50": 0.07866720401216298,
+      "p95": 0.30414378095883876,
+      "p99": 0.30733989202417433
+    },
+    "repeat": 1,
+    "initialization_s": 24.04252156300936,
+    "peak_active": 256,
+    "preprocessing_wall_s": 0.265272602904588,
+    "pipeline_wall_s": 29.91527477093041,
+    "pipeline_output_tok_s": 1095.3601546672628,
+    "pipeline_ttft_s": {
+      "p50": 13.523683881969191,
+      "p95": 24.681293420959264,
+      "p99": 25.580719301942736
+    },
+    "pipeline_e2e_s": {
+      "p50": 27.587157557951286,
+      "p95": 29.811440959922038,
+      "p99": 29.89126118889544
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_medium_c256_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 29.643091516103595,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 1105.4177659640798,
+    "request_s": 17.272152593188746,
+    "ttft_s": {
+      "p50": 1.205954906065017,
+      "p95": 9.771275645005517,
+      "p99": 10.974995559081435
+    },
+    "e2e_s": {
+      "p50": 13.844217502046376,
+      "p95": 23.210904425010085,
+      "p99": 24.415806299075484
+    },
+    "itl_s": {
+      "p50": 0.07857022108510137,
+      "p95": 0.3048988200025633,
+      "p99": 0.3085193959996104
+    },
+    "repeat": 2,
+    "initialization_s": 24.04252156300936,
+    "peak_active": 256,
+    "preprocessing_wall_s": 0.2561182719655335,
+    "pipeline_wall_s": 29.899220871040598,
+    "pipeline_output_tok_s": 1095.9482904699369,
+    "pipeline_ttft_s": {
+      "p50": 13.488818906946108,
+      "p95": 24.67413940501865,
+      "p99": 25.582155106938444
+    },
+    "pipeline_e2e_s": {
+      "p50": 27.582316708983853,
+      "p95": 29.79651788098272,
+      "p99": 29.875619626021944
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_small_c128_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 4.497924638912082,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 4096,
+    "output_tok_s": 910.642202531589,
+    "request_s": 56.91513765822431,
+    "ttft_s": {
+      "p50": 1.349444478051737,
+      "p95": 1.8405652329092845,
+      "p99": 2.0921050490578637
+    },
+    "e2e_s": {
+      "p50": 2.7015276650199667,
+      "p95": 3.141737825004384,
+      "p99": 3.561674271011725
+    },
+    "itl_s": {
+      "p50": 0.04684180102776736,
+      "p95": 0.4201107259141281,
+      "p99": 0.49114795692730695
+    },
+    "repeat": 0,
+    "initialization_s": 23.952720438013785,
+    "peak_active": 128,
+    "preprocessing_wall_s": 0.1016994109377265,
+    "pipeline_wall_s": 4.599629328935407,
+    "pipeline_output_tok_s": 890.506540218976,
+    "pipeline_ttft_s": {
+      "p50": 3.243725043023005,
+      "p95": 3.6638357689371333,
+      "p99": 3.9191298040095717
+    },
+    "pipeline_e2e_s": {
+      "p50": 4.526353992987424,
+      "p95": 4.573536255978979,
+      "p99": 4.599273524014279
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_small_c128_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 2.8380938870832324,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 4096,
+    "output_tok_s": 1443.2221635238232,
+    "request_s": 90.20138522023895,
+    "ttft_s": {
+      "p50": 0.27711061597801745,
+      "p95": 0.4960714449407533,
+      "p99": 0.7388848209520802
+    },
+    "e2e_s": {
+      "p50": 1.4177941979141906,
+      "p95": 1.6198991290293634,
+      "p99": 1.8982825509738177
+    },
+    "itl_s": {
+      "p50": 0.046782716060988605,
+      "p95": 0.2655103269498795,
+      "p99": 0.278570118942298
+    },
+    "repeat": 1,
+    "initialization_s": 23.952720438013785,
+    "peak_active": 128,
+    "preprocessing_wall_s": 0.07604320591781288,
+    "pipeline_wall_s": 2.914144707028754,
+    "pipeline_output_tok_s": 1405.558203791554,
+    "pipeline_ttft_s": {
+      "p50": 1.6962285760091618,
+      "p95": 1.9747986949514598,
+      "p99": 2.2263331819558516
+    },
+    "pipeline_e2e_s": {
+      "p50": 2.8401327709434554,
+      "p95": 2.887432602001354,
+      "p99": 2.9137670940253884
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_small_c128_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 128,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 2.8513575199758634,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 4096,
+    "output_tok_s": 1436.5087405926818,
+    "request_s": 89.78179628704261,
+    "ttft_s": {
+      "p50": 0.2794835929526016,
+      "p95": 0.5008934829384089,
+      "p99": 0.7482239699456841
+    },
+    "e2e_s": {
+      "p50": 1.4169167719082907,
+      "p95": 1.640426950994879,
+      "p99": 1.919690427952446
+    },
+    "itl_s": {
+      "p50": 0.046946228947490454,
+      "p95": 0.26679851091466844,
+      "p99": 0.2829176780069247
+    },
+    "repeat": 2,
+    "initialization_s": 23.952720438013785,
+    "peak_active": 128,
+    "preprocessing_wall_s": 0.06545015098527074,
+    "pipeline_wall_s": 2.9168149729957804,
+    "pipeline_output_tok_s": 1404.2714529105392,
+    "pipeline_ttft_s": {
+      "p50": 1.7061228969832882,
+      "p95": 1.9855454799253494,
+      "p99": 2.2330223459284753
+    },
+    "pipeline_e2e_s": {
+      "p50": 2.8435634499182925,
+      "p95": 2.890504398033954,
+      "p99": 2.9165015219477937
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_small_c256_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 6.829820454004221,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 8192,
+    "output_tok_s": 1199.44587931256,
+    "request_s": 74.965367457035,
+    "ttft_s": {
+      "p50": 1.37945099407807,
+      "p95": 2.756318837055005,
+      "p99": 3.0483877540100366
+    },
+    "e2e_s": {
+      "p50": 3.8634791430085897,
+      "p95": 5.100487111019902,
+      "p99": 5.487054168013856
+    },
+    "itl_s": {
+      "p50": 0.07420642697252333,
+      "p95": 0.4324151570908725,
+      "p99": 0.4363868869841099
+    },
+    "repeat": 0,
+    "initialization_s": 23.79014985007234,
+    "peak_active": 256,
+    "preprocessing_wall_s": 0.14359531900845468,
+    "pipeline_wall_s": 6.97342079191003,
+    "pipeline_output_tok_s": 1174.7462607596635,
+    "pipeline_ttft_s": {
+      "p50": 4.443709994899109,
+      "p95": 5.930168944993056,
+      "p99": 5.930168944993056
+    },
+    "pipeline_e2e_s": {
+      "p50": 6.749106654897332,
+      "p95": 6.972185994964093,
+      "p99": 6.972185994964093
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_small_c256_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 4.692055260995403,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 8192,
+    "output_tok_s": 1745.9299910849934,
+    "request_s": 109.12062444281209,
+    "ttft_s": {
+      "p50": 0.2992114529479295,
+      "p95": 1.0656953069847077,
+      "p99": 1.3432599260704592
+    },
+    "e2e_s": {
+      "p50": 2.306365776923485,
+      "p95": 3.0623832689598203,
+      "p99": 3.3600293510826305
+    },
+    "itl_s": {
+      "p50": 0.07472081191372126,
+      "p95": 0.2999084199545905,
+      "p99": 0.30261910101398826
+    },
+    "repeat": 1,
+    "initialization_s": 23.79014985007234,
+    "peak_active": 256,
+    "preprocessing_wall_s": 0.1038661110214889,
+    "pipeline_wall_s": 4.7959290409926325,
+    "pipeline_output_tok_s": 1708.115347408157,
+    "pipeline_ttft_s": {
+      "p50": 2.5643588550155982,
+      "p95": 3.750506164971739,
+      "p99": 3.750506164971739
+    },
+    "pipeline_e2e_s": {
+      "p50": 4.572383207967505,
+      "p95": 4.794746038969606,
+      "p99": 4.794746038969606
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "offline_text_small_c256_graph",
+    "scope": "text",
+    "backend": "offline",
+    "concurrency": 256,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 4.698556265095249,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 8192,
+    "output_tok_s": 1743.5142920085757,
+    "request_s": 108.96964325053598,
+    "ttft_s": {
+      "p50": 0.2985509029822424,
+      "p95": 1.0629972310271114,
+      "p99": 1.3442736209835857
+    },
+    "e2e_s": {
+      "p50": 2.3040167500730604,
+      "p95": 3.067917076055892,
+      "p99": 3.3660610349616036
+    },
+    "itl_s": {
+      "p50": 0.07475951197557151,
+      "p95": 0.30040006106719375,
+      "p99": 0.30203976994380355
+    },
+    "repeat": 2,
+    "initialization_s": 23.79014985007234,
+    "peak_active": 256,
+    "preprocessing_wall_s": 0.09851347701624036,
+    "pipeline_wall_s": 4.797078632051125,
+    "pipeline_output_tok_s": 1707.7060078327884,
+    "pipeline_ttft_s": {
+      "p50": 2.56624253699556,
+      "p95": 3.7488943999633193,
+      "p99": 3.7488943999633193
+    },
+    "pipeline_e2e_s": {
+      "p50": 4.571974077029154,
+      "p95": 4.795900851022452,
+      "p99": 4.795900851022452
+    },
+    "measurement": "engine window includes text-only Thinker; pipeline also includes input preprocessing",
+    "quality_accuracy": null
+  },
+  {
+    "case": "online_multimodal_large_c128_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 95.7439172010636,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 171.12314263885156,
+    "request_s": 2.6737991037320556,
+    "ttft_s": {
+      "p50": 12.030501360073686,
+      "p95": 41.898787162965164,
+      "p99": 44.870513005997054
+    },
+    "e2e_s": {
+      "p50": 45.292940573068336,
+      "p95": 76.2473895540461,
+      "p99": 80.0450926820049
+    },
+    "itl_s": {
+      "p50": 0.7295135300373659,
+      "p95": 1.656153897056356,
+      "p99": 2.0042676670709625
+    },
+    "repeat": 0,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_large_c128_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 94.71873275307007,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 172.97528718751732,
+    "request_s": 2.702738862304958,
+    "ttft_s": {
+      "p50": 11.910846182960086,
+      "p95": 40.53337751806248,
+      "p99": 44.15327460295521
+    },
+    "e2e_s": {
+      "p50": 45.44904776196927,
+      "p95": 75.61045195406768,
+      "p99": 79.28932331397664
+    },
+    "itl_s": {
+      "p50": 0.7020757030695677,
+      "p95": 1.6462633920600638,
+      "p99": 1.9769088099710643
+    },
+    "repeat": 1,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_large_c128_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 94.20351147302426,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 173.92132993568563,
+    "request_s": 2.717520780245088,
+    "ttft_s": {
+      "p50": 12.161071927053854,
+      "p95": 40.537435928941704,
+      "p99": 43.85069723101333
+    },
+    "e2e_s": {
+      "p50": 44.67800563399214,
+      "p95": 74.54636590695009,
+      "p99": 78.12769499002025
+    },
+    "itl_s": {
+      "p50": 0.7012684979708865,
+      "p95": 1.6301472779596224,
+      "p99": 2.0012133079580963
+    },
+    "repeat": 2,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_large_c256_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 172.63321578502655,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 189.8128344014904,
+    "request_s": 2.9658255375232874,
+    "ttft_s": {
+      "p50": 53.242847436107695,
+      "p95": 75.4488585110521,
+      "p99": 82.48920037504286
+    },
+    "e2e_s": {
+      "p50": 84.24688020604663,
+      "p95": 107.5908359939931,
+      "p99": 114.99368395505007
+    },
+    "itl_s": {
+      "p50": 0.715917514055036,
+      "p95": 1.524295152979903,
+      "p99": 1.8237488850718364
+    },
+    "repeat": 0,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_large_c256_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 171.11978949804325,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 191.4915866605522,
+    "request_s": 2.992056041571128,
+    "ttft_s": {
+      "p50": 52.92145166301634,
+      "p95": 74.25190300901886,
+      "p99": 81.51130912394729
+    },
+    "e2e_s": {
+      "p50": 83.03223077603616,
+      "p95": 106.46421973302495,
+      "p99": 113.7300054760417
+    },
+    "itl_s": {
+      "p50": 0.7132146069779992,
+      "p95": 1.506970886955969,
+      "p99": 1.8235720669617876
+    },
+    "repeat": 1,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_large_c256_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 170.77158329600934,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 191.8820413066097,
+    "request_s": 2.9981568954157765,
+    "ttft_s": {
+      "p50": 52.91962814389262,
+      "p95": 74.10059099004138,
+      "p99": 81.26169948501047
+    },
+    "e2e_s": {
+      "p50": 83.8413445999613,
+      "p95": 106.33570958103519,
+      "p99": 113.51830107998103
+    },
+    "itl_s": {
+      "p50": 0.7063089229632169,
+      "p95": 1.5066016759956256,
+      "p99": 1.8070230879820883
+    },
+    "repeat": 2,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_medium_c128_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 28.418792156968266,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 576.5199277120811,
+    "request_s": 9.008123870501267,
+    "ttft_s": {
+      "p50": 1.3642892478965223,
+      "p95": 9.601559672970325,
+      "p99": 10.49818267999217
+    },
+    "e2e_s": {
+      "p50": 13.596244621905498,
+      "p95": 22.153966073994525,
+      "p99": 23.04989946493879
+    },
+    "itl_s": {
+      "p50": 0.13488053297623992,
+      "p95": 0.929078889079392,
+      "p99": 1.393311787978746
+    },
+    "repeat": 0,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_medium_c128_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 27.51581339898985,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 595.4394210494786,
+    "request_s": 9.303740953898103,
+    "ttft_s": {
+      "p50": 1.3071147009031847,
+      "p95": 9.012814244953915,
+      "p99": 9.859307483886369
+    },
+    "e2e_s": {
+      "p50": 13.229182765935548,
+      "p95": 21.286213980987668,
+      "p99": 22.152022855938412
+    },
+    "itl_s": {
+      "p50": 0.13704500906169415,
+      "p95": 0.891534412978217,
+      "p99": 1.334358911961317
+    },
+    "repeat": 1,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_medium_c128_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 27.19208120100666,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 602.5283566523573,
+    "request_s": 9.414505572693082,
+    "ttft_s": {
+      "p50": 1.293061555013992,
+      "p95": 8.817187301930971,
+      "p99": 9.646323118940927
+    },
+    "e2e_s": {
+      "p50": 13.124879264039919,
+      "p95": 20.950272132991813,
+      "p99": 21.799587184912525
+    },
+    "itl_s": {
+      "p50": 0.13691965595353395,
+      "p95": 0.8786904140142724,
+      "p99": 1.3109754680190235
+    },
+    "repeat": 2,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_medium_c256_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 51.45858707593288,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 636.7839045337013,
+    "request_s": 9.949748508339082,
+    "ttft_s": {
+      "p50": 2.308865446015261,
+      "p95": 18.242773229954764,
+      "p99": 20.074817363987677
+    },
+    "e2e_s": {
+      "p50": 24.14834375004284,
+      "p95": 41.61511362204328,
+      "p99": 43.51269310095813
+    },
+    "itl_s": {
+      "p50": 0.4233615619596094,
+      "p95": 1.2885145489126444,
+      "p99": 1.4256971320137382
+    },
+    "repeat": 0,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_medium_c256_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 51.53628234995995,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 635.8238993159634,
+    "request_s": 9.934748426811929,
+    "ttft_s": {
+      "p50": 2.3362928830320016,
+      "p95": 18.098542622989044,
+      "p99": 19.918398684007116
+    },
+    "e2e_s": {
+      "p50": 24.11353572399821,
+      "p95": 41.501422040048055,
+      "p99": 43.37241745402571
+    },
+    "itl_s": {
+      "p50": 0.42604949802625924,
+      "p95": 1.2858367699664086,
+      "p99": 1.4381034079706296
+    },
+    "repeat": 1,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_medium_c256_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 51.4453349650139,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 636.947937500734,
+    "request_s": 9.95231152344897,
+    "ttft_s": {
+      "p50": 2.306612050975673,
+      "p95": 18.073021810036153,
+      "p99": 19.903358201961964
+    },
+    "e2e_s": {
+      "p50": 24.08878571493551,
+      "p95": 41.34684263099916,
+      "p99": 43.22557139699347
+    },
+    "itl_s": {
+      "p50": 0.4241274930536747,
+      "p95": 1.287872748915106,
+      "p99": 1.4332711779279634
+    },
+    "repeat": 2,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_small_c128_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 11.886949831037782,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 4096,
+    "output_tok_s": 344.57956483546474,
+    "request_s": 21.536222802216546,
+    "ttft_s": {
+      "p50": 2.6967225129483268,
+      "p95": 6.174043186940253,
+      "p99": 6.179650315083563
+    },
+    "e2e_s": {
+      "p50": 6.994942820980214,
+      "p95": 8.561982987099327,
+      "p99": 8.57438057498075
+    },
+    "itl_s": {
+      "p50": 0.12199734791647643,
+      "p95": 1.180934639996849,
+      "p99": 1.5133805079385638
+    },
+    "repeat": 0,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_small_c128_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 9.17998196510598,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 4096,
+    "output_tok_s": 446.1882404093277,
+    "request_s": 27.88676502558298,
+    "ttft_s": {
+      "p50": 2.23431698710192,
+      "p95": 3.6368072889745235,
+      "p99": 3.6815751460380852
+    },
+    "e2e_s": {
+      "p50": 4.519939117017202,
+      "p95": 5.950049501028843,
+      "p99": 5.990944726974703
+    },
+    "itl_s": {
+      "p50": 0.1216495520202443,
+      "p95": 1.136894942028448,
+      "p99": 1.4038635810138658
+    },
+    "repeat": 1,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_small_c128_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 9.101198064046912,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 4096,
+    "output_tok_s": 450.0506385176596,
+    "request_s": 28.128164907353725,
+    "ttft_s": {
+      "p50": 2.192630997975357,
+      "p95": 3.5941928040701896,
+      "p99": 3.6001255291048437
+    },
+    "e2e_s": {
+      "p50": 4.473649108083919,
+      "p95": 5.921843254938722,
+      "p99": 5.943627290078439
+    },
+    "itl_s": {
+      "p50": 0.12188659003004432,
+      "p95": 1.1133819409878924,
+      "p99": 1.4103659379761666
+    },
+    "repeat": 2,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_small_c256_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 17.049572629039176,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 8192,
+    "output_tok_s": 480.48125183192104,
+    "request_s": 30.030078239495065,
+    "ttft_s": {
+      "p50": 2.4219965310767293,
+      "p95": 6.721594005939551,
+      "p99": 7.113117808010429
+    },
+    "e2e_s": {
+      "p50": 8.332807267084718,
+      "p95": 12.821443706052378,
+      "p99": 13.899605326005258
+    },
+    "itl_s": {
+      "p50": 0.3156020899768919,
+      "p95": 2.111436007078737,
+      "p99": 2.6452575910370797
+    },
+    "repeat": 0,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_small_c256_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 16.90891567990184,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 8192,
+    "output_tok_s": 484.47813893454565,
+    "request_s": 30.279883683409103,
+    "ttft_s": {
+      "p50": 2.340358313987963,
+      "p95": 6.539060742943548,
+      "p99": 6.656851317966357
+    },
+    "e2e_s": {
+      "p50": 8.320474214036949,
+      "p95": 12.62751963105984,
+      "p99": 12.746711169020273
+    },
+    "itl_s": {
+      "p50": 0.3076684920815751,
+      "p95": 2.113207911956124,
+      "p99": 2.5879066709894687
+    },
+    "repeat": 1,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_multimodal_small_c256_graph",
+    "scope": "multimodal",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 16.92423245194368,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 8192,
+    "output_tok_s": 484.0396764379812,
+    "request_s": 30.252479777373825,
+    "ttft_s": {
+      "p50": 2.240891432040371,
+      "p95": 6.556813181960024,
+      "p99": 6.579689988982864
+    },
+    "e2e_s": {
+      "p50": 8.33080326009076,
+      "p95": 12.679463520995341,
+      "p99": 12.710764090996236
+    },
+    "itl_s": {
+      "p50": 0.31166732299607247,
+      "p95": 2.124176180921495,
+      "p99": 2.5896747789811343
+    },
+    "repeat": 2,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_large_c128_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 46.02780244406313,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 355.9587712211814,
+    "request_s": 5.561855800330959,
+    "ttft_s": {
+      "p50": 2.1410638589877635,
+      "p95": 18.96847723191604,
+      "p99": 20.544627093011513
+    },
+    "e2e_s": {
+      "p50": 20.999428759911098,
+      "p95": 38.543667550897226,
+      "p99": 40.06614251807332
+    },
+    "itl_s": {
+      "p50": 0.3053508299635723,
+      "p95": 0.9083780039800331,
+      "p99": 1.0157040449557826
+    },
+    "repeat": 0,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_large_c128_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 43.283899592002854,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 378.5241199253478,
+    "request_s": 5.914439373833559,
+    "ttft_s": {
+      "p50": 2.065101724001579,
+      "p95": 17.25585866102483,
+      "p99": 18.76963260793127
+    },
+    "e2e_s": {
+      "p50": 20.100299333920702,
+      "p95": 35.97548610402737,
+      "p99": 37.44218703301158
+    },
+    "itl_s": {
+      "p50": 0.29469413799233735,
+      "p95": 0.8780567339854315,
+      "p99": 0.9045929280109704
+    },
+    "repeat": 1,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_large_c128_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 42.70406784291845,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 383.66368422480235,
+    "request_s": 5.994745066012537,
+    "ttft_s": {
+      "p50": 2.042961754021235,
+      "p95": 16.996502452995628,
+      "p99": 18.46796582697425
+    },
+    "e2e_s": {
+      "p50": 19.82348850998096,
+      "p95": 35.40551885496825,
+      "p99": 36.874175076023676
+    },
+    "itl_s": {
+      "p50": 0.29129181895405054,
+      "p95": 0.8689622599631548,
+      "p99": 0.8870423120679334
+    },
+    "repeat": 2,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_large_c256_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 83.80934817204252,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 390.98263755415877,
+    "request_s": 6.109103711783731,
+    "ttft_s": {
+      "p50": 22.537141529959626,
+      "p95": 35.407296598074026,
+      "p99": 38.623592311982065
+    },
+    "e2e_s": {
+      "p50": 40.42448054708075,
+      "p95": 53.85204412508756,
+      "p99": 57.09632981591858
+    },
+    "itl_s": {
+      "p50": 0.29554622096475214,
+      "p95": 0.8774598370073363,
+      "p99": 0.8916833580005914
+    },
+    "repeat": 0,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_large_c256_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 84.07054516405333,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 389.7679018978321,
+    "request_s": 6.090123467153626,
+    "ttft_s": {
+      "p50": 22.633915384998545,
+      "p95": 35.45046619302593,
+      "p99": 38.66871650610119
+    },
+    "e2e_s": {
+      "p50": 40.516622854047455,
+      "p95": 54.005355683970265,
+      "p99": 57.23450385092292
+    },
+    "itl_s": {
+      "p50": 0.2969619929790497,
+      "p95": 0.87870361097157,
+      "p99": 0.8960419869981706
+    },
+    "repeat": 1,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_large_c256_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 262144,
+    "context_tokens": 1024,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 85.20489043893758,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 384.5788643256729,
+    "request_s": 6.009044755088639,
+    "ttft_s": {
+      "p50": 22.807474213070236,
+      "p95": 35.89220690401271,
+      "p99": 39.228570780018345
+    },
+    "e2e_s": {
+      "p50": 41.09449239994865,
+      "p95": 54.65038387000095,
+      "p99": 57.90862384997308
+    },
+    "itl_s": {
+      "p50": 0.2996869559865445,
+      "p95": 0.8873661200050265,
+      "p99": 0.9347490960499272
+    },
+    "repeat": 2,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_medium_c128_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 20.722287178970873,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 790.6463151725163,
+    "request_s": 12.353848674570568,
+    "ttft_s": {
+      "p50": 1.0203878440661356,
+      "p95": 6.231662236968987,
+      "p99": 6.872162658954039
+    },
+    "e2e_s": {
+      "p50": 9.866673119948246,
+      "p95": 15.257766189984977,
+      "p99": 15.911244564922526
+    },
+    "itl_s": {
+      "p50": 0.1341145191108808,
+      "p95": 0.7080250380095094,
+      "p99": 1.0675618459936231
+    },
+    "repeat": 0,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_medium_c128_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 19.337640046025626,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 847.2595394786721,
+    "request_s": 13.238430304354251,
+    "ttft_s": {
+      "p50": 0.9514221820281819,
+      "p95": 5.394995259935968,
+      "p99": 5.712098020943813
+    },
+    "e2e_s": {
+      "p50": 9.255679450929165,
+      "p95": 14.19161122792866,
+      "p99": 14.490405568038113
+    },
+    "itl_s": {
+      "p50": 0.13359699794091284,
+      "p95": 0.6471006579231471,
+      "p99": 0.9530915590003133
+    },
+    "repeat": 1,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_medium_c128_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 18.37917088600807,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 16384,
+    "output_tok_s": 891.4439123297461,
+    "request_s": 13.928811130152283,
+    "ttft_s": {
+      "p50": 0.8929810510016978,
+      "p95": 4.9706795499660075,
+      "p99": 5.274975731037557
+    },
+    "e2e_s": {
+      "p50": 8.830169518012553,
+      "p95": 13.327590808970854,
+      "p99": 13.614607123075984
+    },
+    "itl_s": {
+      "p50": 0.13331733806990087,
+      "p95": 0.6129423970123753,
+      "p99": 0.906039887922816
+    },
+    "repeat": 2,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_medium_c256_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 34.18129283899907,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 958.6530314796468,
+    "request_s": 14.97895361686948,
+    "ttft_s": {
+      "p50": 1.3438759780256078,
+      "p95": 10.593444149009883,
+      "p99": 11.609250840963796
+    },
+    "e2e_s": {
+      "p50": 15.696085436968133,
+      "p95": 25.89580464991741,
+      "p99": 26.921957117971033
+    },
+    "itl_s": {
+      "p50": 0.31188995693810284,
+      "p95": 0.9810139129403979,
+      "p99": 1.0294430089415982
+    },
+    "repeat": 0,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_medium_c256_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 34.03787034901325,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 962.6924265239744,
+    "request_s": 15.0420691644371,
+    "ttft_s": {
+      "p50": 1.3455380840459839,
+      "p95": 10.49186709499918,
+      "p99": 11.479725379962474
+    },
+    "e2e_s": {
+      "p50": 15.632158678025007,
+      "p95": 25.8047014180338,
+      "p99": 26.78803916205652
+    },
+    "itl_s": {
+      "p50": 0.3070338669931516,
+      "p95": 0.976448578061536,
+      "p99": 1.0261319029377773
+    },
+    "repeat": 1,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_medium_c256_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 65536,
+    "context_tokens": 256,
+    "target_output_tokens": 64,
+    "graph": true,
+    "wall_s": 33.747753471951,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 32768,
+    "output_tok_s": 970.968335039981,
+    "request_s": 15.171380234999702,
+    "ttft_s": {
+      "p50": 1.3242879509925842,
+      "p95": 10.368951620999724,
+      "p99": 11.358649806003086
+    },
+    "e2e_s": {
+      "p50": 15.582634564954787,
+      "p95": 25.439686988014728,
+      "p99": 26.412926843971945
+    },
+    "itl_s": {
+      "p50": 0.30795044696424156,
+      "p95": 0.9705554579850286,
+      "p99": 1.014593112980947
+    },
+    "repeat": 2,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_small_c128_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 5.411174144013785,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 4096,
+    "output_tok_s": 756.952168048644,
+    "request_s": 47.30951050304025,
+    "ttft_s": {
+      "p50": 0.8420775259146467,
+      "p95": 2.04638580000028,
+      "p99": 2.052091108984314
+    },
+    "e2e_s": {
+      "p50": 3.043924830039032,
+      "p95": 3.351859429036267,
+      "p99": 3.360306925023906
+    },
+    "itl_s": {
+      "p50": 0.11803312902338803,
+      "p95": 0.4111137790605426,
+      "p99": 0.5158259229501709
+    },
+    "repeat": 0,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_small_c128_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 4.244885624968447,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 4096,
+    "output_tok_s": 964.9258806662068,
+    "request_s": 60.307867541637926,
+    "ttft_s": {
+      "p50": 0.6186812580563128,
+      "p95": 0.9190395420882851,
+      "p99": 1.1559790839673951
+    },
+    "e2e_s": {
+      "p50": 2.065145132946782,
+      "p95": 2.2881575640058145,
+      "p99": 2.614831134909764
+    },
+    "itl_s": {
+      "p50": 0.11630133597645909,
+      "p95": 0.35648492304608226,
+      "p99": 0.3962364720646292
+    },
+    "repeat": 1,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_small_c128_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 128,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 3.923765337909572,
+    "completed": 256,
+    "errors": 0,
+    "output_tokens": 4096,
+    "output_tok_s": 1043.8952504183617,
+    "request_s": 65.2434531511476,
+    "ttft_s": {
+      "p50": 0.5165411200141534,
+      "p95": 0.8633700719801709,
+      "p99": 1.099131769966334
+    },
+    "e2e_s": {
+      "p50": 1.9233238550368696,
+      "p95": 2.226033309008926,
+      "p99": 2.4456859190249816
+    },
+    "itl_s": {
+      "p50": 0.1030573119642213,
+      "p95": 0.3156790080247447,
+      "p99": 0.3696388970129192
+    },
+    "repeat": 2,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_small_c256_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 6.32084073103033,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 8192,
+    "output_tok_s": 1296.0301245661447,
+    "request_s": 81.00188278538404,
+    "ttft_s": {
+      "p50": 0.6646545680705458,
+      "p95": 1.343397499062121,
+      "p99": 1.6600689069600776
+    },
+    "e2e_s": {
+      "p50": 3.07189519808162,
+      "p95": 3.8016101110260934,
+      "p99": 4.124916597036645
+    },
+    "itl_s": {
+      "p50": 0.2099530709674582,
+      "p95": 0.503357632085681,
+      "p99": 0.6474617910571396
+    },
+    "repeat": 0,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_small_c256_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 6.347156396950595,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 8192,
+    "output_tok_s": 1290.6567110802146,
+    "request_s": 80.66604444251341,
+    "ttft_s": {
+      "p50": 0.7404804170364514,
+      "p95": 1.2942854800494388,
+      "p99": 1.5907879050355405
+    },
+    "e2e_s": {
+      "p50": 3.0557227780809626,
+      "p95": 3.69909645000007,
+      "p99": 4.135365831083618
+    },
+    "itl_s": {
+      "p50": 0.20848228898830712,
+      "p95": 0.4839843719964847,
+      "p99": 0.7368878829292953
+    },
+    "repeat": 1,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  },
+  {
+    "case": "online_text_small_c256_graph",
+    "scope": "text",
+    "backend": "online",
+    "concurrency": 256,
+    "max_pixels": 16384,
+    "context_tokens": 0,
+    "target_output_tokens": 16,
+    "graph": true,
+    "wall_s": 6.212924942956306,
+    "completed": 512,
+    "errors": 0,
+    "output_tokens": 8192,
+    "output_tok_s": 1318.541600810324,
+    "request_s": 82.40885005064526,
+    "ttft_s": {
+      "p50": 0.6483562609646469,
+      "p95": 1.3082969880197197,
+      "p99": 1.6105503619182855
+    },
+    "e2e_s": {
+      "p50": 3.007068859995343,
+      "p95": 3.737733833026141,
+      "p99": 4.025401099934243
+    },
+    "itl_s": {
+      "p50": 0.2064135210821405,
+      "p95": 0.43627017294056714,
+      "p99": 0.650520003051497
+    },
+    "repeat": 2,
+    "measurement": "closed-loop HTTP client including image read/base64/upload, server preprocessing, queue, vision, Thinker, streaming; TTFT/ITL measure visible content chunks"
+  }
+]

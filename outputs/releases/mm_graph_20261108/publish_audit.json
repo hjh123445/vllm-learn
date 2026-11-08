@@ -1,0 +1,37 @@
+{
+  "implementation_commit": "b3bed861c04f99c759feafd31cad1bd8292ac3ce",
+  "canonical_remote": "/data/ifly_jyhe23/vllm-learn-mm-benchmark-v2-20261108",
+  "remote_copies_found": 68,
+  "remote_scan_permission_errors": 1732,
+  "unchanged_v9_implementation": true,
+  "default_suite": {
+    "passed": 169,
+    "skipped": 10,
+    "subtests_passed": 12
+  },
+  "nccl_production_suite": {
+    "passed": 5,
+    "failed": 1,
+    "known_failure": "test_production_dp_ep_unequal_batches_and_idle_replicas[2-2-1]"
+  },
+  "graph_eager_quality": {
+    "samples": 256,
+    "exact_token_matches": 256
+  },
+  "hf_quality": {
+    "samples": 256,
+    "exact_token_matches": 250
+  },
+  "branch_included": [
+    "main@6a90063",
+    "perf-ep-packed-grouped@2ba5c14",
+    "mm-vision@105ab6a",
+    "decode-graph@d0bde01"
+  ],
+  "unmerged_experiment": {
+    "branch": "ep-fastmeta-overlap",
+    "commit": "05599fe6bca72f0fa97d7f53a832f97191718e91",
+    "reason": "experimental dual-communicator overlap has documented GEMM shape-sensitive numerics; retained separately"
+  },
+  "upload_scope": "verified implementation, final evidence, reproducibility scripts, branch/copy audit, archived unmatched historical source"
+}
