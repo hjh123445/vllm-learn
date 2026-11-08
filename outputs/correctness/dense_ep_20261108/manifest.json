@@ -1,0 +1,38 @@
+{
+  "comparison.json": {
+    "bytes": 2064,
+    "sha256": "09c7c666640e9076304e4acb000d34b1bdd5e5515e0264ccb9ab527f3e9bd9f3"
+  },
+  "Dense-EP\u4fdd\u7559\u4f9d\u636e.md": {
+    "bytes": 7002,
+    "sha256": "9e7875d8376451c4d59406f1109be6d25cc936e9743f0f1c8038c414d759aaf9"
+  },
+  "job.json": {
+    "bytes": 493,
+    "sha256": "7059104c73a6230551de756f392635b08a30a7b531e8314cd1e13fa22fa2f768"
+  },
+  "packed\\job.json": {
+    "bytes": 542,
+    "sha256": "e67edbc16dec7ca9396acec304455ba1a65bc18dab24464a0203804aca8bc69b"
+  },
+  "packed\\results.json": {
+    "bytes": 28291,
+    "sha256": "dbf6c41eaf579f3bffb29e8f059953e167b6add3c5b37df06e721c3fc43c9cb4"
+  },
+  "packed\\run.log": {
+    "bytes": 14993,
+    "sha256": "b9ef5c4f2ad5d0e59197289a05dcd6acfc81d6c616f00e7efd7cf1a01cc1faac"
+  },
+  "results.json": {
+    "bytes": 28290,
+    "sha256": "b6fcce85ecda7cf484cff52ae960d5705b321eec97a26ddda0ebabbd6c99f30a"
+  },
+  "run.log": {
+    "bytes": 14996,
+    "sha256": "fa6cd791c7f74f9f6fca48d804b31a8c545038437354458a26306ec58509065d"
+  },
+  "benchmark_script": {
+    "path": "experiments/dense_ep_20261108/benchmark_dense_ep.py",
+    "sha256": "71e502dbccc6e86d9cb78abdede573299edc1f2292abe7a9b8ad69cafa3ef9cf"
+  }
+}

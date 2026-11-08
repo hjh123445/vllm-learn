@@ -35,3 +35,5 @@ python v9/tools/profile_merge.py --input-dir outputs/my_pp2ep4/trace \
 其他阅读：[架构与代码顺序](docs/架构.md)、[精度排查过程](docs/精度排查.md)、[环境](ENVIRONMENT.md)、[测试分类](v9/tests/README.md)、[整理与备份](docs/整理说明.md)。
 
 当前 PP 是 V1 风格的 forward-only 多批队列；EP 从 DP×TP 派生；DP 是独立 EngineCore 的推理副本。已完成的是 TP/EP、PP1、dense-EP 的 decode-only CUDA Graph（默认严格 batch-invariant 数值策略）；PP/DP 整模 Graph、训练 DualPipe、Talker、生产级投机解码不在已完成能力中。历史性能与精度结果按各自源码快照解释。
+
+Dense-EP decode 默认关闭，保留给当前完整 decode Graph 使用。新增真实 TP8 全模型 decode 步对照覆盖普通/packed 稀疏 EP、严格/普通数值策略、Dense eager/Graph：在 128-token 前缀、batch 1–256 的本轮测试中有实际收益，但增加约 16 倍专家 FLOPs。具体数据、计时范围及保留原因见 [Dense-EP 保留依据](docs/Dense-EP保留依据.md)，不能将其加速倍数当作在线请求吞吐收益。

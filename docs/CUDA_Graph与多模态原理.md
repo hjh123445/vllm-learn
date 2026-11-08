@@ -123,6 +123,8 @@ VLLM_LEARN_BATCH_INVARIANT=1
 
 当前完整 Graph 的支持边界是 PP1、DP1、无 DCP/CP、dense-EP decode、非量化模型、Triton attention。动态 all-to-allv、PP 跨 stage 通信、DP 空闲副本协同没有纳入完整 Graph。
 
+补充：Dense-EP 是本实现目前实现静态执行的一种取舍，CUDA Graph 本身不要求计算全部专家。本模型每 token 从 top-8 稀疏计算变为 128 专家计算，理论专家 FLOPs 约增加 16 倍；本轮已补做与普通/packed 稀疏 EP 的真实整模 decode 步对照，支持保留为默认关闭的可选路径。数据与适用范围见 [Dense-EP 保留依据](Dense-EP保留依据.md)；已有请求矩阵的 Graph/eager 收益只比较相同 Dense 路径，不能替代 sparse/dense 对照。
+
 ## 5. Graph 捕获和回放的具体数据流
 
 捕获发生在 KV cache 分配之后：

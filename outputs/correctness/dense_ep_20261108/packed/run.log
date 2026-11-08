@@ -1,0 +1,109 @@
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_section', 'interleaved'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_section', 'interleaved'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_section', 'interleaved'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_section', 'interleaved'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+  return func(*args, **kwargs)
+/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+  return func(*args, **kwargs)
+/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+  return func(*args, **kwargs)
+/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+  return func(*args, **kwargs)
+/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+  return func(*args, **kwargs)
+/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+  return func(*args, **kwargs)
+/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+  return func(*args, **kwargs)
+/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+  return func(*args, **kwargs)
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8619 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.8
+  → KV 池 256 blocks × 256 tok (1.62 GB, 每 block 6.29 MB, 激活预算 实测 0.15 GB)
+[decode-graph] captured buckets [1, 2, 4, 8, 16, 32, 64, 128, 256] (strict=True, pool=304.0 MiB)
+{"batch": 1, "prefix": 128, "mode": "sparse_eager_native", "repeat": 0, "step_ms": 102.47970834219207, "decode_output_tok_s": 9.758029332605824, "iterations": 6}
+{"batch": 1, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 0, "step_ms": 105.82949065913756, "decode_output_tok_s": 9.4491619847332, "iterations": 6}
+{"batch": 1, "prefix": 128, "mode": "dense_eager_strict", "repeat": 0, "step_ms": 57.538300151160605, "decode_output_tok_s": 17.379727892080055, "iterations": 6}
+{"batch": 1, "prefix": 128, "mode": "dense_graph_strict", "repeat": 0, "step_ms": 20.078121160622686, "decode_output_tok_s": 49.80545699471149, "iterations": 6}
+{"batch": 1, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 1, "step_ms": 106.27424033979575, "decode_output_tok_s": 9.40961795447939, "iterations": 6}
+{"batch": 1, "prefix": 128, "mode": "dense_eager_strict", "repeat": 1, "step_ms": 57.26489599328488, "decode_output_tok_s": 17.46270525170017, "iterations": 6}
+{"batch": 1, "prefix": 128, "mode": "dense_graph_strict", "repeat": 1, "step_ms": 20.083879489296425, "decode_output_tok_s": 49.791177074775, "iterations": 6}
+{"batch": 1, "prefix": 128, "mode": "sparse_eager_native", "repeat": 1, "step_ms": 101.36014131906752, "decode_output_tok_s": 9.865811027750446, "iterations": 6}
+{"batch": 1, "prefix": 128, "mode": "dense_eager_strict", "repeat": 2, "step_ms": 57.42672400083393, "decode_output_tok_s": 17.413495500552642, "iterations": 6}
+{"batch": 1, "prefix": 128, "mode": "dense_graph_strict", "repeat": 2, "step_ms": 20.106177175572764, "decode_output_tok_s": 49.73595881841288, "iterations": 6}
+{"batch": 1, "prefix": 128, "mode": "sparse_eager_native", "repeat": 2, "step_ms": 101.11398515679564, "decode_output_tok_s": 9.889828775409436, "iterations": 6}
+{"batch": 1, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 2, "step_ms": 106.19188583223149, "decode_output_tok_s": 9.416915352457925, "iterations": 6}
+{"batch": 8, "prefix": 128, "mode": "sparse_eager_native", "repeat": 0, "step_ms": 115.61076350820561, "decode_output_tok_s": 69.1977092550919, "iterations": 6}
+{"batch": 8, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 0, "step_ms": 125.35993116519725, "decode_output_tok_s": 63.816244358476325, "iterations": 6}
+{"batch": 8, "prefix": 128, "mode": "dense_eager_strict", "repeat": 0, "step_ms": 58.90992116959145, "decode_output_tok_s": 135.80055517252157, "iterations": 6}
+{"batch": 8, "prefix": 128, "mode": "dense_graph_strict", "repeat": 0, "step_ms": 21.16025483701378, "decode_output_tok_s": 378.06728045667484, "iterations": 6}
+{"batch": 8, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 1, "step_ms": 126.52210765130198, "decode_output_tok_s": 63.23005637914439, "iterations": 6}
+{"batch": 8, "prefix": 128, "mode": "dense_eager_strict", "repeat": 1, "step_ms": 59.20064317372938, "decode_output_tok_s": 135.1336669860716, "iterations": 6}
+{"batch": 8, "prefix": 128, "mode": "dense_graph_strict", "repeat": 1, "step_ms": 21.246278677911807, "decode_output_tok_s": 376.5365277034143, "iterations": 6}
+{"batch": 8, "prefix": 128, "mode": "sparse_eager_native", "repeat": 1, "step_ms": 117.28709249291569, "decode_output_tok_s": 68.20869909860892, "iterations": 6}
+{"batch": 8, "prefix": 128, "mode": "dense_eager_strict", "repeat": 2, "step_ms": 59.06404366639132, "decode_output_tok_s": 135.44619540758208, "iterations": 6}
+{"batch": 8, "prefix": 128, "mode": "dense_graph_strict", "repeat": 2, "step_ms": 21.24829332266624, "decode_output_tok_s": 376.5008266083254, "iterations": 6}
+{"batch": 8, "prefix": 128, "mode": "sparse_eager_native", "repeat": 2, "step_ms": 116.59515499680613, "decode_output_tok_s": 68.61348569946274, "iterations": 6}
+{"batch": 8, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 2, "step_ms": 126.4053323150923, "decode_output_tok_s": 63.288469350788866, "iterations": 6}
+{"batch": 32, "prefix": 128, "mode": "sparse_eager_native", "repeat": 0, "step_ms": 119.12949099981536, "decode_output_tok_s": 268.61526672727575, "iterations": 6}
+{"batch": 32, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 0, "step_ms": 135.353281996989, "decode_output_tok_s": 236.41835297877634, "iterations": 6}
+{"batch": 32, "prefix": 128, "mode": "dense_eager_strict", "repeat": 0, "step_ms": 59.35683250815297, "decode_output_tok_s": 539.1123253688551, "iterations": 6}
+{"batch": 32, "prefix": 128, "mode": "dense_graph_strict", "repeat": 0, "step_ms": 24.686272663529962, "decode_output_tok_s": 1296.2669754221304, "iterations": 6}
+{"batch": 32, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 1, "step_ms": 134.49174200650305, "decode_output_tok_s": 237.9328241465763, "iterations": 6}
+{"batch": 32, "prefix": 128, "mode": "dense_eager_strict", "repeat": 1, "step_ms": 59.324960166122764, "decode_output_tok_s": 539.4019635309161, "iterations": 6}
+{"batch": 32, "prefix": 128, "mode": "dense_graph_strict", "repeat": 1, "step_ms": 24.706552173787106, "decode_output_tok_s": 1295.2029799589366, "iterations": 6}
+{"batch": 32, "prefix": 128, "mode": "sparse_eager_native", "repeat": 1, "step_ms": 119.82487349693353, "decode_output_tok_s": 267.05640545340464, "iterations": 6}
+{"batch": 32, "prefix": 128, "mode": "dense_eager_strict", "repeat": 2, "step_ms": 59.475770336575806, "decode_output_tok_s": 538.0342250114744, "iterations": 6}
+{"batch": 32, "prefix": 128, "mode": "dense_graph_strict", "repeat": 2, "step_ms": 24.674605345353484, "decode_output_tok_s": 1296.8799116386263, "iterations": 6}
+{"batch": 32, "prefix": 128, "mode": "sparse_eager_native", "repeat": 2, "step_ms": 119.62031784545009, "decode_output_tok_s": 267.5130828639339, "iterations": 6}
+{"batch": 32, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 2, "step_ms": 134.92106167056286, "decode_output_tok_s": 237.17572040853406, "iterations": 6}
+{"batch": 128, "prefix": 128, "mode": "sparse_eager_native", "repeat": 0, "step_ms": 120.74842732787754, "decode_output_tok_s": 1060.0552142383744, "iterations": 6}
+{"batch": 128, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 0, "step_ms": 143.56371234559143, "decode_output_tok_s": 891.5902069450118, "iterations": 6}
+{"batch": 128, "prefix": 128, "mode": "dense_eager_strict", "repeat": 0, "step_ms": 60.8959398426426, "decode_output_tok_s": 2101.9463749267493, "iterations": 6}
+{"batch": 128, "prefix": 128, "mode": "dense_graph_strict", "repeat": 0, "step_ms": 41.211471504842244, "decode_output_tok_s": 3105.931317811846, "iterations": 6}
+{"batch": 128, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 1, "step_ms": 143.54809583164752, "decode_output_tok_s": 891.6872025256104, "iterations": 6}
+{"batch": 128, "prefix": 128, "mode": "dense_eager_strict", "repeat": 1, "step_ms": 60.8220734866336, "decode_output_tok_s": 2104.4991178758414, "iterations": 6}
+{"batch": 128, "prefix": 128, "mode": "dense_graph_strict", "repeat": 1, "step_ms": 41.15843250959491, "decode_output_tok_s": 3109.933789877942, "iterations": 6}
+{"batch": 128, "prefix": 128, "mode": "sparse_eager_native", "repeat": 1, "step_ms": 120.97686333193754, "decode_output_tok_s": 1058.0535523457268, "iterations": 6}
+{"batch": 128, "prefix": 128, "mode": "dense_eager_strict", "repeat": 2, "step_ms": 61.202765500638634, "decode_output_tok_s": 2091.408761564285, "iterations": 6}
+{"batch": 128, "prefix": 128, "mode": "dense_graph_strict", "repeat": 2, "step_ms": 41.23376383601377, "decode_output_tok_s": 3104.252149016874, "iterations": 6}
+{"batch": 128, "prefix": 128, "mode": "sparse_eager_native", "repeat": 2, "step_ms": 121.07352083936955, "decode_output_tok_s": 1057.2088687320818, "iterations": 6}
+{"batch": 128, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 2, "step_ms": 143.73327766467506, "decode_output_tok_s": 890.5383783052644, "iterations": 6}
+{"batch": 256, "prefix": 128, "mode": "sparse_eager_native", "repeat": 0, "step_ms": 125.83074367527539, "decode_output_tok_s": 2034.4789557999068, "iterations": 6}
+{"batch": 256, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 0, "step_ms": 150.27497984313717, "decode_output_tok_s": 1703.543732078505, "iterations": 6}
+{"batch": 256, "prefix": 128, "mode": "dense_eager_strict", "repeat": 0, "step_ms": 68.17724483941372, "decode_output_tok_s": 3754.9185304127263, "iterations": 6}
+{"batch": 256, "prefix": 128, "mode": "dense_graph_strict", "repeat": 0, "step_ms": 65.25440549012274, "decode_output_tok_s": 3923.1067707566435, "iterations": 6}
+{"batch": 256, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 1, "step_ms": 150.7235741786038, "decode_output_tok_s": 1698.4735227725305, "iterations": 6}
+{"batch": 256, "prefix": 128, "mode": "dense_eager_strict", "repeat": 1, "step_ms": 67.95845564920455, "decode_output_tok_s": 3767.0073216708897, "iterations": 6}
+{"batch": 256, "prefix": 128, "mode": "dense_graph_strict", "repeat": 1, "step_ms": 65.25869900360703, "decode_output_tok_s": 3922.8486609248853, "iterations": 6}
+{"batch": 256, "prefix": 128, "mode": "sparse_eager_native", "repeat": 1, "step_ms": 126.00523217891654, "decode_output_tok_s": 2031.66166652907, "iterations": 6}
+{"batch": 256, "prefix": 128, "mode": "dense_eager_strict", "repeat": 2, "step_ms": 68.13130351171519, "decode_output_tok_s": 3757.450493457545, "iterations": 6}
+{"batch": 256, "prefix": 128, "mode": "dense_graph_strict", "repeat": 2, "step_ms": 65.27398150259008, "decode_output_tok_s": 3921.930210275926, "iterations": 6}
+{"batch": 256, "prefix": 128, "mode": "sparse_eager_native", "repeat": 2, "step_ms": 125.45148733382425, "decode_output_tok_s": 2040.6294531908452, "iterations": 6}
+{"batch": 256, "prefix": 128, "mode": "sparse_eager_strict", "repeat": 2, "step_ms": 150.2881749959973, "decode_output_tok_s": 1703.394162626688, "iterations": 6}
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8619 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.8
+  → KV 池 256 blocks × 256 tok (1.62 GB, 每 block 6.29 MB, 激活预算 实测 0.15 GB)
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8619 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.8
+  → KV 池 256 blocks × 256 tok (1.62 GB, 每 block 6.29 MB, 激活预算 实测 0.18 GB)
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8619 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.8
+  → KV 池 256 blocks × 256 tok (1.62 GB, 每 block 6.29 MB, 激活预算 实测 0.12 GB)
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8619 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.8
+  → KV 池 256 blocks × 256 tok (1.62 GB, 每 block 6.29 MB, 激活预算 实测 0.18 GB)
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8619 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.8
+  → KV 池 256 blocks × 256 tok (1.62 GB, 每 block 6.29 MB, 激活预算 实测 0.18 GB)
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8619 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.8
+  → KV 池 256 blocks × 256 tok (1.62 GB, 每 block 6.29 MB, 激活预算 实测 0.18 GB)
+[loader] 装载 531 个参数张量（专家已融合为 w13/w2），跳过非 thinker 权重 8619 组
+[v3 显存预算] 总显存 85.1 GB × 利用率 0.8
+  → KV 池 256 blocks × 256 tok (1.62 GB, 每 block 6.29 MB, 激活预算 实测 0.15 GB)

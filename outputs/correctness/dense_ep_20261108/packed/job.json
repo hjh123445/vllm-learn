@@ -1,0 +1,20 @@
+{
+  "command": [
+    "env",
+    "VLLM_LEARN_EP_PACKED=1",
+    "/home/ifly_jyhe23/env/miniconda3/envs/sglang_contrib/bin/python",
+    "-u",
+    "/data/ifly_jyhe23/benchmark_dense_ep.py",
+    "--source",
+    "/data/ifly_jyhe23/vllm-learn-mm-benchmark-v2-20261108",
+    "--model",
+    "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+    "--output",
+    "/data/ifly_jyhe23/dense_ep_packed_audit_20261108"
+  ],
+  "started": 1794115549.2810562,
+  "status": "passed",
+  "pid": 1911057,
+  "returncode": 0,
+  "ended": 1794115630.9238317
+}

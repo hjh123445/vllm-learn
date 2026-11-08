@@ -1,0 +1,57 @@
+[
+  {
+    "batch": 1,
+    "sparse_native_ms": 103.29156233152996,
+    "sparse_packed_native_ms": 101.36014131906752,
+    "sparse_strict_ms": 109.09041465492919,
+    "sparse_packed_strict_ms": 106.19188583223149,
+    "dense_eager_ms": 56.9552318387044,
+    "dense_graph_ms": 20.01317301377033,
+    "packed_run_dense_graph_ms": 20.083879489296425,
+    "vs_packed_native_speedup": 5.0468407447419095
+  },
+  {
+    "batch": 8,
+    "sparse_native_ms": 119.56129799364135,
+    "sparse_packed_native_ms": 116.59515499680613,
+    "sparse_strict_ms": 132.79498083284125,
+    "sparse_packed_strict_ms": 126.4053323150923,
+    "dense_eager_ms": 58.73703783921277,
+    "dense_graph_ms": 21.158609830308706,
+    "packed_run_dense_graph_ms": 21.246278677911807,
+    "vs_packed_native_speedup": 5.487791851192347
+  },
+  {
+    "batch": 32,
+    "sparse_native_ms": 124.43626767102008,
+    "sparse_packed_native_ms": 119.62031784545009,
+    "sparse_strict_ms": 139.6128188353032,
+    "sparse_packed_strict_ms": 134.92106167056286,
+    "dense_eager_ms": 58.872823836281896,
+    "dense_graph_ms": 24.645075182585668,
+    "packed_run_dense_graph_ms": 24.686272663529962,
+    "vs_packed_native_speedup": 4.845620862892358
+  },
+  {
+    "batch": 128,
+    "sparse_native_ms": 126.48504417544851,
+    "sparse_packed_native_ms": 120.97686333193754,
+    "sparse_strict_ms": 148.21754683119556,
+    "sparse_packed_strict_ms": 143.56371234559143,
+    "dense_eager_ms": 60.639877493182816,
+    "dense_graph_ms": 41.13378583375985,
+    "packed_run_dense_graph_ms": 41.211471504842244,
+    "vs_packed_native_speedup": 2.935514285572721
+  },
+  {
+    "batch": 256,
+    "sparse_native_ms": 125.86719682440162,
+    "sparse_packed_native_ms": 125.83074367527539,
+    "sparse_strict_ms": 152.85319281974807,
+    "sparse_packed_strict_ms": 150.2881749959973,
+    "dense_eager_ms": 68.14837166651462,
+    "dense_graph_ms": 65.20743049137916,
+    "packed_run_dense_graph_ms": 65.25869900360703,
+    "vs_packed_native_speedup": 1.9281834544130332
+  }
+]

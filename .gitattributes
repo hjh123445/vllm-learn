@@ -1,3 +1,4 @@
 # Preserve experiment artifacts byte-for-byte, including raw logs and SHA256 inputs.
 outputs/** -text -whitespace
 experiments/mm_graph_20261108/original/** -text -whitespace
+experiments/dense_ep_20261108/benchmark_dense_ep.py -text -whitespace

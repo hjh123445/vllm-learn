@@ -1,0 +1,784 @@
+{
+  "measurement": "real TP8+EP full-model repeated decode; fixed KV/input positions; preparation+sampling included; no prefill/HTTP; max elapsed across ranks",
+  "model": "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+  "options": {
+    "source": "/data/ifly_jyhe23/vllm-learn-mm-benchmark-v2-20261108",
+    "model": "/data/ifly_jyhe23/models_omni/Qwen3-Omni-30B-A3B-Instruct",
+    "output": "/data/ifly_jyhe23/dense_ep_audit_20261108",
+    "port": 31959,
+    "prefix": 128,
+    "batches": [
+      1,
+      8,
+      32,
+      128,
+      256
+    ],
+    "iterations": 6,
+    "repeats": 3
+  },
+  "rows": [
+    {
+      "batch": 1,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 0,
+      "step_ms": 101.91748450354983,
+      "decode_output_tok_s": 9.811859121828792,
+      "iterations": 6
+    },
+    {
+      "batch": 1,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 0,
+      "step_ms": 109.09041465492919,
+      "decode_output_tok_s": 9.166708213211614,
+      "iterations": 6
+    },
+    {
+      "batch": 1,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 0,
+      "step_ms": 57.0889213316453,
+      "decode_output_tok_s": 17.516533447719638,
+      "iterations": 6
+    },
+    {
+      "batch": 1,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 0,
+      "step_ms": 20.02641182237615,
+      "decode_output_tok_s": 49.93405752710368,
+      "iterations": 6
+    },
+    {
+      "batch": 1,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 1,
+      "step_ms": 108.8691553256164,
+      "decode_output_tok_s": 9.185338096994537,
+      "iterations": 6
+    },
+    {
+      "batch": 1,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 1,
+      "step_ms": 56.9552318387044,
+      "decode_output_tok_s": 17.557649538359737,
+      "iterations": 6
+    },
+    {
+      "batch": 1,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 1,
+      "step_ms": 20.01317301377033,
+      "decode_output_tok_s": 49.967089142333236,
+      "iterations": 6
+    },
+    {
+      "batch": 1,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 1,
+      "step_ms": 103.29156233152996,
+      "decode_output_tok_s": 9.681332893294305,
+      "iterations": 6
+    },
+    {
+      "batch": 1,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 2,
+      "step_ms": 56.842191164226584,
+      "decode_output_tok_s": 17.59256600631093,
+      "iterations": 6
+    },
+    {
+      "batch": 1,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 2,
+      "step_ms": 20.002134163708735,
+      "decode_output_tok_s": 49.99466515999926,
+      "iterations": 6
+    },
+    {
+      "batch": 1,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 2,
+      "step_ms": 103.52450465628256,
+      "decode_output_tok_s": 9.659548754376129,
+      "iterations": 6
+    },
+    {
+      "batch": 1,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 2,
+      "step_ms": 109.93493117469673,
+      "decode_output_tok_s": 9.096289862690758,
+      "iterations": 6
+    },
+    {
+      "batch": 8,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 0,
+      "step_ms": 118.00206415743257,
+      "decode_output_tok_s": 67.79542423365402,
+      "iterations": 6
+    },
+    {
+      "batch": 8,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 0,
+      "step_ms": 128.41976166237146,
+      "decode_output_tok_s": 62.295708202860624,
+      "iterations": 6
+    },
+    {
+      "batch": 8,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 0,
+      "step_ms": 58.727210154756904,
+      "decode_output_tok_s": 136.22305535915194,
+      "iterations": 6
+    },
+    {
+      "batch": 8,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 0,
+      "step_ms": 21.129322490499664,
+      "decode_output_tok_s": 378.62075339126585,
+      "iterations": 6
+    },
+    {
+      "batch": 8,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 1,
+      "step_ms": 132.79498083284125,
+      "decode_output_tok_s": 60.2432407446949,
+      "iterations": 6
+    },
+    {
+      "batch": 8,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 1,
+      "step_ms": 58.921530668158084,
+      "decode_output_tok_s": 135.77379795266074,
+      "iterations": 6
+    },
+    {
+      "batch": 8,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 1,
+      "step_ms": 21.16963517619297,
+      "decode_output_tok_s": 377.89975752613213,
+      "iterations": 6
+    },
+    {
+      "batch": 8,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 1,
+      "step_ms": 120.71773898787796,
+      "decode_output_tok_s": 66.27029355481328,
+      "iterations": 6
+    },
+    {
+      "batch": 8,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 2,
+      "step_ms": 58.73703783921277,
+      "decode_output_tok_s": 136.200262973752,
+      "iterations": 6
+    },
+    {
+      "batch": 8,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 2,
+      "step_ms": 21.158609830308706,
+      "decode_output_tok_s": 378.0966738438732,
+      "iterations": 6
+    },
+    {
+      "batch": 8,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 2,
+      "step_ms": 119.56129799364135,
+      "decode_output_tok_s": 66.91128428887971,
+      "iterations": 6
+    },
+    {
+      "batch": 8,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 2,
+      "step_ms": 133.8350011695487,
+      "decode_output_tok_s": 59.77509567818669,
+      "iterations": 6
+    },
+    {
+      "batch": 32,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 0,
+      "step_ms": 124.55005200657372,
+      "decode_output_tok_s": 256.9248224666421,
+      "iterations": 6
+    },
+    {
+      "batch": 32,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 0,
+      "step_ms": 140.06346667883918,
+      "decode_output_tok_s": 228.4678564566371,
+      "iterations": 6
+    },
+    {
+      "batch": 32,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 0,
+      "step_ms": 58.71448198255772,
+      "decode_output_tok_s": 545.0103436066458,
+      "iterations": 6
+    },
+    {
+      "batch": 32,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 0,
+      "step_ms": 24.65389548645665,
+      "decode_output_tok_s": 1297.9693216262253,
+      "iterations": 6
+    },
+    {
+      "batch": 32,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 1,
+      "step_ms": 139.49044233110422,
+      "decode_output_tok_s": 229.40639849748683,
+      "iterations": 6
+    },
+    {
+      "batch": 32,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 1,
+      "step_ms": 59.08744918027272,
+      "decode_output_tok_s": 541.5701717359582,
+      "iterations": 6
+    },
+    {
+      "batch": 32,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 1,
+      "step_ms": 24.637710322470713,
+      "decode_output_tok_s": 1298.821992026367,
+      "iterations": 6
+    },
+    {
+      "batch": 32,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 1,
+      "step_ms": 123.9696973352693,
+      "decode_output_tok_s": 258.12759640331893,
+      "iterations": 6
+    },
+    {
+      "batch": 32,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 2,
+      "step_ms": 58.872823836281896,
+      "decode_output_tok_s": 543.5445068676861,
+      "iterations": 6
+    },
+    {
+      "batch": 32,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 2,
+      "step_ms": 24.645075182585668,
+      "decode_output_tok_s": 1298.4338559701923,
+      "iterations": 6
+    },
+    {
+      "batch": 32,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 2,
+      "step_ms": 124.43626767102008,
+      "decode_output_tok_s": 257.1597541369562,
+      "iterations": 6
+    },
+    {
+      "batch": 32,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 2,
+      "step_ms": 139.6128188353032,
+      "decode_output_tok_s": 229.20531414632768,
+      "iterations": 6
+    },
+    {
+      "batch": 128,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 0,
+      "step_ms": 124.55193983623758,
+      "decode_output_tok_s": 1027.6837130621648,
+      "iterations": 6
+    },
+    {
+      "batch": 128,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 0,
+      "step_ms": 148.21754683119556,
+      "decode_output_tok_s": 863.5954563853276,
+      "iterations": 6
+    },
+    {
+      "batch": 128,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 0,
+      "step_ms": 60.87385166514044,
+      "decode_output_tok_s": 2102.7090696365367,
+      "iterations": 6
+    },
+    {
+      "batch": 128,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 0,
+      "step_ms": 41.12832467459763,
+      "decode_output_tok_s": 3112.210405182332,
+      "iterations": 6
+    },
+    {
+      "batch": 128,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 1,
+      "step_ms": 149.1214621734495,
+      "decode_output_tok_s": 858.3606821875028,
+      "iterations": 6
+    },
+    {
+      "batch": 128,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 1,
+      "step_ms": 60.639877493182816,
+      "decode_output_tok_s": 2110.8222063012886,
+      "iterations": 6
+    },
+    {
+      "batch": 128,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 1,
+      "step_ms": 41.274802992120385,
+      "decode_output_tok_s": 3101.165619722909,
+      "iterations": 6
+    },
+    {
+      "batch": 128,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 1,
+      "step_ms": 126.48504417544851,
+      "decode_output_tok_s": 1011.9773514286012,
+      "iterations": 6
+    },
+    {
+      "batch": 128,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 2,
+      "step_ms": 60.493258002679795,
+      "decode_output_tok_s": 2115.938275209606,
+      "iterations": 6
+    },
+    {
+      "batch": 128,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 2,
+      "step_ms": 41.13378583375985,
+      "decode_output_tok_s": 3111.7972101402393,
+      "iterations": 6
+    },
+    {
+      "batch": 128,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 2,
+      "step_ms": 126.97121982152262,
+      "decode_output_tok_s": 1008.1024674719474,
+      "iterations": 6
+    },
+    {
+      "batch": 128,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 2,
+      "step_ms": 147.39827516799173,
+      "decode_output_tok_s": 868.3955077094134,
+      "iterations": 6
+    },
+    {
+      "batch": 256,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 0,
+      "step_ms": 127.32762032343695,
+      "decode_output_tok_s": 2010.5614111825082,
+      "iterations": 6
+    },
+    {
+      "batch": 256,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 0,
+      "step_ms": 153.10662416353202,
+      "decode_output_tok_s": 1672.037388314227,
+      "iterations": 6
+    },
+    {
+      "batch": 256,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 0,
+      "step_ms": 68.14837166651462,
+      "decode_output_tok_s": 3756.5094181962404,
+      "iterations": 6
+    },
+    {
+      "batch": 256,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 0,
+      "step_ms": 65.20393533476938,
+      "decode_output_tok_s": 3926.143394346482,
+      "iterations": 6
+    },
+    {
+      "batch": 256,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 1,
+      "step_ms": 152.85319281974807,
+      "decode_output_tok_s": 1674.8096345091571,
+      "iterations": 6
+    },
+    {
+      "batch": 256,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 1,
+      "step_ms": 67.88008599930133,
+      "decode_output_tok_s": 3771.356447642611,
+      "iterations": 6
+    },
+    {
+      "batch": 256,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 1,
+      "step_ms": 65.20743049137916,
+      "decode_output_tok_s": 3925.932950752366,
+      "iterations": 6
+    },
+    {
+      "batch": 256,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 1,
+      "step_ms": 125.86719682440162,
+      "decode_output_tok_s": 2033.8897382226423,
+      "iterations": 6
+    },
+    {
+      "batch": 256,
+      "prefix": 128,
+      "mode": "dense_eager_strict",
+      "repeat": 2,
+      "step_ms": 68.15068767173216,
+      "decode_output_tok_s": 3756.381758509897,
+      "iterations": 6
+    },
+    {
+      "batch": 256,
+      "prefix": 128,
+      "mode": "dense_graph_strict",
+      "repeat": 2,
+      "step_ms": 65.2127549983561,
+      "decode_output_tok_s": 3925.612405218171,
+      "iterations": 6
+    },
+    {
+      "batch": 256,
+      "prefix": 128,
+      "mode": "sparse_eager_native",
+      "repeat": 2,
+      "step_ms": 125.40135732463872,
+      "decode_output_tok_s": 2041.4452081030338,
+      "iterations": 6
+    },
+    {
+      "batch": 256,
+      "prefix": 128,
+      "mode": "sparse_eager_strict",
+      "repeat": 2,
+      "step_ms": 150.94690300369015,
+      "decode_output_tok_s": 1695.9605987659227,
+      "iterations": 6
+    }
+  ],
+  "summary": [
+    {
+      "batch": 1,
+      "prefix": 128,
+      "sparse_eager_native": {
+        "step_ms": 103.29156233152996,
+        "decode_output_tok_s": 9.681332893294305
+      },
+      "sparse_eager_strict": {
+        "step_ms": 109.09041465492919,
+        "decode_output_tok_s": 9.166708213211614
+      },
+      "dense_eager_strict": {
+        "step_ms": 56.9552318387044,
+        "decode_output_tok_s": 17.557649538359737
+      },
+      "dense_graph_strict": {
+        "step_ms": 20.01317301377033,
+        "decode_output_tok_s": 49.967089142333236
+      },
+      "dense_graph_vs_sparse_native_speedup": 5.161178702670427,
+      "dense_graph_vs_sparse_strict_speedup": 5.450930473636943
+    },
+    {
+      "batch": 8,
+      "prefix": 128,
+      "sparse_eager_native": {
+        "step_ms": 119.56129799364135,
+        "decode_output_tok_s": 66.91128428887971
+      },
+      "sparse_eager_strict": {
+        "step_ms": 132.79498083284125,
+        "decode_output_tok_s": 60.2432407446949
+      },
+      "dense_eager_strict": {
+        "step_ms": 58.73703783921277,
+        "decode_output_tok_s": 136.200262973752
+      },
+      "dense_graph_strict": {
+        "step_ms": 21.158609830308706,
+        "decode_output_tok_s": 378.0966738438732
+      },
+      "dense_graph_vs_sparse_native_speedup": 5.650716136481493,
+      "dense_graph_vs_sparse_strict_speedup": 6.276167569507272
+    },
+    {
+      "batch": 32,
+      "prefix": 128,
+      "sparse_eager_native": {
+        "step_ms": 124.43626767102008,
+        "decode_output_tok_s": 257.1597541369562
+      },
+      "sparse_eager_strict": {
+        "step_ms": 139.6128188353032,
+        "decode_output_tok_s": 229.20531414632768
+      },
+      "dense_eager_strict": {
+        "step_ms": 58.872823836281896,
+        "decode_output_tok_s": 543.5445068676861
+      },
+      "dense_graph_strict": {
+        "step_ms": 24.645075182585668,
+        "decode_output_tok_s": 1298.4338559701923
+      },
+      "dense_graph_vs_sparse_native_speedup": 5.0491332142069245,
+      "dense_graph_vs_sparse_strict_speedup": 5.664937834474706
+    },
+    {
+      "batch": 128,
+      "prefix": 128,
+      "sparse_eager_native": {
+        "step_ms": 126.48504417544851,
+        "decode_output_tok_s": 1011.9773514286012
+      },
+      "sparse_eager_strict": {
+        "step_ms": 148.21754683119556,
+        "decode_output_tok_s": 863.5954563853276
+      },
+      "dense_eager_strict": {
+        "step_ms": 60.639877493182816,
+        "decode_output_tok_s": 2110.8222063012886
+      },
+      "dense_graph_strict": {
+        "step_ms": 41.13378583375985,
+        "decode_output_tok_s": 3111.7972101402393
+      },
+      "dense_graph_vs_sparse_native_speedup": 3.0749672467939497,
+      "dense_graph_vs_sparse_strict_speedup": 3.6033042868995673
+    },
+    {
+      "batch": 256,
+      "prefix": 128,
+      "sparse_eager_native": {
+        "step_ms": 125.86719682440162,
+        "decode_output_tok_s": 2033.8897382226423
+      },
+      "sparse_eager_strict": {
+        "step_ms": 152.85319281974807,
+        "decode_output_tok_s": 1674.8096345091571
+      },
+      "dense_eager_strict": {
+        "step_ms": 68.14837166651462,
+        "decode_output_tok_s": 3756.5094181962404
+      },
+      "dense_graph_strict": {
+        "step_ms": 65.20743049137916,
+        "decode_output_tok_s": 3925.932950752366
+      },
+      "dense_graph_vs_sparse_native_speedup": 1.930258497780281,
+      "dense_graph_vs_sparse_strict_speedup": 2.3441069778076327
+    }
+  ],
+  "numerical_policy": "native sparse is a separate arithmetic baseline; strict sparse/dense share fixed primitives but different route reduction order; no cross-backend bitwise equality assumed",
+  "source_sha256": {
+    "v9/example.py": "cc7a0cae4ca939bfa771ef861d0f800d0ed18c099239ebcf6f43096f1154cbac",
+    "v9/server.py": "f4b8eb6c1aafec9e918ffc638ebbe57ce643fa29b812093620969920bf004a9e",
+    "v9/config.py": "860e0745c16167d0971b149a0fc06f91170d21a0e33d3fc8174586e48e87506b",
+    "v9/bench.py": "4e3821adc5d5af9393970149c32eff03463331db38235852d2f16a5a35833a7c",
+    "v9/samplingParams.py": "d267aa19631c2b691ff0ae829de18085fb42681204287d4cd46b95261d78424b",
+    "v9/models/qwen3_moe.py": "642efa61440b444c7f15e8abab0c4fa056c419d7d1db197c68e38eff4e844e10",
+    "v9/tests/test_pipeline_links.py": "7c8d874c49ea0c81b04a1342317fbdb94f0b1312621070004918a4659b439b37",
+    "v9/tests/test_bench_cli.py": "9a984b28cc8262b22ba0ba32b4d06b66bda27cce3de1b1bc52c7c88ba9c4e70f",
+    "v9/tests/test_mq_overflow.py": "0b025a4516b2d05d696d82d267b98341d173914b2ed2eb854a8f890fa1a81c8f",
+    "v9/tests/test_pipeline_worker_runtime.py": "3cd5fe739cfd7acaa58fdf61845b0e3e28035b35c2d9d975027d7b3b911f7e84",
+    "v9/tests/test_ep_packed_dispatch.py": "3ba348d2347248dcaa4badd1e332bf0b0e6d5e094ffbdb80a26e789d25137fa1",
+    "v9/tests/test_coupled_moe.py": "84de72dbe25ef8ac755954ebbad85f2bd523ea8e75df9bcda1de5c9b9586f8a3",
+    "v9/tests/test_parallel_components.py": "ea08e031f0231f50287a191ba613120eb38c50236ac04dd9e6ac575517f4d768",
+    "v9/tests/test_mm_graph_contracts.py": "7101b76be075914ca5a131c1539506f0d92d7d79256a961416689192194cd032",
+    "v9/tests/test_auto_grouped_backend.py": "97f76f38b75632ee63c97603d4edd18483a9b2a844e97d2395b8af55864756ce",
+    "v9/tests/test_observed_runner.py": "61169e352eed3bde6442ac73e8c327fea9fdfff5da2071647fb904da0c9d51a5",
+    "v9/tests/test_cuda_profile_runtime.py": "d063a547c5a3c79f79cdbe3da24c0ad9a1538f49464124c21e2ba49d6cfd135c",
+    "v9/tests/test_prefix_cache_switch.py": "69e287fb360db1885fcc5a0178e21aa3c93704d73824a44e9219601a1c15e019",
+    "v9/tests/test_model_runner_batch_policy.py": "52dc4298bb512c5062e1bebaa8c08c6befb210add60345292444f9e559a72875",
+    "v9/tests/test_scheduler_preemption.py": "20fc792a801b29b4ce75d66d57294c82a5d5171c623f283be6f52625f33800dd",
+    "v9/tests/test_mm_mixed_positions.py": "e604238a2e1ad809d8a29bf5f87bbdbb1d587093113b1b189e4737ecf2c2839f",
+    "v9/tests/test_mrope_positions.py": "6f418c5f4f815e303da0449f93c83fb8d02476733d2f7fbe8788ed13b5595e93",
+    "v9/tests/test_trace_merge.py": "c687e202a82dc23cb17ea599a40288c5b43c0b45bed3643a2b27fe6af2fdb225",
+    "v9/tests/test_quantized_fallback.py": "eb18c6351af169dc8dbdcbcd887beed6cd69c97a1aa754f10daef9214b141fe6",
+    "v9/tests/test_rotary_reference.py": "7d772458c173ac3f6d43d71a04c940372aab86bb0cd0ad990e1fbc9c9a205664",
+    "v9/tests/test_profile_tools.py": "2e94d61e4c4acdcfdc26b946d87d268e4aac245f5d8f527a2d9c0c73ad96b9b1",
+    "v9/tests/test_pipeline_batch_queue.py": "609f6e47471c719f2e5837d7f4aa9bdd4dbef7595b5e2f2545999ff59b259168",
+    "v9/tests/test_decode_graph_lifecycle.py": "06632807d440c052b0d5cf173567493f4fdbf355b032c8125f6fef73655ce716",
+    "v9/tests/test_silu_and_mul.py": "16470bcfe494ef4c6d359e5fc1273da6f779c385da774df14f038b161c6a6d77",
+    "v9/tests/test_async_engine.py": "e34ca1aeda70feed9dc74965936f87a59cb5c96cde223903731cb879b80a4e45",
+    "v9/tests/test_route_reduction.py": "810f8b2e26537dab6291f436f4c7b4e7a6ac459e0a70a29e187b64443f7441dd",
+    "v9/tests/test_chat_inputs.py": "999b27df3d29a70b26fba231725914db02a09efc9edd28602816468490cf1594",
+    "v9/tests/test_distributed_moe.py": "4a9566cec71da72e4047758f23efae746cd4245ea38f1a7e32ba2f466d2a291e",
+    "v9/tests/test_module_profiling.py": "3f76cd89b2f204fc6b7b1b4d492c9c8b045165a195e6f91828ff77fb82502bf8",
+    "v9/tests/test_pipeline_model_runtime.py": "5573b6cd81b08592aaff444ed940b794854c355f5dae0e41cb009b145f980458",
+    "v9/tests/test_activation_capture.py": "b1d42b27495cc7963638348eb33531a77903fda4f7d5530e74eb084414216cdd",
+    "v9/tests/test_http_server.py": "2fa7421c649a119a015de6a67f17e244771ab44dced54b40bac81c3a12c6bf49",
+    "v9/tests/test_ep_topology.py": "cfd01832598c9aca2dad1331cdd97f12d54bb2f387585b96110ab15fd51f3dcb",
+    "v9/tests/test_cached_logits.py": "a3cea0e2ee42076004c8c63eaa8d3bb6ab535ef7a43aa623a2e92f7790d25d79",
+    "v9/tests/test_attention_reference.py": "1883b1efe034ea12eb7c124e846fb737d05aec9138dab606c4148163cdd890e1",
+    "v9/tests/test_pipeline_executor.py": "a923bb534c4f6df316036347dcad03f247e9482939c78a937af9980dd44fafb3",
+    "v9/tests/test_dp_frontend.py": "c03ccef211fc90a1dace33ad6cf0a0eec398e447e7b9d7c0dfbf404f95f445cf",
+    "v9/tests/test_ep_token_ownership.py": "667fd090591919e71b455bcbf0c43906af30ee79aa0cdfae3c4093c5afa2af4a",
+    "v9/tests/test_batch_invariant.py": "d147a308a8bed830a43c94698e8c29048f319121011208c3ab7091cc78d6d28e",
+    "v9/tests/test_worker_health.py": "0d198b66582e9de981eb3fba64743649b6d34119dfd1a52c7e11e814acce9731",
+    "v9/tests/test_moe_bucket_order.py": "95fe371e8fa190acd08df7cfc6a9719de9a315e6a0f9e6d1899c5d12d52f44b1",
+    "v9/tools/check_generation.py": "1041370f8e13fc0d751db12151fed5b45f1b06723e589739395fcb2936ad9ae6",
+    "v9/tools/summarize_mm_matrix.py": "68c205b385a10884392a5b60563f1d998bff43c3412c9faca23cd38cb5216251",
+    "v9/tools/check_logits.py": "870dd14d8ae568c866f34aca8e021e4af0e203de138eced948489b219cf2360d",
+    "v9/tools/diagnose_graph_padding.py": "8f0030a40e27b9585c1b92e52672ec659a0f7f530222b0734daf711853927fd0",
+    "v9/tools/benchmark.py": "2a6e05d9b41860a2c4654dfb705fdca63ecae14c8c792cead7db8bf6732e6d9d",
+    "v9/tools/evaluate_multimodal.py": "7b21dbf162a6d4e1f2666a91f9c3231c6f3e305b29aa6cab4c8e71a79bac138f",
+    "v9/tools/validate_mm_oracle.py": "2ad372e755919ed6e0cf5f6b72f2a1556b5aa5ef51ac3fd917b4eacd2bb2f727",
+    "v9/tools/validate_decode_graph.py": "6b76103d9f38b5e25d41f6a236132b789ce81d1e806ba6f38f66e334a7d17385",
+    "v9/tools/profile_analyze.py": "d2fc712114360b76ad9815bc61c5dbd5f581ab8125393d3a2245b2863f86076a",
+    "v9/tools/profile_capture.py": "a348c01ab27af9a7ea0d384740ec1746849fc68124f810916e72e4d02c1999b7",
+    "v9/tools/validate_mixed_decode.py": "bd7956a8db34bdf1159da27fc61a00ab45c37a42a4ff39f7e5289ddec079271d",
+    "v9/tools/validate_vision.py": "e9d6d96fc3bf46dfadcc6f8003ed81d77b5126507ce521487aeb0ce05a7d019e",
+    "v9/tools/compare_logits.py": "2f80e08a9a9f0d509f01e6d8935eb3bec5e7adab7faf50207105a9ee5c35ad6c",
+    "v9/tools/kernel_bench.py": "40d46a76b0b6c22fe8869072fc3fb77440f3adb1c058ae990f66cd7bd358afe2",
+    "v9/tools/profile_merge.py": "47f05347d6b148271bd136ab122834042acc8d4b6f9b6fa2b4599c2a86bceec0",
+    "v9/tools/validate_mm_inputs.py": "1fd8782bdd9d6defa40cc23d05fb45c83a062dc6636bc5d9068f4177752b9a7e",
+    "v9/tools/trace_io.py": "06a3438acff0d714e4d04f6926c0865496a4b6b7d926115f75d207c18bbd5792",
+    "v9/tools/diagnose_ep.py": "b4b6f091654830a9b7e344f484e5e4183b867e2b487dcf6f7f036185d306a440",
+    "v9/engine/process_groups.py": "360fec96d85bb4401af924d93300cc8111ee4a54ec895c371c359cbce4927f6c",
+    "v9/engine/scheduler.py": "1d3d5c22210534c20524f8a46a863b72b4f16f4db754a69ce67e1108b450ceed",
+    "v9/engine/pipeline_transport.py": "c1668cf1607d0088b1c7e349ba46cbf6918e859e157f1565cd4382e205cea099",
+    "v9/engine/mq.py": "d340f585f9680fc6d33b3d4283331a035a55c8f685c75b85b277b280470670d9",
+    "v9/engine/block_manager.py": "f1c484c802f0a6ac7af02674a03f2b873dda464c5cedffc8d4befbee2590a6c6",
+    "v9/engine/sampler.py": "140fcfee2db53d59f9ca10c55e1f8c0f4243ed82f122445a4d57c5c5fdca3ea1",
+    "v9/engine/worker_health.py": "28286135cdd1761705780a4e6876d90e914102b71ebb2f76558ed7f392c99685",
+    "v9/engine/vision_cache.py": "6da07c14d10855bd8dcbcdf30c10f26fbbf36d852eadd98504251017af8ffae4",
+    "v9/engine/core.py": "895d8cef9f705e8e2de1805d58ecb44dfa43fcbf6b1f59b6da962a1dc7f2eb79",
+    "v9/engine/frontend.py": "197a162fba062d595edabc35b30a664cab00a3c4c16b7e40927b0318b5efd00c",
+    "v9/engine/model_runner.py": "60ff88c64bd204f827cf980e50d5846eb582aab174c5dbf0c3ed5aeadc9ecd15",
+    "v9/engine/async_engine.py": "4cb1c3dcd2db7a6aff498a023f80fb3449685b2c7982c497c50d3625736a7e64",
+    "v9/engine/executor.py": "6a6852a580f0ff50a3d6752d905e4d9b19402cd6f99dbfa13a296f341930157e",
+    "v9/engine/sequence.py": "46f5fabffae6f7a20346a098e7cdc436ad9f0534dbf0b98c0bab45439da6cbe3",
+    "v9/engine/intermediate_tensors.py": "2322b68d5ae13464087e8293eeb9a28480f23c28dbe810c43b7ab5de468d6d6d",
+    "v9/engine/worker.py": "9ebff00538d05ff15c81405f5d6284bd587f544b8ed5ad44a24381df896bec70",
+    "v9/utils/http_benchmark.py": "c7ec51fe1d5319a71cf1f6affaba65672327f5c0888212f3a9958a185313e988",
+    "v9/utils/observation_config.py": "4e1675d090b3b61058df99179cb75fb01e130954cbc2e0726c8366b727df842d",
+    "v9/utils/activation_capture.py": "94cb74892fe6aae08afeb2c0098502b58b05944c552a3fcfce614a83f09cd669",
+    "v9/utils/chat_inputs.py": "246ce5a8ef8489a397e1786f47075ea60d4b682a5aba9334d44fb3be5ae92a4f",
+    "v9/utils/observed_runner.py": "511a3a99ccff488ba286315b11c82954ba9d043200cf3ea833608de84eee6a81",
+    "v9/utils/trace_check.py": "978bc6a4b1757945b3dc74af2dfe896d6bd28c6ae2dae9ae1db529fe346a3e9f",
+    "v9/utils/loader.py": "608a328b1c3a209d41c0302df3ab2a608c48c6efaa8ff28e8fa840b20d034821",
+    "v9/utils/module_profiling.py": "d7c1d6f93ec31a7c46a4ad6707dfca38301a4cf39aac083b49a656c6e567a675",
+    "v9/utils/cupti_flush.py": "6719c048c0b73b535e42bcf287a72dfed59c7dca1ac9660acb146f4b008f1e06",
+    "v9/utils/trace_audit.py": "26b6434e6b84fb96f7277f781f595a02390b30a33ae77d60eacff4b4a3742ec5",
+    "v9/utils/context.py": "6d222023cd91ac6f5a0376485a58074a8e597f7dff61fedc54d360d509c1a365",
+    "v9/layers/flash_attn.py": "5debe1d1d0653254f4b029c9f733b3a785b59991acbcc4faf553b033c055a137",
+    "v9/layers/norm.py": "9aeafceea7d8af0a89f383c964a3bf59ea3d90017ccaab532e4f9fa233690d7f",
+    "v9/layers/parallel.py": "ffa8e77cf896810b902a94c3b734273c3f5bc4f16c21f4e7e967fc5a9237b5eb",
+    "v9/layers/dequant_gemm.py": "6d6b26112a6c8da1c0f8691a65ec72a84fe1db5674fab2942eb6e659009f43f2",
+    "v9/layers/attention_reference.py": "d0eb56e9d2a98eb36d97430d0a6efebd9bb43d3864862c41d9155002195b3532",
+    "v9/layers/batch_invariant.py": "9f1a67a07bac99de71619c4dc87db65eb85f2622b27b6b73775baf079d4445d2",
+    "v9/layers/kernels.py": "2e2151afb61989991a0287858ea9f78027d7eec4917b6eef61421a0a75748f76",
+    "v9/layers/mm_preprocess.py": "2fbd6b27f8e106b3812c9192cb8401244951f19b054a917905d5d12146433ca0",
+    "v9/layers/rotary_embedding.py": "6b30e75bcfb81b4051af0a4c254c42123daa811fd042cdf648cac58d9a42c2c1",
+    "v9/layers/attention.py": "93f3786ad659797bb8661c1ca82090524cf9784db46c4b473f9977b6fa43fa1f",
+    "v9/layers/dcp.py": "c885f5af24c32872ab8ec427ad8c45c84dbb352d1bdd67c8b6f0adf29cf6ac77",
+    "v9/layers/moe.py": "6c808ef2af0e78bd5e975bdacc39f413fb868c18d9a1c8bd853a7e9875130700",
+    "v9/layers/quantized.py": "8f45fd6424873a069d2247a60e1a396f01eaf52c320462c0df9b8977fa012296",
+    "v9/layers/embedding.py": "46f139b21ed5d3b9a1d7527450a4799d413f0f6ad1e90fa7de95bdaae4a4e258",
+    "v9/layers/linear.py": "9bae7094db15b26ff50f78e9b14dcc60e73720a3238010da14675f7e678bb9c6",
+    "v9/layers/vision.py": "a163d094e70b22797885a75c9f375d856f11a96b111435038b55dfdb642d3e93"
+  }
+}
